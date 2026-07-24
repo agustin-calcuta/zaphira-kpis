@@ -453,10 +453,14 @@ function sec(A,n,t){A.appendChild(el(`<div class="sec"><span class="secn">${n}</
    SVG (no divs) porque la línea necesita coordenadas reales. Las etiquetas de valor van con halo
    blanco (paint-order:stroke) para seguir legibles donde la línea les pasa por detrás. */
 const SERIE2='#0f766e';
+/* Techo "redondo" del eje. Pasos finos: con saltos de 1/2/5/10 un máximo de 506 M estiraba el eje
+   hasta 1.000 M y las columnas quedaban aplastadas contra el piso. */
 function niceMax(v){
   if(!(v>0)) return 1;
   const e=Math.pow(10,Math.floor(Math.log10(v))), f=v/e;
-  return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;
+  const steps=[1,1.2,1.5,2,2.5,3,4,5,6,8,10];
+  for(const s of steps) if(f<=s+1e-9) return s*e;
+  return 10*e;
 }
 /* Catmull-Rom → Bézier cúbico. Los puntos de control se recortan al rango vertical de cada tramo
    para que la curva no "sobrepase" (una serie que sube y baja no debe inventar picos ni valores
@@ -483,7 +487,7 @@ function chartSVG(pts,opt){
   const iw=W-pl-pr, ih=H-tp-bt;
   const maxV=niceMax(Math.max.apply(null,pts.map(p=>p.v).concat([0])));
   const maxN=niceMax(Math.max.apply(null,pts.map(p=>p.n||0).concat([0])));
-  const band=iw/Math.max(pts.length,1), bw=Math.min(48,band*0.52);
+  const band=iw/Math.max(pts.length,1), bw=Math.min(72,band*0.55);
   const cx=i=>pl+band*i+band/2;
   const yV=v=>tp+ih-(v/maxV)*ih, yN=n=>tp+ih-(n/maxN)*ih;
   let g='';
@@ -493,13 +497,21 @@ function chartSVG(pts,opt){
       +`<text x="${pl-9}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11.5" fill="var(--text-muted)">${fmt(maxV*t/4)}</text>`;
     if(line) g+=`<text x="${pl+iw+9}" y="${(y+4).toFixed(1)}" text-anchor="start" font-size="11.5" fill="${SERIE2}">${n0(maxN*t/4)}</text>`;
   }
-  let bars='',lbl='',barTop=[];
+  let bars='',lbl='';
+  const lblY=[];   // baseline de cada etiqueta de importe, para que la de órdenes la esquive
   pts.forEach((p,i)=>{
     const h=p.noRate?3:Math.max(2,ih-(yV(p.v)-tp)), y=tp+ih-h, x=cx(i);
-    barTop[i]=y;
     bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${p.noRate?'#c3ccd6':(opt.barColor||'var(--fill-primary)')}" opacity=".9"><title>${p.lbl}: ${p.noRate?'sin cotización oficial':fmt(p.v)}${line?' · '+n0(p.n)+' órdenes':''}</title></rect>`;
-    lbl+=`<text x="${x.toFixed(1)}" y="${(y-7).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-secondary)" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${p.noRate?'🚧':fmt(p.v)}</text>`
-       +`<text x="${x.toFixed(1)}" y="${(H-8).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--text-muted)">${p.lbl}</text>`;
+    /* Con línea, el importe se mete DENTRO de la columna (blanco) para dejarle la franja de arriba
+       al nº de órdenes. Sólo si entra: alto suficiente y el texto más angosto que la columna
+       (~6,4px por carácter a 12px), si no se desborda por los costados. */
+    const txt=p.noRate?'🚧':fmt(p.v);
+    const inside=line&&!p.noRate&&h>30&&txt.length*6.4<=bw-8;
+    lblY[i]=inside?y+17:y-7;
+    lbl+=inside
+      ? `<text x="${x.toFixed(1)}" y="${lblY[i].toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">${txt}</text>`
+      : `<text x="${x.toFixed(1)}" y="${lblY[i].toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-secondary)" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${txt}</text>`;
+    lbl+=`<text x="${x.toFixed(1)}" y="${(H-8).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--text-muted)">${p.lbl}</text>`;
   });
   let ln='';
   if(line){
@@ -507,12 +519,12 @@ function chartSVG(pts,opt){
     if(lp.length>1) ln+=`<path d="${smoothPath(lp)}" fill="none" stroke="${SERIE2}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
     lp.forEach((q,i)=>{
       ln+=`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="3.8" fill="${SERIE2}" stroke="#fff" stroke-width="1.8"><title>${pts[i].lbl}: ${n0(pts[i].n)} órdenes</title></circle>`;
-      /* el valor va del lado opuesto a la barra: si el punto quedó por encima del tope de la
-         columna se rotula arriba, y si cayó dentro de la columna, abajo — así nunca pisa la
-         etiqueta del importe. Tope inferior para no salirse del área del gráfico. */
-      const above=q[1]<=barTop[i];
-      const ly=above?Math.max(tp+9,q[1]-9):Math.min(tp+ih-3,q[1]+16);
-      ln+=`<text x="${q[0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11" font-weight="600" fill="${SERIE2}" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
+      /* Arriba del punto por defecto; si ahí se superpondría con la etiqueta de importe, se pasa
+         abajo. Halo blanco para leerse igual sobre una columna oscura. */
+      let ly=q[1]-10;
+      if(Math.abs(ly-lblY[i])<15) ly=q[1]+18;
+      ly=Math.max(tp+10,Math.min(tp+ih-4,ly));
+      ln+=`<text x="${q[0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${SERIE2}" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
     });
   }
   return `<div class="chartbox"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opt.aria||'Gráfico por mes'}">${g}${bars}${ln}${lbl}</svg></div>`;
