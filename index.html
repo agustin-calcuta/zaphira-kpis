@@ -517,10 +517,10 @@ function chartSVG(pts,opt){
       ln+=`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="3.8" fill="${SERIE2}" stroke="#fff" stroke-width="1.8"><title>${pts[i].lbl}: ${n0(pts[i].n)} órdenes</title></circle>`;
       /* Arriba del punto por defecto; si ahí se superpondría con la etiqueta de importe, se pasa
          abajo. Halo blanco para leerse igual sobre una columna oscura. */
-      let ly=q[1]-10;
-      if(Math.abs(ly-lblY[i])<15) ly=q[1]+18;
+      let ly=q[1]-14;                                   // separación suficiente para que la propia
+      if(Math.abs(ly-lblY[i])<16) ly=q[1]+20;           // línea no cruce el texto al venir en pendiente
       ly=Math.max(tp+10,Math.min(tp+ih-4,ly));
-      ln+=`<text x="${q[0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${SERIE2}" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
+      ln+=`<text x="${q[0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${SERIE2}" stroke="#fff" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
     });
   }
   return `<div class="chartbox"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opt.aria||'Gráfico por mes'}">${g}${bars}${ln}${lbl}</svg></div>`;
