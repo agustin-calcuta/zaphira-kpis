@@ -21,6 +21,9 @@
  --ring:0 0 0 3px rgba(30,58,110,.25);
 }
 *{box-sizing:border-box}
+/* El atributo hidden lo pisa cualquier regla con display (ej. .fl{display:flex}): sin esto,
+   los campos Desde/Hasta quedan visibles aunque el período no sea "rango a medida". */
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--surface-0);font-family:var(--font-sans);color:var(--text-primary);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 
