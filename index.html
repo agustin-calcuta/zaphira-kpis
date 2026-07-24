@@ -123,12 +123,14 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
  .bar2{padding:9px 14px}
  .ftoggle{display:inline-flex}
  .tbar{gap:10px;align-items:center}
- .tgroup{display:none;width:100%;flex-direction:column;align-items:stretch;gap:12px;margin-top:4px;padding-top:12px;border-top:1px solid var(--border)}
+ /* flex:0 0 100% (y no sólo width) para que el panel baje a su propia fila: con el flex:1 de la
+    regla base, flex-basis:0% mandaba y el panel se acomodaba al lado del bloque Moneda/Filtros. */
+ .tgroup{display:none;flex:0 0 100%;width:100%;flex-direction:column;align-items:stretch;gap:12px;margin-top:4px;padding-top:12px;border-top:1px solid var(--border)}
  .tgroup.open{display:flex}
  .tgroup .ctl{width:100%;min-width:0;height:42px}
  .tgroup .fl{width:100%}
- .actions{margin-left:0;flex-wrap:wrap}
- .actions .btn{flex:1 1 40%;height:42px}
+ .actions{margin-left:0;width:100%;flex-wrap:wrap}
+ .actions .btn{flex:1 1 auto;height:42px}
  .seg button{padding:0 14px}
  header{padding:11px 14px;gap:10px}
  .htit{flex-basis:100%;order:3;font-size:12px}
