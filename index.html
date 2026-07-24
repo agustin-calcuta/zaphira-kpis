@@ -96,10 +96,17 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 
 @media print{
  header,.bar2{display:none!important}
- .card,.periodbar{break-inside:avoid}
+ body{background:#fff}
+ .wrap{padding:0}
+ .mk{max-width:none}
+ /* Nada de tarjetas, gráficos ni filas partidas entre hojas… */
+ .card,.periodbar,.kpis,.duo,.chartbox,.hrow,.legend,svg{break-inside:avoid;page-break-inside:avoid}
+ /* …y ningún título huérfano al pie de una hoja, separado de su contenido. */
+ .sec,h3{break-after:avoid;page-break-after:avoid;break-inside:avoid}
+ .sec{margin-top:14px}
  .periodbar{border:0;padding:0 0 10px}
  *{print-color-adjust:exact;-webkit-print-color-adjust:exact}
- @page{size:A4 landscape;margin:12mm}
+ @page{size:A4 landscape;margin:11mm}
 }
 
 /* ---------- tablet ---------- */
@@ -136,7 +143,7 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
  .hrow{grid-template-columns:minmax(0,34vw) minmax(0,1fr) max-content;gap:7px;font-size:11.5px}
  .kpis{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
  .kv{font-size:19px}
- .chartbox svg{width:600px;max-width:none}
+ .chartbox svg{width:760px;max-width:none}
  .duo{gap:10px}
  .donut3{flex:0 0 108px;width:108px!important;height:108px!important}
 }
@@ -448,10 +455,28 @@ function niceMax(v){
   const e=Math.pow(10,Math.floor(Math.log10(v))), f=v/e;
   return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;
 }
+/* Catmull-Rom → Bézier cúbico. Los puntos de control se recortan al rango vertical de cada tramo
+   para que la curva no "sobrepase" (una serie que sube y baja no debe inventar picos ni valores
+   negativos entre dos meses). */
+function smoothPath(p){
+  if(p.length<2) return '';
+  let d='M'+p[0][0].toFixed(1)+','+p[0][1].toFixed(1);
+  for(let i=0;i<p.length-1;i++){
+    const a=p[i-1]||p[i], b=p[i], c=p[i+1], e=p[i+2]||c;
+    const lo=Math.min(b[1],c[1]), hi=Math.max(b[1],c[1]);
+    const cl=y=>Math.max(lo,Math.min(hi,y));
+    d+='C'+(b[0]+(c[0]-a[0])/6).toFixed(1)+','+cl(b[1]+(c[1]-a[1])/6).toFixed(1)
+      +' '+(c[0]-(e[0]-b[0])/6).toFixed(1)+','+cl(c[1]-(e[1]-b[1])/6).toFixed(1)
+      +' '+c[0].toFixed(1)+','+c[1].toFixed(1);
+  }
+  return d;
+}
 function chartSVG(pts,opt){
   opt=opt||{};
   const line=!!opt.line, fmt=opt.fmt||n0;
-  const W=720,H=opt.h||285,pl=68,pr=line?54:20,tp=14,bt=30;
+  /* W ≈ ancho real de la tarjeta: si el viewBox fuera más angosto, el SVG se escalaría hacia
+     arriba y tanto la altura como las tipografías crecerían de más. */
+  const W=1000,H=opt.h||230,pl=74,pr=line?64:24,tp=14,bt=28;
   const iw=W-pl-pr, ih=H-tp-bt;
   const maxV=niceMax(Math.max.apply(null,pts.map(p=>p.v).concat([0])));
   const maxN=niceMax(Math.max.apply(null,pts.map(p=>p.n||0).concat([0])));
@@ -462,20 +487,30 @@ function chartSVG(pts,opt){
   for(let t=0;t<=4;t++){
     const y=tp+ih-ih*t/4;
     g+=`<line x1="${pl}" y1="${y.toFixed(1)}" x2="${pl+iw}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>`
-      +`<text x="${pl-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)">${fmt(maxV*t/4)}</text>`;
-    if(line) g+=`<text x="${pl+iw+8}" y="${(y+3.5).toFixed(1)}" text-anchor="start" font-size="10" fill="${SERIE2}">${n0(maxN*t/4)}</text>`;
+      +`<text x="${pl-9}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11.5" fill="var(--text-muted)">${fmt(maxV*t/4)}</text>`;
+    if(line) g+=`<text x="${pl+iw+9}" y="${(y+4).toFixed(1)}" text-anchor="start" font-size="11.5" fill="${SERIE2}">${n0(maxN*t/4)}</text>`;
   }
-  let bars='',lbl='';
+  let bars='',lbl='',barTop=[];
   pts.forEach((p,i)=>{
     const h=p.noRate?3:Math.max(2,ih-(yV(p.v)-tp)), y=tp+ih-h, x=cx(i);
+    barTop[i]=y;
     bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${p.noRate?'#c3ccd6':(opt.barColor||'var(--fill-primary)')}" opacity=".9"><title>${p.lbl}: ${p.noRate?'sin cotización oficial':fmt(p.v)}${line?' · '+n0(p.n)+' órdenes':''}</title></rect>`;
-    lbl+=`<text x="${x.toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-secondary)" stroke="#fff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">${p.noRate?'🚧':fmt(p.v)}</text>`
-       +`<text x="${x.toFixed(1)}" y="${(H-9).toFixed(1)}" text-anchor="middle" font-size="10.5" fill="var(--text-muted)">${p.lbl}</text>`;
+    lbl+=`<text x="${x.toFixed(1)}" y="${(y-7).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-secondary)" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${p.noRate?'🚧':fmt(p.v)}</text>`
+       +`<text x="${x.toFixed(1)}" y="${(H-8).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--text-muted)">${p.lbl}</text>`;
   });
   let ln='';
   if(line){
-    if(pts.length>1) ln+=`<polyline points="${pts.map((p,i)=>cx(i).toFixed(1)+','+yN(p.n||0).toFixed(1)).join(' ')}" fill="none" stroke="${SERIE2}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
-    pts.forEach((p,i)=>{ln+=`<circle cx="${cx(i).toFixed(1)}" cy="${yN(p.n||0).toFixed(1)}" r="3.6" fill="${SERIE2}" stroke="#fff" stroke-width="1.6"><title>${p.lbl}: ${n0(p.n)} órdenes</title></circle>`;});
+    const lp=pts.map((p,i)=>[cx(i),yN(p.n||0)]);
+    if(lp.length>1) ln+=`<path d="${smoothPath(lp)}" fill="none" stroke="${SERIE2}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+    lp.forEach((q,i)=>{
+      ln+=`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="3.8" fill="${SERIE2}" stroke="#fff" stroke-width="1.8"><title>${pts[i].lbl}: ${n0(pts[i].n)} órdenes</title></circle>`;
+      /* el valor va del lado opuesto a la barra: si el punto quedó por encima del tope de la
+         columna se rotula arriba, y si cayó dentro de la columna, abajo — así nunca pisa la
+         etiqueta del importe. Tope inferior para no salirse del área del gráfico. */
+      const above=q[1]<=barTop[i];
+      const ly=above?Math.max(tp+9,q[1]-9):Math.min(tp+ih-3,q[1]+16);
+      ln+=`<text x="${q[0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11" font-weight="600" fill="${SERIE2}" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
+    });
   }
   return `<div class="chartbox"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opt.aria||'Gráfico por mes'}">${g}${bars}${ln}${lbl}</svg></div>`;
 }
@@ -529,7 +564,7 @@ function render(A,D){
   /* 1·2 */
   sec(A,'1·2','Ventas totales por mes y por año — evolución'+curTag);
   const evo=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.ventas,n:x.nv,noRate:x.noRate})),
-    {line:true,fmt:M,h:300,aria:'Facturación y cantidad de órdenes por mes'});
+    {line:true,fmt:M,h:235,aria:'Facturación y cantidad de órdenes por mes'});
   A.appendChild(el(`<div class="card"><h3>Evolución mensual — facturación y órdenes</h3>${evo}
     ${legendHTML([{c:'var(--fill-primary)',t:'Facturación (eje izquierdo)'},{c:SERIE2,t:'Cantidad de órdenes (eje derecho)',line:1}])}</div>`));
 
@@ -574,7 +609,7 @@ function render(A,D){
   /* 7 */
   sec(A,'7','Ticket promedio — evolución');
   const th=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.nv?x.ventas/x.nv:0,noRate:x.noRate})),
-    {fmt:M,h:230,barColor:'#4a6da8',aria:'Ticket promedio por mes'});
+    {fmt:M,h:195,barColor:'#4a6da8',aria:'Ticket promedio por mes'});
   A.appendChild(el(`<div class="card"><h3>Ticket promedio por mes</h3>${th}<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Global del filtro ${MF(D.ventas/D.nord)}</div></div>`));
 
   /* 8 */
