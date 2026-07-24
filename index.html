@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<base target="_top">
+<style>
+:root{
+ --surface-2:#ffffff;--surface-1:#f5f6f8;--surface-0:#eef0f3;
+ --text-primary:#17202e;--text-secondary:#54606f;--text-muted:#8a94a1;
+ --border:#e0e4ea;--fill-primary:#1e3a6e;--on-primary:#ffffff;
+ --text-accent:#1e3a6e;--bg-accent:#e8edf7;
+ --text-success:#2f7d4f;--bg-success:#e8f3ec;
+ --text-warning:#8a6a1f;--bg-warning:#f6efd9;
+ --text-danger:#b23b3b;--bg-danger:#f8e9e9;
+ --text-neutral:#6b7480;--bg-neutral:#eceef1;
+ --font-sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-0);font-family:var(--font-sans);color:var(--text-primary)}
+header{background:#17233b;color:#fff;padding:13px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{background:#fff;border-radius:8px;padding:6px 11px;display:inline-flex;align-items:center;line-height:0}
+.brand img{height:28px;width:auto;display:block}
+footer.made{padding:18px 22px;text-align:center;font-size:11px;letter-spacing:.4px;color:var(--text-muted)}
+footer.made b{color:var(--text-secondary);font-weight:600}
+.bar2{position:sticky;top:0;z-index:5;background:var(--surface-2);border-bottom:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.04);padding:10px 20px;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
+.fl{display:flex;flex-direction:column;gap:3px}
+.fl label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+.fl select{font-family:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text-primary);min-width:140px}
+.seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface-2);color:var(--text-secondary);font-family:inherit;font-size:13px;font-weight:600;padding:7px 16px;cursor:pointer}
+.seg button.on{background:var(--fill-primary);color:#fff}
+.reset{margin-left:auto;align-self:center;font-size:12px;color:var(--text-accent);background:none;border:0;cursor:pointer;font-family:inherit;text-decoration:underline}
+.xbtn{border:1px solid var(--border);background:var(--surface-2);color:var(--text-secondary);font-family:inherit;font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer;align-self:center;white-space:nowrap}
+.xbtn:hover{background:var(--surface-1)}
+.xbtn:disabled{opacity:.55;cursor:wait}
+.wrap{display:flex;justify-content:center;padding:20px 18px 60px}
+.mk{width:100%;max-width:1040px}
+.card{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:16px}
+.bdg{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;line-height:1.5}
+.kpi{flex:1;min-width:150px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.kv{font-size:21px;font-weight:600;margin-top:4px}
+.kl{font-size:12px;color:var(--text-secondary)}
+.ks{font-size:11px;color:var(--text-muted);margin-top:3px}
+h3{font-size:15px;font-weight:600;margin:0 0 10px}
+.sec{display:flex;align-items:baseline;gap:10px;margin:26px 2px 12px}
+.secn{font-size:12px;font-weight:700;color:var(--on-primary);background:var(--fill-primary);border-radius:6px;padding:2px 8px;min-width:26px;text-align:center}
+.sect{font-size:16px;font-weight:600}
+.bar{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:8px}
+.barcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px}
+.barfill{width:70%;border-radius:6px 6px 2px 2px;background:var(--fill-primary);opacity:.85}
+.blbl{font-size:10.5px;color:var(--text-muted)}
+.bval{font-size:10.5px;color:var(--text-secondary);font-weight:600}
+.hrow{display:grid;grid-template-columns:150px minmax(0,1fr) auto;align-items:center;gap:10px;margin-bottom:7px;font-size:12.5px}
+.hlbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.htrack{background:var(--surface-1);border-radius:4px;height:12px;width:100%}
+.hbar{height:12px;border-radius:4px;background:var(--fill-primary);opacity:.8;min-width:2px}
+.hval{white-space:nowrap;color:var(--text-secondary);font-size:11.5px;text-align:right}
+.pend{background:repeating-linear-gradient(135deg,var(--surface-2),var(--surface-2) 10px,var(--surface-1) 10px,var(--surface-1) 20px)}
+.pmsg{font-size:12.5px;color:var(--text-secondary);line-height:1.55}
+code{background:var(--surface-1);border:1px solid var(--border);border-radius:4px;padding:0 4px;font-size:11.5px}
+
+@media print{
+ header,.bar2{display:none!important}
+ .card{break-inside:avoid}
+ *{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ @page{size:A4 landscape;margin:12mm}
+}
+
+@media (max-width:480px){
+ .bar{overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .barcol{flex:1 0 44px}
+ .bval,.blbl{white-space:nowrap}
+ .hrow{grid-template-columns:minmax(60px,32vw) minmax(0,1fr) max-content;gap:6px;font-size:11.5px}
+ .bar2{padding:8px 12px;gap:10px}
+ .fl{flex:1 1 45%}
+ .fl select{min-width:0;width:100%}
+ .xbtn{flex:1 1 45%}
+ .reset{margin-left:0;align-self:flex-start}
+ .wrap{padding:14px 12px 48px}
+ .kpi{min-width:120px}
+ .kv{overflow-wrap:anywhere;line-height:1.15}
+ .donut3{flex:0 0 120px}
+ body{overflow-x:hidden}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand"><img src="data:image/png;base64,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" alt="Zaphira Uniformes"></span>
+  <span style="color:#9db4dd;font-size:13px">Tablero KPIs de Ventas · vista Dirección</span>
+  <span id="fresh" style="margin-left:auto;font-size:11px;color:#7b8aa5"></span>
+</header>
+<div id="toolbar" class="bar2"></div>
+<div class="wrap"><div class="mk" id="app"><div class="card" style="margin-top:20px"><h3>Cargando datos…</h3></div></div></div>
+
+<script type="module">
+/* Frontend GitHub Pages: mismos datos que la web app de Apps Script, fetcheados de ?data=1.
+   type="module" habilita await top-level: todo lo de abajo corre recién con RAW resuelto. */
+const EXEC_URL='https://script.google.com/macros/s/AKfycbxkBFVGB9x-Z1VDpONduRf2VruGhQdkl4-F3fNEMCLluZhbyU3nt2rSdyp9Rbu0pWhs/exec';
+const RAW = await fetch(EXEC_URL+'?data=1').then(r=>r.json()).catch(err=>({_err:String((err&&err.message)||err)}));
+RAW.meta = RAW.meta || {};
+RAW.rateMon = RAW.rateMon || {};
+RAW.usdFuente = RAW.usdFuente || '';
+RAW.usdFecha = RAW.usdFecha || '';
+const MES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+let CUR='ARS';
+let F={mon:'',ven:'',can:''};
+const el=(h)=>{const d=document.createElement('div');d.innerHTML=h;return d;};
+
+/* el arranque va al FINAL del script (abajo), cuando ya están definidas todas las const */
+
+/* ===== formato (money()/moneyFull() SÓLO formatean — la conversión USD por-mes pasa en compute()) ===== */
+const rate=RAW.rate||0;
+function money(v){
+  const sym=CUR==='USD'?'US$':'$';
+  const a=Math.abs(v);
+  if(a>=1e6) return sym+' '+(v/1e6).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})+' M';
+  if(a>=1e3) return sym+' '+(v/1e3).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})+' K';
+  return sym+' '+Math.round(v).toLocaleString('es-AR');
+}
+function moneyFull(v){return (CUR==='USD'?'US$':'$')+' '+Math.round(v).toLocaleString('es-AR');}
+const n0=v=>Math.round(v||0).toLocaleString('es-AR');
+/* MULTIYEAR: desde los meses realmente presentes en O (ventas) — no dict.MON, que también junta meses del CRM */
+const MULTIYEAR=(function(){var y={};RAW.O.forEach(o=>{var m=RAW.dict.MON[o[0]];if(/^\d{4}/.test(m))y[m.slice(0,4)]=1;});return Object.keys(y).length>1;})();
+const monLabel=m=>/^\d{4}-\d{2}$/.test(m)?MES[+m.slice(5,7)-1]+(MULTIYEAR?" '"+m.slice(2,4):''):m;
+const monFull=m=>/^\d{4}-\d{2}$/.test(m)?MES[+m.slice(5,7)-1]+' '+m.slice(0,4):m;
+const shortProv=n=>({'Ciudad Autónoma de Buenos Aires':'CABA','Ciudad Autonoma de Buenos Aires':'CABA'})[n]||n;
+const titch=s=>s.toLowerCase().replace(/(^|\s|\/)\S/g,m=>m.toUpperCase());
+
+/* ===== segmentos de producto — mapeo sobre el ROOT de categ_id (dict.CAT) ===== */
+const NO_PRENDA=['ALL','GASTOS','INSUMOS','TELA','TELAS','PRODUCTOS A BORRAR']; // no son prenda -> "Sin categorizar"
+function normRoot(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+function bucketOf(rootRaw){
+  const r=normRoot(rootRaw);
+  if(NO_PRENDA.indexOf(r)>=0) return 'Sin categorizar';
+  if(r==='SANIDAD') return 'Sanidad';
+  if(r==='LABORAL') return 'Laboral';
+  if(/SASTRERIA|CAMISERIA|CHOMBA|REMERA|TAPADO|CAMPERA|SACO|PANTALON|CAMISA/.test(r)) return 'Administración';
+  if(/ACCESORIOS|BORDADO/.test(r)) return 'Otros / Accesorios';
+  return 'Otros / Accesorios';
+}
+function median(arr){
+  if(!arr.length) return 0;
+  const n=arr.length, mid=Math.floor(n/2);
+  return n%2 ? arr[mid] : Math.round((arr[mid-1]+arr[mid])/2);
+}
+
+/* ===== toolbar ===== */
+function buildToolbar(){
+  const d=RAW.dict;
+  const monWithOrders={}; RAW.O.forEach(o=>{monWithOrders[o[0]]=1;});
+  const months=d.MON.map((m,i)=>({i,m})).filter(x=>/^\d{4}-\d{2}$/.test(x.m)&&monWithOrders[x.i]).sort((a,b)=>a.m<b.m?-1:1);
+  const vens=d.VEN.map((v,i)=>({i,v})).sort((a,b)=>a.v<b.v?-1:1);
+  const opt=(val,txt,sel)=>`<option value="${val}"${sel?' selected':''}>${txt}</option>`;
+  const perO=opt('','Todo el período',1)+months.map(x=>opt(x.i,monFull(x.m))).join('');
+  const venO=opt('','Todas',1)+vens.map(x=>opt(x.i,x.v)).join('');
+  const canO=opt('','Todos',1)+d.CAN.map((c,i)=>opt(i,c)).join('');
+  document.getElementById('toolbar').innerHTML=`
+    <div class="fl"><label>Moneda</label><div class="seg" id="segCur">
+      <button data-cur="ARS" class="on">ARS</button><button data-cur="USD">USD</button></div></div>
+    <div class="fl"><label>Período</label><select id="fMon">${perO}</select></div>
+    <div class="fl"><label>Vendedora</label><select id="fVen">${venO}</select></div>
+    <div class="fl"><label>Canal</label><select id="fCan">${canO}</select></div>
+    <button class="reset" id="reset">Limpiar filtros</button>
+    <button class="xbtn" id="btnPdf" type="button">📄 Exportar PDF</button>
+    <button class="xbtn" id="btnXlsx" type="button">📊 Exportar Excel</button>`;
+  document.getElementById('segCur').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return; CUR=b.dataset.cur;
+    [...document.querySelectorAll('#segCur button')].forEach(x=>x.classList.toggle('on',x===b)); go();});
+  document.getElementById('fMon').addEventListener('change',e=>{F.mon=e.target.value; go();});
+  document.getElementById('fVen').addEventListener('change',e=>{F.ven=e.target.value; go();});
+  document.getElementById('fCan').addEventListener('change',e=>{F.can=e.target.value; go();});
+  document.getElementById('reset').addEventListener('click',()=>{F={mon:'',ven:'',can:''};
+    document.getElementById('fMon').value='';document.getElementById('fVen').value='';document.getElementById('fCan').value=''; go();});
+  document.getElementById('btnPdf').addEventListener('click',()=>window.print());
+  document.getElementById('btnXlsx').addEventListener('click',()=>{
+    const b=document.getElementById('btnXlsx'), orig=b.textContent;
+    b.disabled=true; b.textContent='Generando…';
+    const qs=new URLSearchParams({xlsx:'1',mon:F.mon,ven:F.ven,can:F.can,cur:CUR});
+    fetch(EXEC_URL+'?'+qs).then(r=>r.json()).then(function(res){
+      b.disabled=false; b.textContent=orig;
+      if(!res||!res.b64){ alert('No se pudo generar el Excel.'+(res&&res.error?' '+res.error:'')); return; }
+      const a=document.createElement('a');
+      a.href='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+res.b64;
+      a.download=res.filename||'Zaphira_KPIs.xlsx';
+      document.body.appendChild(a); a.click(); a.remove();
+    }).catch(function(err){
+      b.disabled=false; b.textContent=orig;
+      alert('Error al exportar: '+(err&&err.message?err.message:err));
+    });
+  });
+}
+
+/* ===== filtros + agregación ===== */
+const passO=o=>(F.mon===''||o[0]==F.mon)&&(F.ven===''||o[1]==F.ven)&&(F.can===''||o[2]==F.can);
+const passL=l=>(F.mon===''||l[0]==F.mon)&&(F.ven===''||l[1]==F.ven)&&(F.can===''||l[2]==F.can);
+const passP=p=>(F.mon===''||p[0]==F.mon)&&(F.ven===''||p[1]==F.ven)&&(F.can===''||p[2]==F.can);
+const passC=c=>(F.mon===''||c[0]==F.mon)&&(F.ven===''||c[1]==F.ven);
+
+function compute(){
+  const d=RAW.dict;
+  const O=RAW.O.filter(passO), L=RAW.L.filter(passL), P=RAW.P.filter(passP), C=RAW.C.filter(passC);
+
+  /* conversión USD por-mes (rateMon), acá y sólo acá — money()/moneyFull() sólo formatean */
+  const monRate=mi=>RAW.rateMon[d.MON[mi]]||0;
+  const missMonths={};
+  function toCur(mi,ars){
+    if(CUR!=='USD') return ars;
+    const r=monRate(mi);
+    if(!r){ missMonths[d.MON[mi]]=1; return 0; }
+    return ars/r;
+  }
+
+  const mm={}; O.forEach(o=>{(mm[o[0]]=mm[o[0]]||{v:0,n:0}); mm[o[0]].v+=toCur(o[0],o[6]); mm[o[0]].n++;});
+  const mk=Object.keys(mm).map(Number).sort((a,b)=>d.MON[a]<d.MON[b]?-1:1);
+  const meses=mk.map(k=>({m:monLabel(d.MON[k]),ventas:mm[k].v,nv:mm[k].n,noRate:CUR==='USD'&&!monRate(k)}));
+  let ventas=0; O.forEach(o=>ventas+=toCur(o[0],o[6])); const nord=O.length;
+  let prN=0,prP=0,ent=0; L.forEach(l=>{if(l[3]===1)prP+=l[5];else prN+=l[5]; ent+=l[6];});
+  let oN=0,oP=0; O.forEach(o=>{if(o[3]===1)oP++;else oN++;});
+  const vm={}; O.forEach(o=>{(vm[o[1]]=vm[o[1]]||{m:0,n:0}); vm[o[1]].m+=toCur(o[0],o[6]); vm[o[1]].n++;});
+  const vend=Object.keys(vm).map(i=>({n:d.VEN[i],monto:vm[i].m,ops:vm[i].n})).sort((a,b)=>b.monto-a.monto).slice(0,10);
+  const webI=d.CAN.indexOf('Web (Tiendanube)'), presI=d.CAN.indexOf('Venta directa');
+  const cm={}; O.forEach(o=>{(cm[o[2]]=cm[o[2]]||{m:0,n:0}); cm[o[2]].m+=toCur(o[0],o[6]); cm[o[2]].n++;});
+  const web=cm[webI]||{m:0,n:0}, pres=cm[presI]||{m:0,n:0};
+  const gm={}; O.forEach(o=>{gm[o[4]]=(gm[o[4]]||0)+toCur(o[0],o[6]);});
+  const provincia=Object.keys(gm).map(i=>({n:shortProv(d.PROV[i]),v:gm[i],muted:d.PROV[i].indexOf('(sin ')===0})).sort((a,b)=>b.v-a.v).slice(0,12);
+  const im={}; O.forEach(o=>{im[o[5]]=(im[o[5]]||0)+toCur(o[0],o[6]);});
+  const iArr=Object.keys(im).map(i=>({n:d.IND[i],v:im[i],muted:d.IND[i].indexOf('(sin ')===0}));
+  const industria=iArr.filter(x=>!x.muted).sort((a,b)=>b.v-a.v).slice(0,6).concat(iArr.filter(x=>x.muted));
+
+  /* categorías (root dict.CAT) en moneda activa */
+  const km={}; L.forEach(l=>{km[l[4]]=(km[l[4]]||0)+toCur(l[0],l[7]);});
+
+  /* "categorías reales de Odoo" — filtra roots que no son prenda (Gastos/All/Insumos/Tela/Productos a Borrar) */
+  const catFiltered=Object.keys(km).filter(i=>NO_PRENDA.indexOf(normRoot(d.CAT[i]))<0);
+  let totCatReal=0; catFiltered.forEach(i=>totCatReal+=km[i]); totCatReal=totCatReal||1;
+  const cat=catFiltered.map(i=>({n:titch(d.CAT[i]),v:km[i],p:Math.round(100*km[i]/totCatReal)})).sort((a,b)=>b.v-a.v).slice(0,8);
+
+  /* segmentos de producto (mapeo) + "Sin categorizar" aparte */
+  const bk={'Administración':0,'Laboral':0,'Sanidad':0,'Otros / Accesorios':0};
+  let sinCat=0;
+  Object.keys(km).forEach(i=>{const b=bucketOf(d.CAT[i]); if(b==='Sin categorizar') sinCat+=km[i]; else bk[b]+=km[i];});
+  let totPrenda=0; Object.keys(bk).forEach(k=>totPrenda+=bk[k]); totPrenda=totPrenda||1;
+  const grand=(totPrenda+sinCat)||1;
+  const pal={'Administración':'#1e3a6e','Laboral':'#4a6da8','Sanidad':'#7fa3d9','Otros / Accesorios':'#a9b6c9'};
+  const buckets=Object.keys(bk).map(nm=>({n:nm,v:bk[nm],p:Math.round(100*bk[nm]/totPrenda),c:pal[nm]})).sort((a,b)=>b.v-a.v);
+  const sinCategorizar={n:'Sin categorizar',v:sinCat,p:Math.round(100*sinCat/grand)};
+
+  const st={1:0,2:0,3:0}, difs=[]; P.forEach(p=>{st[p[3]]=(st[p[3]]||0)+1; if(p[3]===1&&p[4]>=0)difs.push(p[4]);});
+  difs.sort((a,b)=>a-b);
+  const ciclo={n:difs.length,dias:difs.length?Math.round(difs.reduce((a,b)=>a+b,0)/difs.length):0,mediana:median(difs)};
+  const backlog=[{e:'Entregadas (pickings hechos)',n:st[1]||0,tone:'success'},{e:'En preparación (listas / asignadas)',n:st[2]||0,tone:'accent'},{e:'En espera de stock / producción',n:st[3]||0,tone:'warning'}];
+  const fu={}, cv={}; let won=0;
+  C.forEach(c=>{const s=d.STAGE[c[2]]; fu[s]=(fu[s]||0)+1; const u=d.VEN[c[1]]; (cv[u]=cv[u]||{w:0,t:0}); cv[u].t++; if(c[3]===1){cv[u].w++;won++;}});
+  const ord=['New','Contactado','Qualified','Proposition','Pedido confirmado','Won','NO AVANZARA'];
+  const funnel=Object.keys(fu).sort((a,b)=>{const ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);}).map(s=>({n:s,v:fu[s],win:s==='Won',lost:/NO AVANZAR/i.test(s)}));
+  const convvend=Object.keys(cv).filter(u=>cv[u].t>=5&&u!=='Sin asignar').map(u=>({n:u,w:cv[u].w,t:cv[u].t})).sort((a,b)=>(b.w/b.t)-(a.w/a.t)).slice(0,6);
+
+  /* Year to Year — sólo si hay 2+ años realmente presentes en O */
+  let yoy=null;
+  if(MULTIYEAR){
+    const ym={};
+    O.forEach(o=>{const y=d.MON[o[0]].slice(0,4); (ym[y]=ym[y]||{v:0,n:0}); ym[y].v+=toCur(o[0],o[6]); ym[y].n++;});
+    yoy=Object.keys(ym).sort().map(y=>({y,v:ym[y].v,n:ym[y].n}));
+  }
+
+  const usdMissingMonths=Object.keys(missMonths).sort();
+  const usdBlocked=CUR==='USD' && mk.length>0 && mk.every(k=>!monRate(k));
+
+  return {meses,ventas,nord,prN,prP,ent,oN,oP,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,convvend,crmN:C.length,won,yoy,usdMissingMonths,usdBlocked};
+}
+
+/* ===== barra horizontal (grid: label · pista · valor) ===== */
+function hb(label,pct,val,opt){opt=opt||{};const w=opt.muted?Math.min(100,pct||0):(pct||0);return `<div class="hrow"><span class="hlbl" title="${label}"${opt.muted?' style="color:var(--text-muted)"':''}>${label}</span><div class="htrack"><div class="hbar" style="width:${Math.max(2,w).toFixed(1)}%;background:${opt.color||'var(--fill-primary)'}${opt.muted?';opacity:.5':''}"></div></div><span class="hval">${val}</span></div>`;}
+function sec(A,n,t){A.appendChild(el(`<div class="sec"><span class="secn">${n}</span><span class="sect">${t}</span></div>`));}
+function row2(A,h1,c1,h2,c2,flex1){A.appendChild(el(`<div style="display:flex;gap:12px;flex-wrap:wrap"><div class="card" style="flex:${flex1||1};min-width:min(300px,100%)"><h3>${h1}</h3>${c1}</div><div class="card" style="flex:1;min-width:min(260px,100%)"><h3>${h2}</h3>${c2}</div></div>`));}
+
+/* ===== render ===== */
+function go(){const app=document.getElementById('app'); app.innerHTML=''; render(app,compute());}
+
+function render(A,D){
+  const d=RAW.dict;
+  document.getElementById('fresh').textContent='Odoo · '+RAW.pull+(rate?(' · dólar oficial hoy $'+n0(rate)+(RAW.usdFecha?' ('+RAW.usdFecha+')':'')):'');
+  if(D.nord===0){A.appendChild(el('<div class="card" style="margin-top:14px"><h3>Sin datos para este filtro</h3><div class="pmsg">Ajustá o limpiá los filtros.</div></div>'));return;}
+
+  /* USD: si no hay cotización oficial para NINGÚN mes del filtro, no inventamos un número — avisamos */
+  const usdPend=D.usdBlocked;
+  const M=v=>usdPend?'🚧 en construcción':money(v);
+  const MF=v=>usdPend?'🚧 en construcción':moneyFull(v);
+
+  let curTag='';
+  if(CUR==='USD'){
+    if(usdPend){
+      curTag=' <span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 sin cotización oficial para este filtro</span>';
+    } else if(F.mon!==''){
+      const mLabel=d.MON[Number(F.mon)], r=RAW.rateMon[mLabel];
+      const esHoy=!!RAW.meta.curMon && mLabel===RAW.meta.curMon;
+      curTag=' <span class="bdg" style="background:var(--bg-accent);color:var(--text-accent)">USD @ $'+n0(r)+(esHoy?' (dólar de hoy)':' (prom '+monFull(mLabel)+')')+'</span>';
+    } else {
+      curTag=' <span class="bdg" style="background:var(--bg-accent);color:var(--text-accent)">USD — oficial promedio de cada mes'+(RAW.usdFecha?' · act. '+RAW.usdFecha:'')+'</span>';
+    }
+  }
+
+  const SC=[
+   ['Ventas confirmadas',M(D.ventas),n0(D.nord)+' órdenes'],
+   ['Órdenes',n0(D.nord),'confirmadas'],
+   ['Prendas vendidas',n0(D.prN+D.prP),'unidades'],
+   ['Ticket promedio',MF(D.ventas/D.nord),'por orden'],
+   ['Ciclo pedido→entrega',D.ciclo.dias+' días','mediana '+D.ciclo.mediana],
+  ];
+  A.appendChild(el('<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">'+SC.map(k=>
+   `<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="ks">${k[2]}</div></div>`).join('')+'</div>'));
+
+  if(CUR==='USD' && D.usdMissingMonths.length){
+    const lbl=D.usdMissingMonths.map(monFull).join(', ');
+    A.appendChild(el(`<div class="card pend" style="margin-bottom:14px;padding:10px 14px"><div class="pmsg">🚧 <b>En construcción:</b> todavía no hay cotización oficial promedio para ${lbl}. Esos meses quedan afuera de los totales en USD hasta que se cargue.</div></div>`));
+  }
+
+  /* 1·2 */
+  sec(A,'1·2','Ventas totales por mes y por año — evolución'+curTag);
+  const mx=Math.max(...D.meses.map(x=>x.ventas),1);
+  const trend='<div class="bar">'+D.meses.map(x=>{
+    const style=x.noRate?'height:3px;background:#c3ccd6':`height:${Math.max(3,x.ventas/mx*118)}px`;
+    return `<div class="barcol" title="${x.m}: ${x.noRate?'sin cotización oficial':M(x.ventas)+' · '+x.nv+' órd'}">
+      <div class="bval">${x.noRate?'🚧':M(x.ventas)}</div><div class="barfill" style="${style}"></div>
+      <div class="blbl">${x.m}</div></div>`;
+  }).join('')+'</div>';
+  const anual=`<div style="font-size:11px;color:var(--text-muted)">Acumulado del filtro</div>
+    <div style="font-size:26px;font-weight:600;margin:2px 0">${M(D.ventas)}</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">${n0(D.nord)} órdenes · ${n0(D.prN+D.prP)} prendas</div>
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:7px 0;border-top:1px solid var(--border)"><span>Ticket promedio</span><b>${MF(D.ventas/D.nord)}</b></div>`;
+  row2(A,'Evolución mensual — ventas confirmadas',trend,'Acumulado',anual,1.5);
+
+  /* 3 */
+  sec(A,'3','Ventas en cantidad de prendas — Pronta Entrega vs Tradicional');
+  const tp=D.prN+D.prP, pp=tp?D.prN/tp*100:0;
+  const dpr=`<div style="display:flex;align-items:center;gap:16px">
+    <div class="donut3" style="width:120px;height:120px;border-radius:50%;background:conic-gradient(#1e3a6e 0 ${pp}%,#7fa3d9 ${pp}% 100%);position:relative">
+     <div style="position:absolute;inset:24px;background:var(--surface-2);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-weight:600">${n0(tp)}<span style="font-size:9px;color:var(--text-muted);font-weight:400">prendas</span></div></div>
+    <div style="font-size:12.5px">
+     <div style="margin-bottom:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#1e3a6e"></span> Tradicional: <b>${n0(D.prN)} u</b> (${Math.round(pp)}%)</div>
+     <div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#7fa3d9"></span> Pronta Entrega: <b>${n0(D.prP)} u</b> (${Math.round(100-pp)}%)</div></div></div>`;
+  const dpr2=`<b>${n0(tp)} prendas</b> en total. Órdenes: Tradicional ${n0(D.oN)} · Pronta Entrega ${n0(D.oP)}. Entregadas hasta hoy: <b>${n0(D.ent)} u</b> — el resto es backlog (KPI 11).`;
+  row2(A,'Prendas por tipo de orden',dpr,'Lectura','<div class="pmsg">'+dpr2+'</div>',1);
+
+  /* 4 */
+  sec(A,'4','Year to Year');
+  if(D.yoy){
+    const mxy=Math.max(...D.yoy.map(x=>x.v),1);
+    const yh=D.yoy.map(x=>hb(x.y,x.v/mxy*100,M(x.v)+' · '+n0(x.n)+' órd.')).join('');
+    const first=D.yoy[0], last=D.yoy[D.yoy.length-1];
+    const delta=first.v?Math.round(100*(last.v-first.v)/first.v):0;
+    A.appendChild(el(`<div class="card"><h3>Comparativo interanual</h3>${yh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Variación ${last.y} vs ${first.y}: <b style="color:${delta>=0?'var(--text-success)':'var(--text-danger)'}">${delta>=0?'+':''}${delta}%</b></div></div>`));
+  } else {
+    A.appendChild(el('<div class="card pend"><div class="pmsg"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> Se activa cuando haya 2+ años de datos en Odoo.</div></div>'));
+  }
+
+  /* 5 */
+  sec(A,'5','Ventas por vendedora');
+  const mxv=D.vend[0]?D.vend[0].monto:1;
+  const vh=D.vend.map(x=>hb(x.n,x.monto/mxv*100,M(x.monto)+' · '+n0(x.ops)+' órd.')).join('');
+  A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web (Tiendanube)" = órdenes automáticas sin vendedora.</div></div>`));
+
+  /* 6 */
+  sec(A,'6','Ventas por canal — comparativo e incidencia');
+  const totM=D.web.m+D.pres.m||1, totO=D.web.n+D.pres.n||1;
+  const cr=(nm,dd,col)=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${nm}</span><b>${M(dd.m)} · ${n0(dd.n)} órd.</b></div>
+    <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${(dd.m/totM*100).toFixed(1)}%;height:10px;border-radius:4px;background:${col};opacity:.8"></div></div>
+    <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">${Math.round(dd.m/totM*100)}% facturación · ${Math.round(dd.n/totO*100)}% órdenes</div></div>`;
+  A.appendChild(el(`<div class="card"><h3>Venta directa vs Web</h3>${cr('Venta directa',D.pres,'#1e3a6e')+cr('Web (Tiendanube)',D.web,'#7fa3d9')}</div>`));
+
+  /* 7 */
+  sec(A,'7','Ticket promedio — evolución');
+  const tick=D.meses.map(x=>({m:x.m,t:x.nv?x.ventas/x.nv:0,noRate:x.noRate}));
+  const mxt=Math.max(...tick.map(x=>x.t),1);
+  const th='<div class="bar">'+tick.map(x=>{
+    const style=x.noRate?'height:3px;background:#c3ccd6':`height:${Math.max(3,x.t/mxt*118)}px;background:#4a6da8`;
+    return `<div class="barcol" title="${x.m}: ${x.noRate?'sin cotización oficial':M(x.t)}"><div class="bval">${x.noRate?'🚧':M(x.t)}</div>
+    <div class="barfill" style="${style}"></div><div class="blbl">${x.m}</div></div>`;
+  }).join('')+'</div>';
+  A.appendChild(el(`<div class="card"><h3>Ticket promedio por mes</h3>${th}<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Global del filtro ${MF(D.ventas/D.nord)}</div></div>`));
+
+  /* 8 */
+  sec(A,'8','Ventas por industria');
+  A.appendChild(el('<div class="card pend"><div class="pmsg"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> Se completa cargando la industria del cliente en Odoo.</div></div>'));
+
+  /* 9 */
+  sec(A,'9','Ventas por geografía');
+  const provinciaNoMuted=D.provincia.filter(x=>!x.muted);
+  const mxp=Math.max(...provinciaNoMuted.map(x=>x.v),1);
+  const gh=D.provincia.map(x=>hb(x.n,x.v/mxp*100,M(x.v),{muted:x.muted,color:x.muted?'#c3ccd6':'#1e3a6e'})).join('');
+  A.appendChild(el(`<div class="card"><h3>Ventas por provincia</h3>${gh}</div>`));
+
+  /* 10 */
+  sec(A,'10','Ventas por tamaño del cliente');
+  A.appendChild(el('<div class="card pend"><div class="pmsg"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> Se completa cargando el tamaño/segmento del cliente en Odoo.</div></div>'));
+
+  /* 11 */
+  sec(A,'11','Ciclo de vida de las ventas');
+  const commitNote=RAW.meta.commitmentLoaded ? '' :
+    `<div class="pend" style="margin-top:12px;padding:8px 10px;border-radius:8px"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> <span class="pmsg">Se activa cargando la fecha de entrega pactada en Odoo.</span></div>`;
+  const ct=`<div style="display:flex;align-items:baseline;gap:10px"><div style="font-size:38px;font-weight:600">${D.ciclo.dias}</div><div style="font-size:13px;color:var(--text-secondary)">días promedio<br>pedido → entrega</div></div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-top:10px;line-height:1.6">Sobre ${n0(D.ciclo.n)} entregas hechas · mediana ${D.ciclo.mediana} d.</div>${commitNote}`;
+  const bkh=D.backlog.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:9px 0;border-bottom:1px solid var(--border)"><span>${x.e}</span><span class="bdg" style="background:var(--bg-${x.tone});color:var(--text-${x.tone})">${n0(x.n)} remitos</span></div>`).join('');
+  row2(A,'Tiempo pedido → entrega',ct,'Backlog de entregas',bkh,1);
+
+  /* 12 */
+  sec(A,'12','Ventas por tipo de producto — Administración · Sanidad · Laboral');
+  const bh=D.buckets.map(x=>`<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${M(x.v)} · ${x.p}%</b></div>
+    <div style="background:var(--surface-1);border-radius:4px;height:11px"><div style="width:${x.p}%;height:11px;border-radius:4px;background:${x.c}"></div></div></div>`).join('')
+    +`<div style="margin-top:6px;padding-top:9px;border-top:1px dashed var(--border)">
+       <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px;color:var(--text-muted)"><span>${D.sinCategorizar.n}</span><b>${M(D.sinCategorizar.v)} · ${D.sinCategorizar.p}%</b></div>
+       <div style="background:var(--surface-1);border-radius:4px;height:11px"><div style="width:${Math.max(2,D.sinCategorizar.p)}%;height:11px;border-radius:4px;background:#c3ccd6"></div></div>
+       <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">No es prenda (gastos, insumos, telas, ítems a depurar): fuera de los 3 segmentos de producto.</div>
+     </div>`;
+  const mxc=Math.max(...D.cat.map(x=>x.v),1);
+  const ch=D.cat.map(x=>hb(x.n,x.v/mxc*100,M(x.v)+' · '+x.p+'%',{color:'#4a6da8'})).join('');
+  row2(A,'Por segmento (mapeo)',bh,
+    'Categorías reales de Odoo',ch,1);
+
+  /* 13 */
+  sec(A,'13','Tasas de conversión — vendedora y etapa del embudo');
+  const mxf=Math.max(...D.funnel.map(x=>x.v),1);
+  const fh=D.funnel.map(x=>hb(x.n,x.v/mxf*100,'<b>'+n0(x.v)+'</b>',{color:x.win?'#2f7d4f':x.lost?'#b23b3b':'#4a6da8'})).join('');
+  const wonPct=D.crmN?Math.round(100*D.won/D.crmN):0;
+  const cvh=D.convvend.map(x=>{const p=Math.round(100*x.w/x.t);return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${p}% <span style="color:var(--text-muted);font-weight:400">(${x.w}/${x.t})</span></b></div>
+    <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${p}%;height:10px;border-radius:4px;background:${p>=60?'#2f7d4f':p>=45?'#4a6da8':'#8a6a1f'};opacity:.8"></div></div></div>`;}).join('')||'<div class="pmsg">Sin oportunidades para este filtro.</div>';
+  row2(A,'Embudo CRM por etapa',fh+`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${n0(D.crmN)} oportunidades · <b>${n0(D.won)} ganadas (${wonPct}%)</b></div>`,
+    'Conversión por vendedora',cvh,1);
+
+  const usdFootNote = CUR==='USD'
+    ? (usdPend ? ' Sin cotización oficial disponible para este filtro: los montos en USD no están completos.'
+       : (F.mon!=='' ? ' Convertidos a USD al oficial promedio del mes filtrado.' : ' Convertidos a USD al oficial promedio de cada mes (no un tipo de cambio único).'))
+    : ' Están en pesos (ARS); usá el switch ARS/USD arriba.';
+  A.appendChild(el(`<div style="font-size:11px;color:var(--text-muted);margin-top:24px">Datos de Odoo por API · ${RAW.pull} · se actualiza solo cada 30 min · dólar oficial ${RAW.usdFuente}${RAW.usdFecha?' ('+RAW.usdFecha+')':''} · montos netos (sin IVA).${usdFootNote}</div>`));
+}
+
+/* ===== arranque (al final: ya están definidas todas las const/función) ===== */
+if(!RAW || !RAW.O || !RAW.O.length){
+  document.getElementById('app').innerHTML='<div class="card" style="margin-top:20px"><h3>'+(RAW&&RAW._err?'No se pudieron cargar los datos':'Todavía no hay datos')+'</h3><div class="pmsg">'+(RAW&&RAW._err?('Error: '+RAW._err+'. Recargá la página; si sigue, avisá a Calcuta.'):'El servidor todavía no sincronizó con Odoo. Probá recargar en unos minutos.')+'</div></div>';
+} else {
+  buildToolbar(); go();
+}
+</script>
+<footer class="made">Desarrollado por <b>CALCUTA</b></footer>
+</body>
+</html>
