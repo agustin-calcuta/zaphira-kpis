@@ -203,7 +203,6 @@ function rangeOf(key){
   if(key==='d90') return [TODAY-89,TODAY];
   if(key==='qtd') return [mk(Y,Math.floor(M/3)*3,1),TODAY];
   if(key==='ytd') return [mk(Y,0,1),TODAY];
-  if(key.slice(0,2)==='m:'){const a=key.slice(2).split('-').map(Number);return [mk(a[0],a[1]-1,1),mk(a[0],a[1],0)];}
   return [null,null];   // 'all' y cualquier clave desconocida
 }
 let F={per:'all',from:null,to:null,ven:'',can:''};
@@ -272,14 +271,11 @@ function syncChrome(){   /* refresca lo que depende del estado del filtro, sin r
 }
 function buildToolbar(){
   const d=RAW.dict;
-  const monWithOrders={}; RAW.O.forEach(o=>{monWithOrders[o[0]]=1;});
-  const months=d.MON.map((m,i)=>({i,m})).filter(x=>/^\d{4}-\d{2}$/.test(x.m)&&monWithOrders[x.i]).sort((a,b)=>a.m<b.m?-1:1);
   const vens=d.VEN.map((v,i)=>({i,v})).sort((a,b)=>a.v<b.v?-1:1);
   const opt=(val,txt,sel)=>`<option value="${val}"${sel?' selected':''}>${txt}</option>`;
   const perO=opt('all','Todo el período',1)
-    +'<optgroup label="Relativo">'+PRESETS.map(p=>opt(p[0],p[1])).join('')+'</optgroup>'
-    +'<optgroup label="Mes puntual">'+months.map(x=>opt('m:'+x.m,monFull(x.m))).join('')+'</optgroup>'
-    +'<optgroup label="A medida">'+opt('custom','Rango de fechas…')+'</optgroup>';
+    +PRESETS.map(p=>opt(p[0],p[1])).join('')
+    +opt('custom','Rango de fechas…');
   const venO=opt('','Todas',1)+vens.map(x=>opt(x.i,x.v)).join('');
   const canO=opt('','Todos',1)+d.CAN.map((c,i)=>opt(i,c)).join('');
   const minIso=offToIso(0), maxIso=offToIso(Math.max(MAXOFF,TODAY));
