@@ -15,42 +15,77 @@
  --text-neutral:#6b7480;--bg-neutral:#eceef1;
  --font-sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
+:root{
+ --r:12px;--r-sm:8px;--ctl-h:36px;
+ --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+ --ring:0 0 0 3px rgba(30,58,110,.25);
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--surface-0);font-family:var(--font-sans);color:var(--text-primary)}
-header{background:#17233b;color:#fff;padding:13px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.brand{background:#fff;border-radius:8px;padding:6px 11px;display:inline-flex;align-items:center;line-height:0}
-.brand img{height:28px;width:auto;display:block}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--surface-0);font-family:var(--font-sans);color:var(--text-primary);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* ---------- header ---------- */
+header{background:#17233b;color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{background:#fff;border-radius:var(--r-sm);padding:6px 11px;display:inline-flex;align-items:center;line-height:0;flex:none}
+.brand img{height:26px;width:auto;display:block}
+.htit{color:#9db4dd;font-size:13px;min-width:0}
+#fresh{margin-left:auto;font-size:11px;color:#8397b5;text-align:right;line-height:1.5}
 footer.made{padding:18px 22px;text-align:center;font-size:11px;letter-spacing:.4px;color:var(--text-muted)}
 footer.made b{color:var(--text-secondary);font-weight:600}
-.bar2{position:sticky;top:0;z-index:5;background:var(--surface-2);border-bottom:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.04);padding:10px 20px;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
-.fl{display:flex;flex-direction:column;gap:3px}
-.fl label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
-.fl select{font-family:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text-primary);min-width:140px}
-.seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.seg button{border:0;background:var(--surface-2);color:var(--text-secondary);font-family:inherit;font-size:13px;font-weight:600;padding:7px 16px;cursor:pointer}
+
+/* ---------- barra de controles ---------- */
+.bar2{position:sticky;top:0;z-index:20;background:var(--surface-2);border-bottom:1px solid var(--border);box-shadow:var(--shadow);padding:10px 20px}
+.tbar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.tgroup{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;flex:1;min-width:0}
+.fl{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fl>label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.ctl{font-family:inherit;font-size:13px;height:var(--ctl-h);padding:0 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface-2);color:var(--text-primary);min-width:152px;max-width:100%}
+select.ctl{padding-right:30px;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%238a94a1' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:12px}
+input[type=date].ctl{-webkit-appearance:none;appearance:none;min-width:150px}
+.ctl:focus-visible,.btn:focus-visible,.seg button:focus-visible{outline:none;box-shadow:var(--ring);border-color:var(--fill-primary)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;height:var(--ctl-h);flex:none}
+.seg button{border:0;background:var(--surface-2);color:var(--text-secondary);font-family:inherit;font-size:13px;font-weight:600;padding:0 16px;cursor:pointer}
 .seg button.on{background:var(--fill-primary);color:#fff}
-.reset{margin-left:auto;align-self:center;font-size:12px;color:var(--text-accent);background:none;border:0;cursor:pointer;font-family:inherit;text-decoration:underline}
-.xbtn{border:1px solid var(--border);background:var(--surface-2);color:var(--text-secondary);font-family:inherit;font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer;align-self:center;white-space:nowrap}
-.xbtn:hover{background:var(--surface-1)}
-.xbtn:disabled{opacity:.55;cursor:wait}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:var(--ctl-h);padding:0 13px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface-2);color:var(--text-secondary);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--surface-1);color:var(--text-primary)}
+.btn:disabled{opacity:.55;cursor:progress}
+.btn svg{width:14px;height:14px;flex:none}
+.btn--quiet{border-color:transparent;background:none;color:var(--text-accent)}
+.btn--quiet:hover{background:var(--bg-accent);color:var(--text-accent)}
+.actions{display:flex;gap:8px;align-items:center;margin-left:auto}
+.ftoggle{display:none;position:relative}
+.fdot{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--fill-primary);color:#fff;font-size:10px;line-height:16px;text-align:center}
+
+/* ---------- contenido ---------- */
 .wrap{display:flex;justify-content:center;padding:20px 18px 60px}
 .mk{width:100%;max-width:1040px}
-.card{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:16px}
+.card{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:16px}
 .bdg{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;line-height:1.5}
-.kpi{flex:1;min-width:150px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
-.kv{font-size:21px;font-weight:600;margin-top:4px}
+.periodbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 13px;margin-bottom:12px}
+.periodbar svg{width:15px;height:15px;color:var(--text-muted);flex:none}
+.periodbar b{color:var(--text-primary)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:6px}
+.kpi{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;min-width:0}
+.kv{font-size:21px;font-weight:600;margin-top:4px;overflow-wrap:anywhere;line-height:1.2}
 .kl{font-size:12px;color:var(--text-secondary)}
 .ks{font-size:11px;color:var(--text-muted);margin-top:3px}
 h3{font-size:15px;font-weight:600;margin:0 0 10px}
 .sec{display:flex;align-items:baseline;gap:10px;margin:26px 2px 12px}
-.secn{font-size:12px;font-weight:700;color:var(--on-primary);background:var(--fill-primary);border-radius:6px;padding:2px 8px;min-width:26px;text-align:center}
+.secn{font-size:12px;font-weight:700;color:var(--on-primary);background:var(--fill-primary);border-radius:6px;padding:2px 8px;min-width:26px;text-align:center;flex:none}
 .sect{font-size:16px;font-weight:600}
+.duo{display:flex;gap:12px;flex-wrap:wrap}
+.chartbox{width:100%;overflow-x:auto}
+.chartbox svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--text-secondary);margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block;flex:none}
+.legend .sw--line{width:17px;height:3px;border-radius:2px}
 .bar{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:8px}
-.barcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px}
+.barcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;min-width:0}
 .barfill{width:70%;border-radius:6px 6px 2px 2px;background:var(--fill-primary);opacity:.85}
 .blbl{font-size:10.5px;color:var(--text-muted)}
 .bval{font-size:10.5px;color:var(--text-secondary);font-weight:600}
-.hrow{display:grid;grid-template-columns:150px minmax(0,1fr) auto;align-items:center;gap:10px;margin-bottom:7px;font-size:12.5px}
+.hrow{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) max-content;align-items:center;gap:10px;margin-bottom:7px;font-size:12.5px}
 .hlbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .htrack{background:var(--surface-1);border-radius:4px;height:12px;width:100%}
 .hbar{height:12px;border-radius:4px;background:var(--fill-primary);opacity:.8;min-width:2px}
@@ -61,34 +96,57 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 
 @media print{
  header,.bar2{display:none!important}
- .card{break-inside:avoid}
+ .card,.periodbar{break-inside:avoid}
+ .periodbar{border:0;padding:0 0 10px}
  *{print-color-adjust:exact;-webkit-print-color-adjust:exact}
  @page{size:A4 landscape;margin:12mm}
 }
 
+/* ---------- tablet ---------- */
+@media (max-width:900px){
+ .hrow{grid-template-columns:minmax(0,120px) minmax(0,1fr) max-content;gap:8px}
+ #fresh{width:100%;margin-left:0;text-align:left}
+}
+
+/* ---------- mobile: filtros colapsables ---------- */
+@media (max-width:760px){
+ .bar2{padding:9px 14px}
+ .ftoggle{display:inline-flex}
+ .tbar{gap:10px;align-items:center}
+ .tgroup{display:none;width:100%;flex-direction:column;align-items:stretch;gap:12px;margin-top:4px;padding-top:12px;border-top:1px solid var(--border)}
+ .tgroup.open{display:flex}
+ .tgroup .ctl{width:100%;min-width:0;height:42px}
+ .tgroup .fl{width:100%}
+ .actions{margin-left:0;flex-wrap:wrap}
+ .actions .btn{flex:1 1 40%;height:42px}
+ .seg button{padding:0 14px}
+ header{padding:11px 14px;gap:10px}
+ .htit{flex-basis:100%;order:3;font-size:12px}
+ #fresh{order:2;margin-left:auto;text-align:right;width:auto;font-size:10.5px;max-width:52%}
+ .wrap{padding:14px 12px 44px}
+ .sec{margin:22px 2px 10px}
+ .sect{font-size:15px}
+}
+
+/* ---------- teléfono ---------- */
 @media (max-width:480px){
- .bar{overflow-x:auto;-webkit-overflow-scrolling:touch}
- .barcol{flex:1 0 44px}
+ .bar{overflow-x:auto;-webkit-overflow-scrolling:touch;height:140px}
+ .barcol{flex:1 0 46px}
  .bval,.blbl{white-space:nowrap}
- .hrow{grid-template-columns:minmax(60px,32vw) minmax(0,1fr) max-content;gap:6px;font-size:11.5px}
- .bar2{padding:8px 12px;gap:10px}
- .fl{flex:1 1 45%}
- .fl select{min-width:0;width:100%}
- .xbtn{flex:1 1 45%}
- .reset{margin-left:0;align-self:flex-start}
- .wrap{padding:14px 12px 48px}
- .kpi{min-width:120px}
- .kv{overflow-wrap:anywhere;line-height:1.15}
- .donut3{flex:0 0 120px}
- body{overflow-x:hidden}
+ .hrow{grid-template-columns:minmax(0,34vw) minmax(0,1fr) max-content;gap:7px;font-size:11.5px}
+ .kpis{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+ .kv{font-size:19px}
+ .chartbox svg{width:600px;max-width:none}
+ .duo{gap:10px}
+ .donut3{flex:0 0 108px;width:108px!important;height:108px!important}
 }
 </style>
 </head>
 <body>
 <header>
   <span class="brand"><img src="data:image/png;base64,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" alt="Zaphira Uniformes"></span>
-  <span style="color:#9db4dd;font-size:13px">Tablero KPIs de Ventas · vista Dirección</span>
-  <span id="fresh" style="margin-left:auto;font-size:11px;color:#7b8aa5"></span>
+  <span class="htit">Tablero KPIs de Ventas · vista Dirección</span>
+  <span id="fresh"></span>
 </header>
 <div id="toolbar" class="bar2"></div>
 <div class="wrap"><div class="mk" id="app"><div class="card" style="margin-top:20px"><h3>Cargando datos…</h3></div></div></div>
@@ -102,10 +160,51 @@ RAW.meta = RAW.meta || {};
 RAW.rateMon = RAW.rateMon || {};
 RAW.usdFuente = RAW.usdFuente || '';
 RAW.usdFecha = RAW.usdFecha || '';
+RAW.rateDay = RAW.rateDay || [];
 const MES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MESL=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 let CUR='ARS';
-let F={mon:'',ven:'',can:''};
 const el=(h)=>{const d=document.createElement('div');d.innerHTML=h;return d;};
+
+/* ===== fechas =====
+   Cada fila trae su día como offset entero desde meta.day0. Trabajamos siempre en UTC para que
+   el filtro no se corra un día según el huso del navegador, y "hoy" sale de meta.today (TZ del
+   negocio, no del dispositivo) para que "mes actual"/"YTD" coincidan con los datos. */
+const DAY_MS=86400000;
+const isoToDayN=iso=>{const p=String(iso).slice(0,10).split('-');return Date.UTC(+p[0],+p[1]-1,+p[2])/DAY_MS;};
+const DAY0=isoToDayN(RAW.meta.day0||'2000-01-01');
+const offToDate=off=>new Date((DAY0+off)*DAY_MS);
+const offToIso=off=>offToDate(off).toISOString().slice(0,10);
+const isoToOff=iso=>isoToDayN(iso)-DAY0;
+const TODAY=isoToOff(RAW.meta.today||RAW.meta.maxDate||RAW.meta.day0||'2000-01-01');
+const MAXOFF=isoToOff(RAW.meta.maxDate||RAW.meta.today||RAW.meta.day0||'2000-01-01');
+const fmtDay=off=>{const t=offToDate(off);return t.getUTCDate()+' '+MESL[t.getUTCMonth()]+' '+t.getUTCFullYear();};
+const fmtFecha=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s||''));return m?(m[3]+'/'+m[2]+'/'+m[1]):(s||'');};
+
+/* Presets de período → [desde,hasta] en offsets inclusive (null = sin tope) */
+const PRESETS=[['mtd','Mes actual'],['lastmon','Mes anterior'],['d30','Últimos 30 días'],
+               ['d90','Últimos 90 días'],['qtd','Trimestre en curso'],['ytd','Año en curso (YTD)']];
+function rangeOf(key){
+  const t=offToDate(TODAY), Y=t.getUTCFullYear(), M=t.getUTCMonth();
+  const mk=(y,m,d)=>Date.UTC(y,m,d)/DAY_MS-DAY0;   // Date.UTC(y,m,0) = último día del mes anterior
+  if(key==='mtd') return [mk(Y,M,1),TODAY];
+  if(key==='lastmon') return [mk(Y,M-1,1),mk(Y,M,0)];
+  if(key==='d30') return [TODAY-29,TODAY];
+  if(key==='d90') return [TODAY-89,TODAY];
+  if(key==='qtd') return [mk(Y,Math.floor(M/3)*3,1),TODAY];
+  if(key==='ytd') return [mk(Y,0,1),TODAY];
+  if(key.slice(0,2)==='m:'){const a=key.slice(2).split('-').map(Number);return [mk(a[0],a[1]-1,1),mk(a[0],a[1],0)];}
+  return [null,null];   // 'all' y cualquier clave desconocida
+}
+let F={per:'all',from:null,to:null,ven:'',can:''};
+function setPeriod(key){F.per=key;const r=rangeOf(key);F.from=r[0];F.to=r[1];}
+function rangeLabel(){
+  if(F.from===null&&F.to===null) return 'Todo el período · '+fmtDay(0)+' a '+fmtDay(MAXOFF);
+  if(F.from===null) return 'Hasta '+fmtDay(F.to);
+  if(F.to===null) return 'Desde '+fmtDay(F.from);
+  if(F.from===F.to) return fmtDay(F.from);
+  return fmtDay(F.from)+' a '+fmtDay(F.to);
+}
 
 /* el arranque va al FINAL del script (abajo), cuando ya están definidas todas las const */
 
@@ -146,90 +245,156 @@ function median(arr){
 }
 
 /* ===== toolbar ===== */
+const ICO={
+  cal:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>',
+  filt:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M4.5 8h7M6.5 12h3"/></svg>',
+  pdf:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.5H4.5a1.5 1.5 0 0 0-1.5 1.5v10a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5V5.5z"/><path d="M9 1.5v4h4"/></svg>',
+  xls:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M6.5 6v7.5"/></svg>',
+  x:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>'
+};
+function activeCount(){return (F.per!=='all'?1:0)+(F.ven!==''?1:0)+(F.can!==''?1:0);}
+function syncChrome(){   /* refresca lo que depende del estado del filtro, sin re-armar la toolbar */
+  const n=activeCount(), dot=document.getElementById('fDot');
+  dot.textContent=n||''; dot.style.display=n?'block':'none';
+  const custom=F.per==='custom';
+  document.getElementById('wFrom').hidden=!custom;
+  document.getElementById('wTo').hidden=!custom;
+}
 function buildToolbar(){
   const d=RAW.dict;
   const monWithOrders={}; RAW.O.forEach(o=>{monWithOrders[o[0]]=1;});
   const months=d.MON.map((m,i)=>({i,m})).filter(x=>/^\d{4}-\d{2}$/.test(x.m)&&monWithOrders[x.i]).sort((a,b)=>a.m<b.m?-1:1);
   const vens=d.VEN.map((v,i)=>({i,v})).sort((a,b)=>a.v<b.v?-1:1);
   const opt=(val,txt,sel)=>`<option value="${val}"${sel?' selected':''}>${txt}</option>`;
-  const perO=opt('','Todo el período',1)+months.map(x=>opt(x.i,monFull(x.m))).join('');
+  const perO=opt('all','Todo el período',1)
+    +'<optgroup label="Relativo">'+PRESETS.map(p=>opt(p[0],p[1])).join('')+'</optgroup>'
+    +'<optgroup label="Mes puntual">'+months.map(x=>opt('m:'+x.m,monFull(x.m))).join('')+'</optgroup>'
+    +'<optgroup label="A medida">'+opt('custom','Rango de fechas…')+'</optgroup>';
   const venO=opt('','Todas',1)+vens.map(x=>opt(x.i,x.v)).join('');
   const canO=opt('','Todos',1)+d.CAN.map((c,i)=>opt(i,c)).join('');
+  const minIso=offToIso(0), maxIso=offToIso(Math.max(MAXOFF,TODAY));
   document.getElementById('toolbar').innerHTML=`
-    <div class="fl"><label>Moneda</label><div class="seg" id="segCur">
-      <button data-cur="ARS" class="on">ARS</button><button data-cur="USD">USD</button></div></div>
-    <div class="fl"><label>Período</label><select id="fMon">${perO}</select></div>
-    <div class="fl"><label>Vendedora</label><select id="fVen">${venO}</select></div>
-    <div class="fl"><label>Canal</label><select id="fCan">${canO}</select></div>
-    <button class="reset" id="reset">Limpiar filtros</button>
-    <button class="xbtn" id="btnPdf" type="button">📄 Exportar PDF</button>
-    <button class="xbtn" id="btnXlsx" type="button">📊 Exportar Excel</button>`;
-  document.getElementById('segCur').addEventListener('click',e=>{
+   <div class="tbar">
+    <div class="fl"><label>Moneda</label><div class="seg" id="segCur" role="group" aria-label="Moneda">
+      <button type="button" data-cur="ARS" class="on">ARS</button><button type="button" data-cur="USD">USD</button></div></div>
+    <button class="btn ftoggle" id="fToggle" type="button" aria-expanded="false" aria-controls="tgroup">
+      ${ICO.filt} Filtros<span class="fdot" id="fDot" style="display:none"></span></button>
+    <div class="tgroup" id="tgroup">
+      <div class="fl"><label for="fPer">Período</label><select class="ctl" id="fPer">${perO}</select></div>
+      <div class="fl" id="wFrom" hidden><label for="fFrom">Desde</label>
+        <input class="ctl" type="date" id="fFrom" min="${minIso}" max="${maxIso}" value="${minIso}"></div>
+      <div class="fl" id="wTo" hidden><label for="fTo">Hasta</label>
+        <input class="ctl" type="date" id="fTo" min="${minIso}" max="${maxIso}" value="${maxIso}"></div>
+      <div class="fl"><label for="fVen">Vendedora</label><select class="ctl" id="fVen">${venO}</select></div>
+      <div class="fl"><label for="fCan">Canal</label><select class="ctl" id="fCan">${canO}</select></div>
+      <div class="actions">
+        <button class="btn btn--quiet" id="reset" type="button">${ICO.x} Limpiar</button>
+        <button class="btn" id="btnPdf" type="button">${ICO.pdf} PDF</button>
+        <button class="btn" id="btnXlsx" type="button">${ICO.xls} Excel</button>
+      </div>
+    </div>
+   </div>`;
+
+  const $=id=>document.getElementById(id);
+  if(!HASDAY){   // dataset previo al día por fila: el período no puede filtrar todavía
+    $('fPer').disabled=true;
+    $('fPer').title='El filtro por fechas se habilita en la próxima sincronización (cada 30 min).';
+  }
+  $('segCur').addEventListener('click',e=>{
     const b=e.target.closest('button'); if(!b) return; CUR=b.dataset.cur;
-    [...document.querySelectorAll('#segCur button')].forEach(x=>x.classList.toggle('on',x===b)); go();});
-  document.getElementById('fMon').addEventListener('change',e=>{F.mon=e.target.value; go();});
-  document.getElementById('fVen').addEventListener('change',e=>{F.ven=e.target.value; go();});
-  document.getElementById('fCan').addEventListener('change',e=>{F.can=e.target.value; go();});
-  document.getElementById('reset').addEventListener('click',()=>{F={mon:'',ven:'',can:''};
-    document.getElementById('fMon').value='';document.getElementById('fVen').value='';document.getElementById('fCan').value=''; go();});
-  document.getElementById('btnPdf').addEventListener('click',()=>window.print());
-  document.getElementById('btnXlsx').addEventListener('click',()=>{
-    const b=document.getElementById('btnXlsx'), orig=b.textContent;
+    [...$('segCur').querySelectorAll('button')].forEach(x=>x.classList.toggle('on',x===b)); go();});
+  $('fToggle').addEventListener('click',()=>{
+    const open=$('tgroup').classList.toggle('open');
+    $('fToggle').setAttribute('aria-expanded',open?'true':'false');});
+  $('fPer').addEventListener('change',e=>{
+    setPeriod(e.target.value);
+    if(F.per==='custom'){F.from=isoToOff($('fFrom').value);F.to=isoToOff($('fTo').value);}
+    syncChrome(); go();});
+  const onDate=()=>{
+    let a=isoToOff($('fFrom').value), b=isoToOff($('fTo').value);
+    if(a>b){const t=a;a=b;b=t;}          // si invierten las puntas, se ordenan solas
+    F.from=a; F.to=b; go();};
+  $('fFrom').addEventListener('change',onDate);
+  $('fTo').addEventListener('change',onDate);
+  $('fVen').addEventListener('change',e=>{F.ven=e.target.value; syncChrome(); go();});
+  $('fCan').addEventListener('change',e=>{F.can=e.target.value; syncChrome(); go();});
+  $('reset').addEventListener('click',()=>{
+    setPeriod('all'); F.ven=''; F.can='';
+    $('fPer').value='all'; $('fVen').value=''; $('fCan').value='';
+    syncChrome(); go();});
+  $('btnPdf').addEventListener('click',()=>window.print());
+  $('btnXlsx').addEventListener('click',()=>{
+    const b=$('btnXlsx'), orig=b.innerHTML;
     b.disabled=true; b.textContent='Generando…';
-    const qs=new URLSearchParams({xlsx:'1',mon:F.mon,ven:F.ven,can:F.can,cur:CUR});
+    const qs=new URLSearchParams({xlsx:'1',ven:F.ven,can:F.can,cur:CUR});
+    if(F.from!==null) qs.set('from',offToIso(F.from));
+    if(F.to!==null) qs.set('to',offToIso(F.to));
     fetch(EXEC_URL+'?'+qs).then(r=>r.json()).then(function(res){
-      b.disabled=false; b.textContent=orig;
+      b.disabled=false; b.innerHTML=orig;
       if(!res||!res.b64){ alert('No se pudo generar el Excel.'+(res&&res.error?' '+res.error:'')); return; }
       const a=document.createElement('a');
       a.href='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+res.b64;
       a.download=res.filename||'Zaphira_KPIs.xlsx';
       document.body.appendChild(a); a.click(); a.remove();
     }).catch(function(err){
-      b.disabled=false; b.textContent=orig;
+      b.disabled=false; b.innerHTML=orig;
       alert('Error al exportar: '+(err&&err.message?err.message:err));
     });
   });
+  syncChrome();
 }
 
-/* ===== filtros + agregación ===== */
-const passO=o=>(F.mon===''||o[0]==F.mon)&&(F.ven===''||o[1]==F.ven)&&(F.can===''||o[2]==F.can);
-const passL=l=>(F.mon===''||l[0]==F.mon)&&(F.ven===''||l[1]==F.ven)&&(F.can===''||l[2]==F.can);
-const passP=p=>(F.mon===''||p[0]==F.mon)&&(F.ven===''||p[1]==F.ven)&&(F.can===''||p[2]==F.can);
-const passC=c=>(F.mon===''||c[0]==F.mon)&&(F.ven===''||c[1]==F.ven);
+/* ===== filtros + agregación =====
+   El día está en O[7], L[8], P[5] y C[4] (offset desde meta.day0). Líneas y remitos se filtran por
+   la fecha de SU orden, no por la propia: así la plata y las unidades del período siempre cierran. */
+/* HASDAY: el dataset viejo (previo a que el backend emita el día por fila) no tiene O[7] ni meta.day0.
+   Entre el deploy y la primera re-sincronización se sirve ese dataset: sin este guard, inR(undefined)
+   daría false para todo y el tablero quedaría vacío. Sin días, el filtro de fechas queda inerte. */
+const HASDAY=!!(RAW.meta.day0 && RAW.O.length && RAW.O[0].length>7);
+const inR=day=>!HASDAY||((F.from===null||day>=F.from)&&(F.to===null||day<=F.to));
+const passO=o=>inR(o[7])&&(F.ven===''||o[1]==F.ven)&&(F.can===''||o[2]==F.can);
+const passL=l=>inR(l[8])&&(F.ven===''||l[1]==F.ven)&&(F.can===''||l[2]==F.can);
+const passP=p=>inR(p[5])&&(F.ven===''||p[1]==F.ven)&&(F.can===''||p[2]==F.can);
+const passC=c=>inR(c[4])&&(F.ven===''||c[1]==F.ven);
 
 function compute(){
   const d=RAW.dict;
   const O=RAW.O.filter(passO), L=RAW.L.filter(passL), P=RAW.P.filter(passP), C=RAW.C.filter(passC);
 
-  /* conversión USD por-mes (rateMon), acá y sólo acá — money()/moneyFull() sólo formatean */
+  /* conversión USD acá y sólo acá — money()/moneyFull() sólo formatean.
+     Cada venta va al oficial de SU DÍA (rateDay): con el promedio mensual, un rango sub-mensual
+     (ej. 1-10 de marzo) se valuaría al promedio de todo marzo. Si el día no tiene dato se cae al
+     promedio del mes, y si tampoco hay se cuenta como no convertible ("en construcción"). */
   const monRate=mi=>RAW.rateMon[d.MON[mi]]||0;
   const missMonths={};
-  function toCur(mi,ars){
+  let convOk=0, convFail=0;
+  function toCur(mi,day,ars){
     if(CUR!=='USD') return ars;
-    const r=monRate(mi);
-    if(!r){ missMonths[d.MON[mi]]=1; return 0; }
+    const r=RAW.rateDay[day]||monRate(mi);
+    if(!r){ missMonths[d.MON[mi]]=1; convFail++; return 0; }
+    convOk++;
     return ars/r;
   }
 
-  const mm={}; O.forEach(o=>{(mm[o[0]]=mm[o[0]]||{v:0,n:0}); mm[o[0]].v+=toCur(o[0],o[6]); mm[o[0]].n++;});
+  const mm={}; O.forEach(o=>{(mm[o[0]]=mm[o[0]]||{v:0,n:0}); mm[o[0]].v+=toCur(o[0],o[7],o[6]); mm[o[0]].n++;});
   const mk=Object.keys(mm).map(Number).sort((a,b)=>d.MON[a]<d.MON[b]?-1:1);
-  const meses=mk.map(k=>({m:monLabel(d.MON[k]),ventas:mm[k].v,nv:mm[k].n,noRate:CUR==='USD'&&!monRate(k)}));
-  let ventas=0; O.forEach(o=>ventas+=toCur(o[0],o[6])); const nord=O.length;
+  const meses=mk.map(k=>({m:monLabel(d.MON[k]),ventas:mm[k].v,nv:mm[k].n,noRate:CUR==='USD'&&mm[k].n>0&&mm[k].v===0}));
+  let ventas=0; O.forEach(o=>ventas+=toCur(o[0],o[7],o[6])); const nord=O.length;
   let prN=0,prP=0,ent=0; L.forEach(l=>{if(l[3]===1)prP+=l[5];else prN+=l[5]; ent+=l[6];});
   let oN=0,oP=0; O.forEach(o=>{if(o[3]===1)oP++;else oN++;});
-  const vm={}; O.forEach(o=>{(vm[o[1]]=vm[o[1]]||{m:0,n:0}); vm[o[1]].m+=toCur(o[0],o[6]); vm[o[1]].n++;});
+  const vm={}; O.forEach(o=>{(vm[o[1]]=vm[o[1]]||{m:0,n:0}); vm[o[1]].m+=toCur(o[0],o[7],o[6]); vm[o[1]].n++;});
   const vend=Object.keys(vm).map(i=>({n:d.VEN[i],monto:vm[i].m,ops:vm[i].n})).sort((a,b)=>b.monto-a.monto).slice(0,10);
   const webI=d.CAN.indexOf('Web (Tiendanube)'), presI=d.CAN.indexOf('Venta directa');
-  const cm={}; O.forEach(o=>{(cm[o[2]]=cm[o[2]]||{m:0,n:0}); cm[o[2]].m+=toCur(o[0],o[6]); cm[o[2]].n++;});
+  const cm={}; O.forEach(o=>{(cm[o[2]]=cm[o[2]]||{m:0,n:0}); cm[o[2]].m+=toCur(o[0],o[7],o[6]); cm[o[2]].n++;});
   const web=cm[webI]||{m:0,n:0}, pres=cm[presI]||{m:0,n:0};
-  const gm={}; O.forEach(o=>{gm[o[4]]=(gm[o[4]]||0)+toCur(o[0],o[6]);});
+  const gm={}; O.forEach(o=>{gm[o[4]]=(gm[o[4]]||0)+toCur(o[0],o[7],o[6]);});
   const provincia=Object.keys(gm).map(i=>({n:shortProv(d.PROV[i]),v:gm[i],muted:d.PROV[i].indexOf('(sin ')===0})).sort((a,b)=>b.v-a.v).slice(0,12);
-  const im={}; O.forEach(o=>{im[o[5]]=(im[o[5]]||0)+toCur(o[0],o[6]);});
+  const im={}; O.forEach(o=>{im[o[5]]=(im[o[5]]||0)+toCur(o[0],o[7],o[6]);});
   const iArr=Object.keys(im).map(i=>({n:d.IND[i],v:im[i],muted:d.IND[i].indexOf('(sin ')===0}));
   const industria=iArr.filter(x=>!x.muted).sort((a,b)=>b.v-a.v).slice(0,6).concat(iArr.filter(x=>x.muted));
 
   /* categorías (root dict.CAT) en moneda activa */
-  const km={}; L.forEach(l=>{km[l[4]]=(km[l[4]]||0)+toCur(l[0],l[7]);});
+  const km={}; L.forEach(l=>{km[l[4]]=(km[l[4]]||0)+toCur(l[0],l[8],l[7]);});
 
   /* "categorías reales de Odoo" — filtra roots que no son prenda (Gastos/All/Insumos/Tela/Productos a Borrar) */
   const catFiltered=Object.keys(km).filter(i=>NO_PRENDA.indexOf(normRoot(d.CAT[i]))<0);
@@ -260,12 +425,12 @@ function compute(){
   let yoy=null;
   if(MULTIYEAR){
     const ym={};
-    O.forEach(o=>{const y=d.MON[o[0]].slice(0,4); (ym[y]=ym[y]||{v:0,n:0}); ym[y].v+=toCur(o[0],o[6]); ym[y].n++;});
+    O.forEach(o=>{const y=d.MON[o[0]].slice(0,4); (ym[y]=ym[y]||{v:0,n:0}); ym[y].v+=toCur(o[0],o[7],o[6]); ym[y].n++;});
     yoy=Object.keys(ym).sort().map(y=>({y,v:ym[y].v,n:ym[y].n}));
   }
 
   const usdMissingMonths=Object.keys(missMonths).sort();
-  const usdBlocked=CUR==='USD' && mk.length>0 && mk.every(k=>!monRate(k));
+  const usdBlocked=CUR==='USD' && convOk===0 && convFail>0;   // nada convertible en todo el filtro
 
   return {meses,ventas,nord,prN,prP,ent,oN,oP,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,convvend,crmN:C.length,won,yoy,usdMissingMonths,usdBlocked};
 }
@@ -273,15 +438,66 @@ function compute(){
 /* ===== barra horizontal (grid: label · pista · valor) ===== */
 function hb(label,pct,val,opt){opt=opt||{};const w=opt.muted?Math.min(100,pct||0):(pct||0);return `<div class="hrow"><span class="hlbl" title="${label}"${opt.muted?' style="color:var(--text-muted)"':''}>${label}</span><div class="htrack"><div class="hbar" style="width:${Math.max(2,w).toFixed(1)}%;background:${opt.color||'var(--fill-primary)'}${opt.muted?';opacity:.5':''}"></div></div><span class="hval">${val}</span></div>`;}
 function sec(A,n,t){A.appendChild(el(`<div class="sec"><span class="secn">${n}</span><span class="sect">${t}</span></div>`));}
-function row2(A,h1,c1,h2,c2,flex1){A.appendChild(el(`<div style="display:flex;gap:12px;flex-wrap:wrap"><div class="card" style="flex:${flex1||1};min-width:min(300px,100%)"><h3>${h1}</h3>${c1}</div><div class="card" style="flex:1;min-width:min(260px,100%)"><h3>${h2}</h3>${c2}</div></div>`));}
+
+/* ===== gráfico de columnas + línea opcional en eje secundario =====
+   SVG (no divs) porque la línea necesita coordenadas reales. Las etiquetas de valor van con halo
+   blanco (paint-order:stroke) para seguir legibles donde la línea les pasa por detrás. */
+const SERIE2='#0f766e';
+function niceMax(v){
+  if(!(v>0)) return 1;
+  const e=Math.pow(10,Math.floor(Math.log10(v))), f=v/e;
+  return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;
+}
+function chartSVG(pts,opt){
+  opt=opt||{};
+  const line=!!opt.line, fmt=opt.fmt||n0;
+  const W=720,H=opt.h||285,pl=68,pr=line?54:20,tp=14,bt=30;
+  const iw=W-pl-pr, ih=H-tp-bt;
+  const maxV=niceMax(Math.max.apply(null,pts.map(p=>p.v).concat([0])));
+  const maxN=niceMax(Math.max.apply(null,pts.map(p=>p.n||0).concat([0])));
+  const band=iw/Math.max(pts.length,1), bw=Math.min(48,band*0.52);
+  const cx=i=>pl+band*i+band/2;
+  const yV=v=>tp+ih-(v/maxV)*ih, yN=n=>tp+ih-(n/maxN)*ih;
+  let g='';
+  for(let t=0;t<=4;t++){
+    const y=tp+ih-ih*t/4;
+    g+=`<line x1="${pl}" y1="${y.toFixed(1)}" x2="${pl+iw}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>`
+      +`<text x="${pl-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)">${fmt(maxV*t/4)}</text>`;
+    if(line) g+=`<text x="${pl+iw+8}" y="${(y+3.5).toFixed(1)}" text-anchor="start" font-size="10" fill="${SERIE2}">${n0(maxN*t/4)}</text>`;
+  }
+  let bars='',lbl='';
+  pts.forEach((p,i)=>{
+    const h=p.noRate?3:Math.max(2,ih-(yV(p.v)-tp)), y=tp+ih-h, x=cx(i);
+    bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${p.noRate?'#c3ccd6':(opt.barColor||'var(--fill-primary)')}" opacity=".9"><title>${p.lbl}: ${p.noRate?'sin cotización oficial':fmt(p.v)}${line?' · '+n0(p.n)+' órdenes':''}</title></rect>`;
+    lbl+=`<text x="${x.toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-secondary)" stroke="#fff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">${p.noRate?'🚧':fmt(p.v)}</text>`
+       +`<text x="${x.toFixed(1)}" y="${(H-9).toFixed(1)}" text-anchor="middle" font-size="10.5" fill="var(--text-muted)">${p.lbl}</text>`;
+  });
+  let ln='';
+  if(line){
+    if(pts.length>1) ln+=`<polyline points="${pts.map((p,i)=>cx(i).toFixed(1)+','+yN(p.n||0).toFixed(1)).join(' ')}" fill="none" stroke="${SERIE2}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    pts.forEach((p,i)=>{ln+=`<circle cx="${cx(i).toFixed(1)}" cy="${yN(p.n||0).toFixed(1)}" r="3.6" fill="${SERIE2}" stroke="#fff" stroke-width="1.6"><title>${p.lbl}: ${n0(p.n)} órdenes</title></circle>`;});
+  }
+  return `<div class="chartbox"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opt.aria||'Gráfico por mes'}">${g}${bars}${ln}${lbl}</svg></div>`;
+}
+const legendHTML=items=>'<div class="legend">'+items.map(x=>
+  `<span><i class="sw${x.line?' sw--line':''}" style="background:${x.c}"></i>${x.t}</span>`).join('')+'</div>';
+function row2(A,h1,c1,h2,c2,flex1){A.appendChild(el(`<div class="duo"><div class="card" style="flex:${flex1||1};min-width:min(300px,100%)"><h3>${h1}</h3>${c1}</div><div class="card" style="flex:1;min-width:min(260px,100%)"><h3>${h2}</h3>${c2}</div></div>`));}
 
 /* ===== render ===== */
 function go(){const app=document.getElementById('app'); app.innerHTML=''; render(app,compute());}
 
 function render(A,D){
   const d=RAW.dict;
-  document.getElementById('fresh').textContent='Odoo · '+RAW.pull+(rate?(' · dólar oficial hoy $'+n0(rate)+(RAW.usdFecha?' ('+RAW.usdFecha+')':'')):'');
-  if(D.nord===0){A.appendChild(el('<div class="card" style="margin-top:14px"><h3>Sin datos para este filtro</h3><div class="pmsg">Ajustá o limpiá los filtros.</div></div>'));return;}
+  document.getElementById('fresh').textContent='Odoo · '+RAW.pull+(rate?(' · dólar oficial $'+n0(rate)+(RAW.usdFecha?' al '+fmtFecha(RAW.usdFecha):'')):'');
+
+  /* Barra de contexto: qué período y qué filtros están activos. Va en el contenido (no en la
+     toolbar) para que salga también en el PDF, donde la toolbar se oculta. */
+  const chips=[];
+  if(F.ven!=='') chips.push('Vendedora: <b>'+d.VEN[Number(F.ven)]+'</b>');
+  if(F.can!=='') chips.push('Canal: <b>'+d.CAN[Number(F.can)]+'</b>');
+  A.appendChild(el(`<div class="periodbar">${ICO.cal}<span><b>${rangeLabel()}</b>${chips.length?' · '+chips.join(' · '):''}</span></div>`));
+
+  if(D.nord===0){A.appendChild(el('<div class="card"><h3>Sin ventas en este período</h3><div class="pmsg">No hay órdenes confirmadas para el filtro elegido. Probá ampliar el rango de fechas o tocar <b>Limpiar</b>.</div></div>'));return;}
 
   /* USD: si no hay cotización oficial para NINGÚN mes del filtro, no inventamos un número — avisamos */
   const usdPend=D.usdBlocked;
@@ -290,15 +506,9 @@ function render(A,D){
 
   let curTag='';
   if(CUR==='USD'){
-    if(usdPend){
-      curTag=' <span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 sin cotización oficial para este filtro</span>';
-    } else if(F.mon!==''){
-      const mLabel=d.MON[Number(F.mon)], r=RAW.rateMon[mLabel];
-      const esHoy=!!RAW.meta.curMon && mLabel===RAW.meta.curMon;
-      curTag=' <span class="bdg" style="background:var(--bg-accent);color:var(--text-accent)">USD @ $'+n0(r)+(esHoy?' (dólar de hoy)':' (prom '+monFull(mLabel)+')')+'</span>';
-    } else {
-      curTag=' <span class="bdg" style="background:var(--bg-accent);color:var(--text-accent)">USD — oficial promedio de cada mes'+(RAW.usdFecha?' · act. '+RAW.usdFecha:'')+'</span>';
-    }
+    curTag=usdPend
+      ? ' <span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 sin cotización oficial para este filtro</span>'
+      : ' <span class="bdg" style="background:var(--bg-accent);color:var(--text-accent)">USD al oficial del día de cada venta</span>';
   }
 
   const SC=[
@@ -308,7 +518,7 @@ function render(A,D){
    ['Ticket promedio',MF(D.ventas/D.nord),'por orden'],
    ['Ciclo pedido→entrega',D.ciclo.dias+' días','mediana '+D.ciclo.mediana],
   ];
-  A.appendChild(el('<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">'+SC.map(k=>
+  A.appendChild(el('<div class="kpis">'+SC.map(k=>
    `<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="ks">${k[2]}</div></div>`).join('')+'</div>'));
 
   if(CUR==='USD' && D.usdMissingMonths.length){
@@ -318,18 +528,10 @@ function render(A,D){
 
   /* 1·2 */
   sec(A,'1·2','Ventas totales por mes y por año — evolución'+curTag);
-  const mx=Math.max(...D.meses.map(x=>x.ventas),1);
-  const trend='<div class="bar">'+D.meses.map(x=>{
-    const style=x.noRate?'height:3px;background:#c3ccd6':`height:${Math.max(3,x.ventas/mx*118)}px`;
-    return `<div class="barcol" title="${x.m}: ${x.noRate?'sin cotización oficial':M(x.ventas)+' · '+x.nv+' órd'}">
-      <div class="bval">${x.noRate?'🚧':M(x.ventas)}</div><div class="barfill" style="${style}"></div>
-      <div class="blbl">${x.m}</div></div>`;
-  }).join('')+'</div>';
-  const anual=`<div style="font-size:11px;color:var(--text-muted)">Acumulado del filtro</div>
-    <div style="font-size:26px;font-weight:600;margin:2px 0">${M(D.ventas)}</div>
-    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">${n0(D.nord)} órdenes · ${n0(D.prN+D.prP)} prendas</div>
-    <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:7px 0;border-top:1px solid var(--border)"><span>Ticket promedio</span><b>${MF(D.ventas/D.nord)}</b></div>`;
-  row2(A,'Evolución mensual — ventas confirmadas',trend,'Acumulado',anual,1.5);
+  const evo=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.ventas,n:x.nv,noRate:x.noRate})),
+    {line:true,fmt:M,h:300,aria:'Facturación y cantidad de órdenes por mes'});
+  A.appendChild(el(`<div class="card"><h3>Evolución mensual — facturación y órdenes</h3>${evo}
+    ${legendHTML([{c:'var(--fill-primary)',t:'Facturación (eje izquierdo)'},{c:SERIE2,t:'Cantidad de órdenes (eje derecho)',line:1}])}</div>`));
 
   /* 3 */
   sec(A,'3','Ventas en cantidad de prendas — Pronta Entrega vs Tradicional');
@@ -371,13 +573,8 @@ function render(A,D){
 
   /* 7 */
   sec(A,'7','Ticket promedio — evolución');
-  const tick=D.meses.map(x=>({m:x.m,t:x.nv?x.ventas/x.nv:0,noRate:x.noRate}));
-  const mxt=Math.max(...tick.map(x=>x.t),1);
-  const th='<div class="bar">'+tick.map(x=>{
-    const style=x.noRate?'height:3px;background:#c3ccd6':`height:${Math.max(3,x.t/mxt*118)}px;background:#4a6da8`;
-    return `<div class="barcol" title="${x.m}: ${x.noRate?'sin cotización oficial':M(x.t)}"><div class="bval">${x.noRate?'🚧':M(x.t)}</div>
-    <div class="barfill" style="${style}"></div><div class="blbl">${x.m}</div></div>`;
-  }).join('')+'</div>';
+  const th=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.nv?x.ventas/x.nv:0,noRate:x.noRate})),
+    {fmt:M,h:230,barColor:'#4a6da8',aria:'Ticket promedio por mes'});
   A.appendChild(el(`<div class="card"><h3>Ticket promedio por mes</h3>${th}<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Global del filtro ${MF(D.ventas/D.nord)}</div></div>`));
 
   /* 8 */
@@ -430,7 +627,7 @@ function render(A,D){
 
   const usdFootNote = CUR==='USD'
     ? (usdPend ? ' Sin cotización oficial disponible para este filtro: los montos en USD no están completos.'
-       : (F.mon!=='' ? ' Convertidos a USD al oficial promedio del mes filtrado.' : ' Convertidos a USD al oficial promedio de cada mes (no un tipo de cambio único).'))
+       : ' Convertidos a USD al dólar oficial del día de cada venta (no un tipo de cambio único): si ese día no hubo publicación —finde o feriado— se arrastra el último, y si falta el día se usa el promedio del mes.')
     : ' Están en pesos (ARS); usá el switch ARS/USD arriba.';
   A.appendChild(el(`<div style="font-size:11px;color:var(--text-muted);margin-top:24px">Datos de Odoo por API · ${RAW.pull} · se actualiza solo cada 30 min · dólar oficial ${RAW.usdFuente}${RAW.usdFecha?' ('+RAW.usdFecha+')':''} · montos netos (sin IVA).${usdFootNote}</div>`));
 }
