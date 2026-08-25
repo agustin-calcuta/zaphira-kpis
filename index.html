@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<title>Zaphira — Dashboard Ventas</title>
 <base target="_top">
 <style>
 :root{
@@ -97,8 +98,72 @@ h3{font-size:15px;font-weight:600;margin:0 0 10px}
 .pmsg{font-size:12.5px;color:var(--text-secondary);line-height:1.55}
 code{background:var(--surface-1);border:1px solid var(--border);border-radius:4px;padding:0 4px;font-size:11.5px}
 
+/* ---------- login ---------- */
+#gate{position:fixed;inset:0;z-index:100;background:var(--surface-0);display:flex;align-items:center;justify-content:center;padding:24px}
+.gcard{width:100%;max-width:352px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:26px 24px;box-shadow:0 10px 34px rgba(16,24,40,.09)}
+.gcard h1{font-size:18px;font-weight:600;margin:14px 0 4px}
+.gcard .sub{font-size:12.5px;color:var(--text-secondary);margin-bottom:20px;line-height:1.5}
+.gcard label{display:block;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:4px}
+.gcard .ctl{width:100%;min-width:0;height:40px;margin-bottom:14px}
+.gcard .btn{width:100%;height:40px;background:var(--fill-primary);color:#fff;border-color:var(--fill-primary);font-size:13.5px}
+.gcard .btn:hover{background:#182f59;color:#fff}
+.gerr{font-size:12.5px;color:var(--text-danger);background:var(--bg-danger);border-radius:var(--r-sm);padding:8px 11px;margin-bottom:14px;line-height:1.45}
+.gnote{font-size:11px;color:var(--text-muted);margin-top:18px;line-height:1.5;text-align:center}
+.gsel{display:flex;gap:8px;margin-bottom:18px}
+.gopt{flex:1;min-width:0;text-align:center;font-family:inherit;border:1px solid var(--border);background:var(--surface-2);border-radius:var(--r-sm);padding:13px 10px;cursor:pointer}
+.gopt b{display:block;font-size:14px;font-weight:600;color:var(--text-primary)}
+.gopt:hover{background:var(--surface-1)}
+.gopt.on{border-color:var(--fill-primary);background:var(--bg-accent)}
+.gopt.on b{color:var(--text-accent)}
+.gopt:focus-visible{outline:none;box-shadow:var(--ring)}
+/* El logo es azul oscuro: necesita fondo claro para leerse (el header lo pone sobre blanco). */
+.gbrand{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 12px;display:inline-flex;line-height:0}
+.gbrand img{height:24px;width:auto;display:block}
+#who{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#9db4dd}
+#who b{color:#fff;font-weight:600}
+#logout{background:none;border:1px solid #3a4a68;color:#9db4dd;font-family:inherit;font-size:11.5px;border-radius:var(--r-sm);padding:4px 10px;cursor:pointer}
+#logout:hover{background:#22314f;color:#fff}
+
+/* ---------- barra de período (fuera del panel colapsable: tiene que verse siempre) ---------- */
+.perbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.perbar>svg{width:15px;height:15px;color:var(--text-muted);flex:none}
+.perlbl{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-right:2px}
+.chip{border:1px solid var(--border);background:var(--surface-2);color:var(--text-secondary);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.chip:hover{background:var(--surface-1);color:var(--text-primary)}
+.chip.on{background:var(--fill-primary);border-color:var(--fill-primary);color:#fff}
+.chip:focus-visible{outline:none;box-shadow:var(--ring)}
+.perbar .ctl{height:32px;min-width:142px;font-size:12.5px}
+.perdates{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.perdates span{font-size:12px;color:var(--text-muted)}
+
+/* ---------- variación (delta) ---------- */
+.dlt{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;white-space:nowrap;line-height:1.5}
+.dlt--up{background:var(--bg-success);color:var(--text-success)}
+.dlt--dn{background:var(--bg-danger);color:var(--text-danger)}
+.dlt--flat{background:var(--bg-neutral);color:var(--text-neutral)}
+.kpi .dlt{margin-top:5px}
+.cmpnote{font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5}
+
+/* ---------- tabla de evolución mes a mes ---------- */
+.evo{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.evo table{border-collapse:collapse;font-size:12px;white-space:nowrap}
+.evo th,.evo td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.evo th{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+.evo th:first-child,.evo td:first-child{text-align:left;position:sticky;left:0;background:var(--surface-2);font-weight:600;padding-left:0}
+.evo tbody tr:last-child td{border-bottom:0}
+.evo tr.tot td{font-weight:700;border-top:2px solid var(--border);color:var(--text-primary)}
+.evo .cellv{display:block}
+.evo .celld{display:block;font-size:10px;font-weight:700;margin-top:2px}
+.evo .up{color:var(--text-success)}
+.evo .dn{color:var(--text-danger)}
+.evo .flat{color:var(--text-muted)}
+.evo .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+
 @media print{
  header,.bar2{display:none!important}
+ #gate{display:none!important}
+ .evo{overflow-x:visible}
+ .evo th:first-child,.evo td:first-child{position:static}
  body{background:#fff}
  .wrap{padding:0}
  .mk{max-width:none}
@@ -138,6 +203,14 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
  .wrap{padding:14px 12px 44px}
  .sec{margin:22px 2px 10px}
  .sect{font-size:15px}
+ /* Los chips de período NO se colapsan con el resto de los filtros: el pedido de Ariel fue
+    justamente que el rango de fechas esté a la vista. Scrollean en horizontal en su propia fila. */
+ .perbar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;margin:9px -14px 0;padding:10px 14px 2px;scrollbar-width:none}
+ .perbar::-webkit-scrollbar{display:none}
+ .perbar>svg,.perlbl{display:none}
+ .chip{padding:7px 13px;flex:none}
+ .perdates{flex:none}
+ .perbar .ctl{height:36px;min-width:132px}
 }
 
 /* ---------- teléfono ---------- */
@@ -157,11 +230,13 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 <body>
 <header>
   <span class="brand"><img src="data:image/png;base64,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" alt="Zaphira Uniformes"></span>
-  <span class="htit">Tablero KPIs de Ventas · vista Dirección</span>
+  <span class="htit" id="htit">Dashboard Ventas</span>
+  <span id="who" hidden><span>Sesión: <b id="whoN"></b></span><button id="logout" type="button">Salir</button></span>
   <span id="fresh"></span>
 </header>
 <div id="toolbar" class="bar2"></div>
 <div class="wrap"><div class="mk" id="app"><div class="card" style="margin-top:20px"><h3>Cargando datos…</h3></div></div></div>
+<div id="gate" hidden></div>
 
 <script type="module">
 /* Frontend GitHub Pages: mismos datos que la web app de Apps Script, fetcheados de ?data=1.
@@ -177,6 +252,136 @@ const MES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Di
 const MESL=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 let CUR='ARS';
 const el=(h)=>{const d=document.createElement('div');d.innerHTML=h;return d;};
+
+/* ===== ACCESO (login liviano, del lado del navegador) =====================================
+   QUÉ RESUELVE: lo que pidió Ariel el 21/08 — que en una reunión grupal el equipo comercial no
+   vea los números de sus compañeras, y que cada vendedora pueda entrar a mirar los propios.
+
+   QUÉ *NO* RESUELVE — leer antes de prometer confidencialidad: esto segmenta la VISTA, no los
+   datos. El dataset completo se descarga igual al navegador y el endpoint ?data=1 del backend
+   sigue siendo público y anónimo. Cualquiera con conocimiento técnico ve todo. Para que sea una
+   barrera real hay que mover el recorte al backend: Apps Script validaría el usuario y devolvería
+   el dataset YA filtrado por vendedora, con un token firmado. Está anotado en el README.
+
+   DOS ACCESOS (definido con Agustín, 24/08/2026):
+     direccion → usuario "direccion", ve todo (es el tablero tal como estaba).
+     ventas    → usuario "ventas", ve todo MENOS el ranking por vendedora (5) y la conversión por
+                 vendedora (13): los dos paneles que generan comparación entre compañeras.
+
+   Las contraseñas no están acá: se guarda su SHA-256. Para cambiar una, sacá el hash nuevo con
+       printf '%s' 'la-contraseña' | shasum -a 256
+   y reemplazá el valor. (Igual, ver arriba: esto no es una barrera criptográfica.)
+
+   El rol 'vendedora' —tablero individual, sólo las ventas propias— está implementado y listo, pero
+   todavía sin usuarios asignados. Cuando Ariel defina quiénes son, alcanza con agregar una línea
+   por persona: el campo `ven` tiene que ser el nombre EXACTO que figura en Odoo (el mismo que
+   aparece en el filtro "Vendedora" del tablero).
+       {u:'vale', nombre:'Vale', rol:'vendedora', ven:'Valeria Pérez', hash:'…'},  */
+const USUARIOS=[
+  {u:'direccion', nombre:'Dirección', rol:'direccion', hash:'a1c6bd6fd30cd5c5839f2581710e0bb29ccb0ade06eda5e0c54427cdec6b29f0'},
+  {u:'ventas',    nombre:'Ventas',    rol:'equipo',    hash:'97781b406c49a3fa1d23a6cde4a0f00f91e3129680aeb3366ec8eb1d2af14698'},
+];
+const SES_KEY='zaphira_kpis_sesion', SES_HORAS=12;
+
+/* Hash SHA-256 en hexa. crypto.subtle sólo existe en contexto seguro: anda en https (GitHub Pages)
+   y en localhost, pero NO abriendo el index.html con doble clic (file://). */
+async function sha256(txt){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(txt));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function sesionGuardar(usr){
+  try{localStorage.setItem(SES_KEY,JSON.stringify({u:usr.u,exp:Date.now()+SES_HORAS*3600e3}));}catch(e){}
+}
+function sesionLeer(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SES_KEY)||'null');
+    if(!s||!s.exp||s.exp<Date.now()) return null;
+    return USUARIOS.find(x=>x.u===s.u)||null;    // si al usuario lo borraron de la lista, no entra
+  }catch(e){return null;}
+}
+function sesionBorrar(){try{localStorage.removeItem(SES_KEY);}catch(e){}}
+
+let USER=null;
+const esDireccion =()=>!!USER&&USER.rol==='direccion';
+const esVendedora =()=>!!USER&&USER.rol==='vendedora';
+/* El ranking y la conversión por vendedora son exactamente los dos paneles que Ariel pidió sacar
+   de la vista compartida ("no queremos generar esa sensación de competencia"). */
+const veComparativaEntreVendedoras=()=>esDireccion();
+
+const LOGO=()=>document.querySelector('.brand img').src;
+/* El título queda igual para todos: el chip "Sesión: …" del header ya dice con qué acceso se entró
+   y no hace falta anunciar en cada pantalla qué vista es. */
+function pintarSesion(){
+  const w=document.getElementById('who');
+  w.hidden=!USER;
+  if(USER) document.getElementById('whoN').textContent=USER.nombre||USER.u;
+}
+
+/* Accesos que se ofrecen en la pantalla de login. A propósito NO se describe qué muestra cada uno:
+   el que entra con "Ventas" no tiene por qué enterarse de qué paneles ve la Dirección. Una
+   vendedora individual, si algún día se da de alta, entra por "Entrar con otro usuario". */
+const ACCESOS=[
+  {u:'direccion', t:'Dirección'},
+  {u:'ventas',    t:'Ventas'}
+];
+
+/* Pantalla de login. Resuelve con el usuario cuando entra; nunca rechaza (reintenta en su lugar). */
+function pedirLogin(){
+  const g=document.getElementById('gate');
+  let sel=ACCESOS[0].u;
+  g.hidden=false;
+  g.innerHTML=`<form class="gcard" id="gform" autocomplete="on">
+     <span class="gbrand"><img src="${LOGO()}" alt="Zaphira Uniformes"></span>
+     <h1>Dashboard Ventas</h1>
+     <div class="sub">Elegí con qué acceso querés entrar.</div>
+     <div id="gerr"></div>
+     <div class="gsel" id="gsel">${ACCESOS.map((a,i)=>
+       `<button type="button" class="gopt${i?'':' on'}" data-u="${a.u}"><b>${a.t}</b></button>`).join('')}</div>
+     <input id="gu" name="username" autocomplete="username" value="${sel}" hidden>
+     <label for="gp">Contraseña</label>
+     <input class="ctl" id="gp" name="password" type="password" autocomplete="current-password" required>
+     <button class="btn" type="submit" id="gbtn">Entrar</button>
+     <div class="gnote"><a href="#" id="gotro" style="color:var(--text-accent)">Entrar con otro usuario</a></div>
+   </form>`;
+  const $=id=>document.getElementById(id);
+  setTimeout(()=>$('gp').focus(),40);
+
+  $('gsel').addEventListener('click',e=>{
+    const b=e.target.closest('.gopt'); if(!b) return;
+    sel=b.dataset.u; $('gu').value=sel;
+    [...$('gsel').querySelectorAll('.gopt')].forEach(x=>x.classList.toggle('on',x===b));
+    $('gp').focus();
+  });
+  /* Escape para un usuario que no está en la lista de accesos (ej. una vendedora individual). */
+  $('gotro').addEventListener('click',e=>{
+    e.preventDefault();
+    $('gsel').hidden=true; e.target.parentNode.hidden=true;
+    const i=$('gu'); i.hidden=false; i.className='ctl'; i.value=''; i.placeholder='Usuario'; i.focus();
+  });
+
+  return new Promise(resolve=>{
+    $('gform').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const btn=$('gbtn'); btn.disabled=true; btn.textContent='Verificando…';
+      const u=($('gu').value||sel).trim().toLowerCase();
+      const cand=USUARIOS.find(x=>x.u.toLowerCase()===u);
+      let h='';
+      try{ h=await sha256($('gp').value); }
+      catch(err){
+        $('gerr').innerHTML='<div class="gerr">Este navegador no puede validar la contraseña. '+
+          'Abrí el tablero por su dirección https, no como archivo local.</div>';
+        btn.disabled=false; btn.textContent='Entrar'; return;
+      }
+      if(!cand||cand.hash!==h){
+        $('gerr').innerHTML='<div class="gerr">Contraseña incorrecta.</div>';
+        $('gp').value=''; $('gp').focus();
+        btn.disabled=false; btn.textContent='Entrar'; return;
+      }
+      sesionGuardar(cand); g.hidden=true; g.innerHTML='';
+      resolve(cand);
+    });
+  });
+}
 
 /* ===== fechas =====
    Cada fila trae su día como offset entero desde meta.day0. Trabajamos siempre en UTC para que
@@ -263,24 +468,32 @@ const ICO={
   xls:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M6.5 6v7.5"/></svg>',
   x:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>'
 };
-function activeCount(){return (F.per!=='all'?1:0)+(F.ven!==''?1:0)+(F.can!==''?1:0);}
+/* El contador del botón "Filtros" ya NO cuenta el período: los chips de período viven fuera del
+   panel colapsable y se ven siempre, así que marcarlos ahí sería redundante. */
+function activeCount(){return (F.ven!==''?1:0)+(F.can!==''?1:0);}
 function syncChrome(){   /* refresca lo que depende del estado del filtro, sin re-armar la toolbar */
   const n=activeCount(), dot=document.getElementById('fDot');
   dot.textContent=n||''; dot.style.display=n?'block':'none';
-  const custom=F.per==='custom';
-  document.getElementById('wFrom').hidden=!custom;
-  document.getElementById('wTo').hidden=!custom;
+  document.getElementById('perdates').hidden=(F.per!=='custom');
+  [...document.querySelectorAll('#perbar .chip')].forEach(c=>c.classList.toggle('on',c.dataset.per===F.per));
 }
 function buildToolbar(){
   const d=RAW.dict;
-  const vens=d.VEN.map((v,i)=>({i,v})).sort((a,b)=>a.v<b.v?-1:1);
   const opt=(val,txt,sel)=>`<option value="${val}"${sel?' selected':''}>${txt}</option>`;
-  const perO=opt('all','Todo el período',1)
-    +PRESETS.map(p=>opt(p[0],p[1])).join('')
-    +opt('custom','Rango de fechas…');
-  const venO=opt('','Todas',1)+vens.map(x=>opt(x.i,x.v)).join('');
+  /* El filtro de vendedora lo ven todos: sirve para mirar los números propios y es lo que Ariel usa
+     en las reuniones individuales ("te juntás con Vale y ves la info de Vale"). Lo que NO se
+     comparte es la COMPARATIVA —ranking, evolución y conversión de todas juntas—, que es donde
+     aparece la competencia entre compañeras. Ver veComparativaEntreVendedoras().
+     Para el rol vendedora el selector queda fijo en ella (F.ven lo clava aplicarRol). */
+  const verFiltroVen=true;
+  const venO=esVendedora()
+    ? opt(F.ven, d.VEN[Number(F.ven)]!==undefined?d.VEN[Number(F.ven)]:(USER.ven||'—'), 1)
+    : opt('','Todas',1)+d.VEN.map((v,i)=>({i,v})).sort((a,b)=>a.v<b.v?-1:1).map(x=>opt(x.i,x.v)).join('');
   const canO=opt('','Todos',1)+d.CAN.map((c,i)=>opt(i,c)).join('');
   const minIso=offToIso(0), maxIso=offToIso(Math.max(MAXOFF,TODAY));
+  /* Chips de período: "Todo" primero para que el valor por defecto se vea sin scrollear en celular. */
+  const chips=[['all','Todo']].concat(PRESETS).concat([['custom','Rango a medida…']])
+    .map(p=>`<button type="button" class="chip${p[0]===F.per?' on':''}" data-per="${p[0]}">${p[1]}</button>`).join('');
   document.getElementById('toolbar').innerHTML=`
    <div class="tbar">
     <div class="fl"><label>Moneda</label><div class="seg" id="segCur" role="group" aria-label="Moneda">
@@ -288,12 +501,7 @@ function buildToolbar(){
     <button class="btn ftoggle" id="fToggle" type="button" aria-expanded="false" aria-controls="tgroup">
       ${ICO.filt} Filtros<span class="fdot" id="fDot" style="display:none"></span></button>
     <div class="tgroup" id="tgroup">
-      <div class="fl"><label for="fPer">Período</label><select class="ctl" id="fPer">${perO}</select></div>
-      <div class="fl" id="wFrom" hidden><label for="fFrom">Desde</label>
-        <input class="ctl" type="date" id="fFrom" min="${minIso}" max="${maxIso}" value="${minIso}"></div>
-      <div class="fl" id="wTo" hidden><label for="fTo">Hasta</label>
-        <input class="ctl" type="date" id="fTo" min="${minIso}" max="${maxIso}" value="${maxIso}"></div>
-      <div class="fl"><label for="fVen">Vendedora</label><select class="ctl" id="fVen">${venO}</select></div>
+      ${verFiltroVen?`<div class="fl"><label for="fVen">Vendedora</label><select class="ctl" id="fVen"${esVendedora()?' disabled':''}>${venO}</select></div>`:''}
       <div class="fl"><label for="fCan">Canal</label><select class="ctl" id="fCan">${canO}</select></div>
       <div class="actions">
         <button class="btn btn--quiet" id="reset" type="button">${ICO.x} Limpiar</button>
@@ -301,12 +509,22 @@ function buildToolbar(){
         <button class="btn" id="btnXlsx" type="button">${ICO.xls} Excel</button>
       </div>
     </div>
+   </div>
+   <div class="perbar" id="perbar" role="group" aria-label="Período">
+     ${ICO.cal}<span class="perlbl">Período</span>${chips}
+     <div class="perdates" id="perdates" hidden>
+       <input class="ctl" type="date" id="fFrom" aria-label="Desde" min="${minIso}" max="${maxIso}" value="${minIso}">
+       <span>a</span>
+       <input class="ctl" type="date" id="fTo" aria-label="Hasta" min="${minIso}" max="${maxIso}" value="${maxIso}">
+     </div>
    </div>`;
 
   const $=id=>document.getElementById(id);
   if(!HASDAY){   // dataset previo al día por fila: el período no puede filtrar todavía
-    $('fPer').disabled=true;
-    $('fPer').title='El filtro por fechas se habilita en la próxima sincronización (cada 30 min).';
+    [...document.querySelectorAll('#perbar .chip')].forEach(c=>{
+      c.disabled=true;
+      c.title='El filtro por fechas se habilita en la próxima sincronización (cada 30 min).';
+    });
   }
   $('segCur').addEventListener('click',e=>{
     const b=e.target.closest('button'); if(!b) return; CUR=b.dataset.cur;
@@ -314,8 +532,9 @@ function buildToolbar(){
   $('fToggle').addEventListener('click',()=>{
     const open=$('tgroup').classList.toggle('open');
     $('fToggle').setAttribute('aria-expanded',open?'true':'false');});
-  $('fPer').addEventListener('change',e=>{
-    setPeriod(e.target.value);
+  $('perbar').addEventListener('click',e=>{
+    const b=e.target.closest('.chip'); if(!b||b.disabled) return;
+    setPeriod(b.dataset.per);
     if(F.per==='custom'){F.from=isoToOff($('fFrom').value);F.to=isoToOff($('fTo').value);}
     syncChrome(); go();});
   const onDate=()=>{
@@ -324,11 +543,13 @@ function buildToolbar(){
     F.from=a; F.to=b; go();};
   $('fFrom').addEventListener('change',onDate);
   $('fTo').addEventListener('change',onDate);
-  $('fVen').addEventListener('change',e=>{F.ven=e.target.value; syncChrome(); go();});
+  if(verFiltroVen&&!esVendedora()) $('fVen').addEventListener('change',e=>{F.ven=e.target.value; syncChrome(); go();});
   $('fCan').addEventListener('change',e=>{F.can=e.target.value; syncChrome(); go();});
   $('reset').addEventListener('click',()=>{
-    setPeriod('all'); F.ven=''; F.can='';
-    $('fPer').value='all'; $('fVen').value=''; $('fCan').value='';
+    setPeriod('all'); F.can='';
+    // La vendedora no puede "limpiarse" a sí misma: su recorte es el rol, no un filtro.
+    if(verFiltroVen&&!esVendedora()){F.ven=''; $('fVen').value='';}
+    $('fCan').value='';
     syncChrome(); go();});
   $('btnPdf').addEventListener('click',()=>window.print());
   $('btnXlsx').addEventListener('click',()=>{
@@ -359,14 +580,51 @@ function buildToolbar(){
    Entre el deploy y la primera re-sincronización se sirve ese dataset: sin este guard, inR(undefined)
    daría false para todo y el tablero quedaría vacío. Sin días, el filtro de fechas queda inerte. */
 const HASDAY=!!(RAW.meta.day0 && RAW.O.length && RAW.O[0].length>7);
-const inR=day=>!HASDAY||((F.from===null||day>=F.from)&&(F.to===null||day<=F.to));
-const passO=o=>inR(o[7])&&(F.ven===''||o[1]==F.ven)&&(F.can===''||o[2]==F.can);
-const passL=l=>inR(l[8])&&(F.ven===''||l[1]==F.ven)&&(F.can===''||l[2]==F.can);
-const passP=p=>inR(p[5])&&(F.ven===''||p[1]==F.ven)&&(F.can===''||p[2]==F.can);
-const passC=c=>inR(c[4])&&(F.ven===''||c[1]==F.ven);
 
-function compute(){
+/* ===== período de comparación =====
+   Ariel: "los datos aislados no me sirven tanto si no puedo ver el comparativo". Todo delta del
+   tablero se mide contra ESTE rango. El criterio cambia según el preset, porque comparar un
+   "mes actual" incompleto contra la ventana de igual largo que lo precede daría un tramo a caballo
+   entre dos meses y el número no querría decir nada:
+     mes actual   → mismo tramo de días del mes anterior (1-24 ago vs 1-24 jul)
+     mes anterior → el mes completo previo a ése
+     YTD          → mismo tramo del año pasado
+     resto        → la ventana inmediatamente anterior, del mismo largo
+   "Todo el período" no compara contra nada: no hay un antes. */
+function prevRange(){
+  if(!HASDAY||F.from===null||F.to===null) return null;
+  const A=offToDate(F.from), B=offToDate(F.to);
+  const mk=(y,m,d)=>Date.UTC(y,m,d)/DAY_MS-DAY0;   // Date.UTC(y,m,0) = último día del mes m-1
+  if(F.per==='mtd'||F.per==='lastmon'){
+    const y=A.getUTCFullYear(), m=A.getUTCMonth();
+    const finMes=mk(y,m,0);
+    return [mk(y,m-1,1), F.per==='lastmon'?finMes:Math.min(mk(y,m-1,B.getUTCDate()),finMes)];
+  }
+  if(F.per==='ytd'){
+    const y=A.getUTCFullYear();
+    return [mk(y-1,0,1), mk(y-1,B.getUTCMonth(),B.getUTCDate())];
+  }
+  const largo=F.to-F.from+1;
+  return [F.from-largo, F.from-1];
+}
+function prevLabel(){
+  if(F.per==='mtd')     return 'mismo tramo del mes anterior';
+  if(F.per==='lastmon') return 'el mes previo';
+  if(F.per==='ytd')     return 'mismo tramo del año pasado';
+  const r=prevRange();
+  return r?fmtDay(r[0])+' a '+fmtDay(r[1]):'';
+}
+
+/* rng = [desde,hasta] en offsets; si no viene, se usa el filtro activo. Los filtros de vendedora y
+   canal NO se parametrizan: el comparativo tiene que mirar el mismo recorte, sólo otra fecha. */
+function compute(rng){
   const d=RAW.dict;
+  const RA=rng?rng[0]:F.from, RB=rng?rng[1]:F.to;
+  const inR=day=>!HASDAY||((RA===null||day>=RA)&&(RB===null||day<=RB));
+  const passO=o=>inR(o[7])&&(F.ven===''||o[1]==F.ven)&&(F.can===''||o[2]==F.can);
+  const passL=l=>inR(l[8])&&(F.ven===''||l[1]==F.ven)&&(F.can===''||l[2]==F.can);
+  const passP=p=>inR(p[5])&&(F.ven===''||p[1]==F.ven)&&(F.can===''||p[2]==F.can);
+  const passC=c=>inR(c[4])&&(F.ven===''||c[1]==F.ven);
   const O=RAW.O.filter(passO), L=RAW.L.filter(passL), P=RAW.P.filter(passP), C=RAW.C.filter(passC);
 
   /* conversión USD acá y sólo acá — money()/moneyFull() sólo formatean.
@@ -437,15 +695,91 @@ function compute(){
     yoy=Object.keys(ym).sort().map(y=>({y,v:ym[y].v,n:ym[y].n}));
   }
 
+  /* ===== evolución mes a mes por dimensión =====
+     Ariel: "las ventas, lo de los canales, las prendas por tipo de orden, todo eso me gustaría
+     verlo como en su evolución". Cada serie queda alineada al MISMO eje de meses (mk), así todas
+     las tablas del tablero se leen contra las mismas columnas. */
+  const mesLbl=mk.map(k=>monLabel(d.MON[k]));
+  const posMes={}; mk.forEach((k,i)=>{posMes[k]=i;});
+  function serieMes(rows,keyFn,valFn){
+    const acc={};
+    rows.forEach(r=>{
+      const k=keyFn(r); if(k==null) return;
+      const j=posMes[r[0]]; if(j===undefined) return;   // mes fuera del eje (no debería pasar)
+      (acc[k]=acc[k]||new Array(mk.length).fill(0))[j]+=valFn(r);
+    });
+    return acc;
+  }
+  /* {nombre:[v,v,…]} → [{n,v:[…],c}] en el orden pedido, descartando series enteramente en cero */
+  function aFilas(acc,orden,colores){
+    return (orden||Object.keys(acc)).filter(k=>acc[k]&&acc[k].some(v=>v))
+      .map(k=>({n:k,v:acc[k],c:(colores||{})[k]||''}));
+  }
+
+  const palCanal={'Venta directa':'#1e3a6e','Web (Tiendanube)':'#7fa3d9'};
+  const palTipo ={'Tradicional':'#1e3a6e','Pronta Entrega':'#7fa3d9'};
+  const topProv=provincia.filter(x=>!x.muted).slice(0,6).map(x=>x.n);
+  const topVend=vend.slice(0,8).map(x=>x.n);
+
+  const evo={
+    lbl: mesLbl,
+    canalMonto:  aFilas(serieMes(O,o=>d.CAN[o[2]],o=>toCur(o[0],o[7],o[6])), d.CAN, palCanal),
+    canalOrd:    aFilas(serieMes(O,o=>d.CAN[o[2]],()=>1),                    d.CAN, palCanal),
+    tipoPrendas: aFilas(serieMes(L,l=>d.TIPO[l[3]],l=>l[5]),                 d.TIPO, palTipo),
+    tipoOrdenes: aFilas(serieMes(O,o=>d.TIPO[o[3]],()=>1),                   d.TIPO, palTipo),
+    segmento:    aFilas(serieMes(L,l=>bucketOf(d.CAT[l[4]]),l=>toCur(l[0],l[8],l[7])),
+                        ['Administración','Laboral','Sanidad','Otros / Accesorios','Sin categorizar'], pal),
+    provincia:   aFilas(serieMes(O,o=>{const n=shortProv(d.PROV[o[4]]);return topProv.indexOf(n)>=0?n:null;},
+                        o=>toCur(o[0],o[7],o[6])), topProv),
+    vendedora:   aFilas(serieMes(O,o=>{const n=d.VEN[o[1]];return topVend.indexOf(n)>=0?n:null;},
+                        o=>toCur(o[0],o[7],o[6])), topVend)
+  };
+
   const usdMissingMonths=Object.keys(missMonths).sort();
   const usdBlocked=CUR==='USD' && convOk===0 && convFail>0;   // nada convertible en todo el filtro
 
-  return {meses,ventas,nord,prN,prP,ent,oN,oP,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,convvend,crmN:C.length,won,yoy,usdMissingMonths,usdBlocked};
+  return {meses,ventas,nord,prN,prP,ent,oN,oP,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,convvend,crmN:C.length,won,yoy,evo,usdMissingMonths,usdBlocked};
 }
 
 /* ===== barra horizontal (grid: label · pista · valor) ===== */
 function hb(label,pct,val,opt){opt=opt||{};const w=opt.muted?Math.min(100,pct||0):(pct||0);return `<div class="hrow"><span class="hlbl" title="${label}"${opt.muted?' style="color:var(--text-muted)"':''}>${label}</span><div class="htrack"><div class="hbar" style="width:${Math.max(2,w).toFixed(1)}%;background:${opt.color||'var(--fill-primary)'}${opt.muted?';opacity:.5':''}"></div></div><span class="hval">${val}</span></div>`;}
 function sec(A,n,t){A.appendChild(el(`<div class="sec"><span class="secn">${n}</span><span class="sect">${t}</span></div>`));}
+
+/* ===== variación porcentual =====
+   pct() devuelve null cuando no hay base contra la cual medir (base 0). Un "+100%" o un "+∞%"
+   arrancando desde cero no informa nada y se lee como un crecimiento real: mejor un guion. */
+function pct(a,b){ if(!b) return null; return (a-b)/Math.abs(b)*100; }
+function dltTxt(p){ return (p>0?'+':'')+p.toFixed(Math.abs(p)<10?1:0)+'%'; }
+function dltCls(p){ return p===null?'flat':(Math.abs(p)<0.5?'flat':(p>0?'up':'dn')); }
+function dltBadge(a,b,titulo){
+  const p=pct(a,b);
+  const t=titulo?` title="${titulo}"`:'';
+  if(p===null) return `<span class="dlt dlt--flat" title="Sin base de comparación en el período anterior">—</span>`;
+  return `<span class="dlt dlt--${dltCls(p)}"${t}>${dltTxt(p)}</span>`;
+}
+
+/* ===== tabla de evolución mes a mes =====
+   Una fila por serie, una columna por mes, y debajo de cada valor su variación contra el mes
+   anterior de la misma fila. Reemplaza el "filtrar junio, anotar el número, filtrar julio,
+   comparar a mano" que describió Ariel. La última fila totaliza salvo que haya una sola serie. */
+function evoTable(lbl,filas,fmt,opt){
+  opt=opt||{};
+  if(!filas.length) return '<div class="pmsg">Sin datos para este filtro.</div>';
+  const celda=(v,prev,i)=>{
+    const p=i===0?null:pct(v,prev);
+    return `<td><span class="cellv">${fmt(v)}</span><span class="celld ${dltCls(p)}">${p===null?'·':dltTxt(p)}</span></td>`;
+  };
+  const body=filas.map(f=>`<tr><td>${f.c?`<i class="sw" style="background:${f.c}"></i>`:''}${f.n}</td>`
+    +f.v.map((v,i)=>celda(v,f.v[i-1],i)).join('')+'</tr>').join('');
+  let tot='';
+  if(opt.total!==false&&filas.length>1){
+    const t=lbl.map((_,i)=>filas.reduce((s,f)=>s+f.v[i],0));
+    tot=`<tr class="tot"><td>Total</td>`+t.map((v,i)=>celda(v,t[i-1],i)).join('')+'</tr>';
+  }
+  return `<div class="evo"><table><thead><tr><th></th>${lbl.map(m=>`<th>${m}</th>`).join('')}</tr></thead>`
+    +`<tbody>${body}${tot}</tbody></table></div>`
+    +`<div class="cmpnote">Debajo de cada valor, la variación contra el mes anterior.</div>`;
+}
 
 /* ===== gráfico de columnas + línea opcional en eje secundario =====
    SVG (no divs) porque la línea necesita coordenadas reales. Las etiquetas de valor van con halo
@@ -481,7 +815,8 @@ function chartSVG(pts,opt){
   const line=!!opt.line, fmt=opt.fmt||n0;
   /* W ≈ ancho real de la tarjeta: si el viewBox fuera más angosto, el SVG se escalaría hacia
      arriba y tanto la altura como las tipografías crecerían de más. */
-  const W=1000,H=opt.h||230,pl=74,pr=line?64:24,tp=14,bt=28;
+  /* Con opt.delta se reserva una segunda línea abajo para la variación mes contra mes. */
+  const W=1000,H=opt.h||230,pl=74,pr=line?64:24,tp=14,bt=opt.delta?44:28;
   const iw=W-pl-pr, ih=H-tp-bt;
   const maxV=niceMax(Math.max.apply(null,pts.map(p=>p.v).concat([0])));
   const maxN=niceMax(Math.max.apply(null,pts.map(p=>p.n||0).concat([0])));
@@ -509,7 +844,17 @@ function chartSVG(pts,opt){
     lbl+=inside
       ? `<text x="${x.toFixed(1)}" y="${lblY[i].toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">${txt}</text>`
       : `<text x="${x.toFixed(1)}" y="${lblY[i].toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-secondary)" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${txt}</text>`;
-    lbl+=`<text x="${x.toFixed(1)}" y="${(H-8).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--text-muted)">${p.lbl}</text>`;
+    lbl+=`<text x="${x.toFixed(1)}" y="${((opt.delta?H-24:H-8)).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--text-muted)">${p.lbl}</text>`;
+    /* Variación contra el mes anterior, debajo del nombre del mes. Se omite en el primer mes (no
+       tiene con qué comparar) y en los meses sin cotización, donde el valor es 0 por falta de dato
+       y no por falta de ventas: ahí un "-100%" sería directamente falso. */
+    if(opt.delta&&i>0&&!p.noRate&&!pts[i-1].noRate){
+      const pv=pct(p.v,pts[i-1].v);
+      if(pv!==null){
+        const col=Math.abs(pv)<0.5?'var(--text-muted)':(pv>0?'var(--text-success)':'var(--text-danger)');
+        lbl+=`<text x="${x.toFixed(1)}" y="${(H-7).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${col}">${dltTxt(pv)}</text>`;
+      }
+    }
   });
   let ln='';
   if(line){
@@ -532,9 +877,13 @@ const legendHTML=items=>'<div class="legend">'+items.map(x=>
 function row2(A,h1,c1,h2,c2,flex1){A.appendChild(el(`<div class="duo"><div class="card" style="flex:${flex1||1};min-width:min(300px,100%)"><h3>${h1}</h3>${c1}</div><div class="card" style="flex:1;min-width:min(260px,100%)"><h3>${h2}</h3>${c2}</div></div>`));}
 
 /* ===== render ===== */
-function go(){const app=document.getElementById('app'); app.innerHTML=''; render(app,compute());}
+function go(){
+  const app=document.getElementById('app'); app.innerHTML='';
+  const pr=prevRange();                       // null en "Todo el período": no hay un antes
+  render(app,compute(),pr?compute(pr):null);
+}
 
-function render(A,D){
+function render(A,D,PREV){
   const d=RAW.dict;
   document.getElementById('fresh').textContent='Odoo · '+RAW.pull+(rate?(' · dólar oficial $'+n0(rate)+(RAW.usdFecha?' al '+fmtFecha(RAW.usdFecha):'')):'');
 
@@ -559,27 +908,45 @@ function render(A,D){
       : ' <span class="bdg" style="background:var(--bg-accent);color:var(--text-accent)">USD al oficial del día de cada venta</span>';
   }
 
+  /* KPIs con su variación contra el período de comparación (ver prevRange). Sin período elegido
+     —"Todo el período"— no hay contra qué medir y las tarjetas salen sin badge. */
+  const tk=D.nord?D.ventas/D.nord:0, tkP=PREV&&PREV.nord?PREV.ventas/PREV.nord:0;
+  const cmpT=PREV?'vs '+prevLabel():'';
   const SC=[
-   ['Ventas confirmadas',M(D.ventas),n0(D.nord)+' órdenes'],
-   ['Órdenes',n0(D.nord),'confirmadas'],
-   ['Prendas vendidas',n0(D.prN+D.prP),'unidades'],
-   ['Ticket promedio',MF(D.ventas/D.nord),'por orden'],
-   ['Ciclo pedido→entrega',D.ciclo.dias+' días','mediana '+D.ciclo.mediana],
+   {l:'Ventas confirmadas',v:M(D.ventas),      s:n0(D.nord)+' órdenes',  a:D.ventas,     b:PREV&&PREV.ventas},
+   {l:'Órdenes',           v:n0(D.nord),       s:'confirmadas',          a:D.nord,       b:PREV&&PREV.nord},
+   {l:'Prendas vendidas',  v:n0(D.prN+D.prP),  s:'unidades',             a:D.prN+D.prP,  b:PREV&&(PREV.prN+PREV.prP)},
+   {l:'Ticket promedio',   v:MF(tk),           s:'por orden',            a:tk,           b:tkP},
+   {l:'Ciclo pedido→entrega',v:D.ciclo.dias+' días',s:'mediana '+D.ciclo.mediana},
   ];
   A.appendChild(el('<div class="kpis">'+SC.map(k=>
-   `<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="ks">${k[2]}</div></div>`).join('')+'</div>'));
+   `<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div>`
+   +(PREV&&k.a!==undefined&&!usdPend?dltBadge(k.a,k.b,cmpT):'')+'</div>').join('')+'</div>'));
+  if(PREV) A.appendChild(el(`<div class="cmpnote" style="margin:-2px 2px 10px">Las variaciones comparan contra ${prevLabel()}.</div>`));
 
   if(CUR==='USD' && D.usdMissingMonths.length){
     const lbl=D.usdMissingMonths.map(monFull).join(', ');
     A.appendChild(el(`<div class="card pend" style="margin-bottom:14px;padding:10px 14px"><div class="pmsg">🚧 <b>En construcción:</b> todavía no hay cotización oficial promedio para ${lbl}. Esos meses quedan afuera de los totales en USD hasta que se cargue.</div></div>`));
   }
 
-  /* 1·2 */
-  sec(A,'1·2','Ventas totales por mes y por año — evolución'+curTag);
-  const evo=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.ventas,n:x.nv,noRate:x.noRate})),
-    {line:true,fmt:M,h:235,aria:'Facturación y cantidad de órdenes por mes'});
-  A.appendChild(el(`<div class="card"><h3>Evolución mensual — facturación y órdenes</h3>${evo}
-    ${legendHTML([{c:'var(--fill-primary)',t:'Facturación (eje izquierdo)'},{c:SERIE2,t:'Cantidad de órdenes (eje derecho)',line:1}])}</div>`));
+  /* Órdenes que Odoo dejó confirmadas pero cuya facturación se reversó entera con nota de crédito:
+     el backend ya las sacó de todos los números. Se avisa para que el total no parezca "faltante". */
+  if(RAW.meta.anuladasN){
+    A.appendChild(el(`<div class="card" style="margin-bottom:14px;padding:10px 14px;border-color:var(--bg-warning)"><div class="pmsg">`
+      +`<b>${n0(RAW.meta.anuladasN)} ${RAW.meta.anuladasN===1?'orden confirmada quedó':'órdenes confirmadas quedaron'} anulada${RAW.meta.anuladasN===1?'':'s'} por nota de crédito</b> `
+      +`($ ${n0(RAW.meta.anuladasMonto||0)} netos) y no se cuenta${RAW.meta.anuladasN===1?'':'n'} como venta en ningún indicador.`
+      +`</div></div>`));
+  }
+
+  /* 1·2 — el rótulo dice "ventas confirmadas" y no "facturación" a propósito: el dato sale de las
+     órdenes de venta cerradas en Odoo (criterio comercial, imputado a la fecha en que se vendió),
+     no del módulo de facturación. Decirle "facturación" fue lo que hizo dudar del número. */
+  sec(A,'1·2','Ventas confirmadas por mes y por año — evolución'+curTag);
+  const evoChart=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.ventas,n:x.nv,noRate:x.noRate})),
+    {line:true,delta:true,fmt:M,h:265,aria:'Ventas confirmadas y cantidad de órdenes por mes, con variación mensual'});
+  A.appendChild(el(`<div class="card"><h3>Evolución mensual — ventas y órdenes de compra</h3>${evoChart}
+    ${legendHTML([{c:'var(--fill-primary)',t:'Ventas confirmadas (eje izquierdo)'},{c:SERIE2,t:'Órdenes de compra (eje derecho)',line:1}])}
+    <div class="cmpnote">Bajo cada mes, la variación del monto contra el mes anterior. Monto neto sin IVA de las órdenes cerradas en Odoo, imputado a la fecha de la venta.</div></div>`));
 
   /* 3 */
   sec(A,'3','Ventas en cantidad de prendas — Pronta Entrega vs Tradicional');
@@ -592,6 +959,10 @@ function render(A,D){
      <div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#7fa3d9"></span> Pronta Entrega: <b>${n0(D.prP)} u</b> (${Math.round(100-pp)}%)</div></div></div>`;
   const dpr2=`<b>${n0(tp)} prendas</b> en total. Órdenes: Tradicional ${n0(D.oN)} · Pronta Entrega ${n0(D.oP)}. Entregadas hasta hoy: <b>${n0(D.ent)} u</b> — el resto es backlog (KPI 11).`;
   row2(A,'Prendas por tipo de orden',dpr,'Lectura','<div class="pmsg">'+dpr2+'</div>',1);
+  A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes — prendas y órdenes por tipo</h3>
+    ${evoTable(D.evo.lbl,D.evo.tipoPrendas,n0)}
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <h3>Órdenes por tipo</h3>${evoTable(D.evo.lbl,D.evo.tipoOrdenes,n0)}</div></div>`));
 
   /* 4 */
   sec(A,'4','Year to Year');
@@ -605,25 +976,39 @@ function render(A,D){
     A.appendChild(el('<div class="card pend"><div class="pmsg"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> Se activa cuando haya 2+ años de datos en Odoo.</div></div>'));
   }
 
-  /* 5 */
-  sec(A,'5','Ventas por vendedora');
-  const mxv=D.vend[0]?D.vend[0].monto:1;
-  const vh=D.vend.map(x=>hb(x.n,x.monto/mxv*100,M(x.monto)+' · '+n0(x.ops)+' órd.')).join('');
-  A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web (Tiendanube)" = órdenes automáticas sin vendedora.</div></div>`));
+  /* 5 — el ranking es uno de los dos paneles que Ariel pidió sacar de la vista compartida.
+     Dirección lo ve completo; una vendedora ve su propia evolución (son sus datos); en la vista
+     Ventas la sección desaparece entera, sin cartel: quien entra por ahí no tiene por qué saber
+     que existe un panel que no está viendo. La numeración de secciones salta y está bien así. */
+  if(veComparativaEntreVendedoras()){
+    sec(A,'5','Ventas por vendedora');
+    const mxv=D.vend[0]?D.vend[0].monto:1;
+    const vh=D.vend.map(x=>hb(x.n,x.monto/mxv*100,M(x.monto)+' · '+n0(x.ops)+' órd.')).join('');
+    A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web (Tiendanube)" = órdenes automáticas sin vendedora.</div></div>`));
+    A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por vendedora</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M)}</div>`));
+  } else if(esVendedora()){
+    sec(A,'5','Tus ventas mes a mes');
+    A.appendChild(el(`<div class="card"><h3>Tu evolución</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M,{total:false})}</div>`));
+  }
 
   /* 6 */
   sec(A,'6','Ventas por canal — comparativo e incidencia');
   const totM=D.web.m+D.pres.m||1, totO=D.web.n+D.pres.n||1;
   const cr=(nm,dd,col)=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${nm}</span><b>${M(dd.m)} · ${n0(dd.n)} órd.</b></div>
     <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${(dd.m/totM*100).toFixed(1)}%;height:10px;border-radius:4px;background:${col};opacity:.8"></div></div>
-    <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">${Math.round(dd.m/totM*100)}% facturación · ${Math.round(dd.n/totO*100)}% órdenes</div></div>`;
+    <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">${Math.round(dd.m/totM*100)}% del monto · ${Math.round(dd.n/totO*100)}% de las órdenes</div></div>`;
   A.appendChild(el(`<div class="card"><h3>Venta directa vs Web</h3>${cr('Venta directa',D.pres,'#1e3a6e')+cr('Web (Tiendanube)',D.web,'#7fa3d9')}</div>`));
+  A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por canal${curTag}</h3>
+    ${evoTable(D.evo.lbl,D.evo.canalMonto,M)}
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <h3>Órdenes por canal</h3>${evoTable(D.evo.lbl,D.evo.canalOrd,n0)}</div></div>`));
 
   /* 7 */
   sec(A,'7','Ticket promedio — evolución');
   const th=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.nv?x.ventas/x.nv:0,noRate:x.noRate})),
-    {fmt:M,h:195,barColor:'#4a6da8',aria:'Ticket promedio por mes'});
-  A.appendChild(el(`<div class="card"><h3>Ticket promedio por mes</h3>${th}<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Global del filtro ${MF(D.ventas/D.nord)}</div></div>`));
+    {fmt:M,delta:true,h:225,barColor:'#4a6da8',aria:'Ticket promedio por mes, con variación mensual'});
+  A.appendChild(el(`<div class="card"><h3>Ticket promedio por mes</h3>${th}<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Global del filtro ${MF(tk)}`
+    +(PREV&&!usdPend?' '+dltBadge(tk,tkP,cmpT):'')+`</div></div>`));
 
   /* 8 */
   sec(A,'8','Ventas por industria');
@@ -635,6 +1020,9 @@ function render(A,D){
   const mxp=Math.max(...provinciaNoMuted.map(x=>x.v),1);
   const gh=D.provincia.map(x=>hb(x.n,x.v/mxp*100,M(x.v),{muted:x.muted,color:x.muted?'#c3ccd6':'#1e3a6e'})).join('');
   A.appendChild(el(`<div class="card"><h3>Ventas por provincia</h3>${gh}</div>`));
+  A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes — 6 provincias principales${curTag}</h3>
+    ${evoTable(D.evo.lbl,D.evo.provincia,M)}
+    <div class="cmpnote">El total de estas filas no es el total del período: quedan afuera las provincias fuera del top 6 y los clientes sin provincia cargada.</div></div>`));
 
   /* 10 */
   sec(A,'10','Ventas por tamaño del cliente');
@@ -662,16 +1050,25 @@ function render(A,D){
   const ch=D.cat.map(x=>hb(x.n,x.v/mxc*100,M(x.v)+' · '+x.p+'%',{color:'#4a6da8'})).join('');
   row2(A,'Por segmento (mapeo)',bh,
     'Categorías reales de Odoo',ch,1);
+  A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por segmento${curTag}</h3>
+    ${evoTable(D.evo.lbl,D.evo.segmento,M)}</div>`));
 
   /* 13 */
-  sec(A,'13','Tasas de conversión — vendedora y etapa del embudo');
+  sec(A,'13',veComparativaEntreVendedoras()?'Tasas de conversión — vendedora y etapa del embudo':'Tasas de conversión — etapas del embudo');
   const mxf=Math.max(...D.funnel.map(x=>x.v),1);
   const fh=D.funnel.map(x=>hb(x.n,x.v/mxf*100,'<b>'+n0(x.v)+'</b>',{color:x.win?'#2f7d4f':x.lost?'#b23b3b':'#4a6da8'})).join('');
   const wonPct=D.crmN?Math.round(100*D.won/D.crmN):0;
   const cvh=D.convvend.map(x=>{const p=Math.round(100*x.w/x.t);return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${p}% <span style="color:var(--text-muted);font-weight:400">(${x.w}/${x.t})</span></b></div>
     <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${p}%;height:10px;border-radius:4px;background:${p>=60?'#2f7d4f':p>=45?'#4a6da8':'#8a6a1f'};opacity:.8"></div></div></div>`;}).join('')||'<div class="pmsg">Sin oportunidades para este filtro.</div>';
-  row2(A,'Embudo CRM por etapa',fh+`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${n0(D.crmN)} oportunidades · <b>${n0(D.won)} ganadas (${wonPct}%)</b></div>`,
-    'Conversión por vendedora',cvh,1);
+  /* El segundo panel que Ariel pidió sacar de la vista compartida. La vendedora sí ve el suyo:
+     el filtro ya la dejó sola en el recorte, así que no hay dato de nadie más. En la vista Ventas
+     el embudo pasa a ocupar la tarjeta entera, sin dejar hueco ni cartel de "no disponible". */
+  const embudo=fh+`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${n0(D.crmN)} oportunidades · <b>${n0(D.won)} ganadas (${wonPct}%)</b></div>`;
+  if(veComparativaEntreVendedoras()||esVendedora()){
+    row2(A,'Embudo CRM por etapa',embudo,esVendedora()?'Tu conversión':'Conversión por vendedora',cvh,1);
+  } else {
+    A.appendChild(el(`<div class="card"><h3>Embudo CRM por etapa</h3>${embudo}</div>`));
+  }
 
   const usdFootNote = CUR==='USD'
     ? (usdPend ? ' Sin cotización oficial disponible para este filtro: los montos en USD no están completos.'
@@ -681,11 +1078,38 @@ function render(A,D){
 }
 
 /* ===== arranque (al final: ya están definidas todas las const/función) ===== */
-if(!RAW || !RAW.O || !RAW.O.length){
-  document.getElementById('app').innerHTML='<div class="card" style="margin-top:20px"><h3>'+(RAW&&RAW._err?'No se pudieron cargar los datos':'Todavía no hay datos')+'</h3><div class="pmsg">'+(RAW&&RAW._err?('Error: '+RAW._err+'. Recargá la página; si sigue, avisá a Calcuta.'):'El servidor todavía no sincronizó con Odoo. Probá recargar en unos minutos.')+'</div></div>';
-} else {
+document.getElementById('logout').addEventListener('click',()=>{sesionBorrar();location.reload();});
+
+/* Deja el filtro clavado en la vendedora que inició sesión, ANTES de dibujar nada. Si su nombre no
+   coincide con ninguno de Odoo devuelve false: sin ese corte el filtro quedaría en "Todas" y vería
+   el tablero completo, que es justo lo contrario de lo que se pidió. */
+function aplicarRol(){
+  if(!esVendedora()) return true;
+  const i=(RAW.dict.VEN||[]).indexOf(USER.ven);
+  if(i<0) return false;
+  F.ven=String(i);
+  return true;
+}
+
+async function arrancar(){
+  const app=document.getElementById('app');
+  if(!RAW || !RAW.O || !RAW.O.length){
+    app.innerHTML='<div class="card" style="margin-top:20px"><h3>'+(RAW&&RAW._err?'No se pudieron cargar los datos':'Todavía no hay datos')+'</h3><div class="pmsg">'+(RAW&&RAW._err?('Error: '+RAW._err+'. Recargá la página; si sigue, avisá a Calcuta.'):'El servidor todavía no sincronizó con Odoo. Probá recargar en unos minutos.')+'</div></div>';
+    return;
+  }
+
+  USER = sesionLeer() || await pedirLogin();
+  pintarSesion();
+
+  if(!aplicarRol()){
+    app.innerHTML='<div class="card" style="margin-top:20px"><h3>No encontramos tus ventas</h3>'
+      +'<div class="pmsg">Tu usuario está asociado a <b>'+(USER.ven||'(sin asignar)')+'</b>, '
+      +'que no figura con ese nombre exacto entre las vendedoras de Odoo. Avisale a Calcuta para corregirlo.</div></div>';
+    return;
+  }
   buildToolbar(); go();
 }
+arrancar();
 </script>
 <footer class="made">Desarrollado por <b>CALCUTA</b></footer>
 </body>
