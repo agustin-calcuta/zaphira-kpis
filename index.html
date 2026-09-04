@@ -121,6 +121,21 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 .gbrand img{height:24px;width:auto;display:block}
 #who{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#9db4dd}
 #who b{color:#fff;font-weight:600}
+#chgpwd{background:none;border:1px solid #3a4a68;color:#9db4dd;font-family:inherit;font-size:11.5px;border-radius:var(--r-sm);padding:3px 9px;cursor:pointer;margin-right:6px}
+#chgpwd:hover{background:#22314f;color:#fff}
+.ofila{display:grid;grid-template-columns:minmax(140px,200px) 1fr;gap:10px;align-items:center;margin-bottom:8px}
+.ofila label{font-size:13px;color:var(--text-muted)}
+.ofila .ctl{width:100%}
+.ohint{font-size:11px;color:var(--text-muted);margin-top:3px;font-variant-numeric:tabular-nums}
+.altaform{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 20px}
+.tblwrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:520px}
+.tbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);padding:6px 10px 6px 0;border-bottom:1px solid var(--border)}
+.tbl td{padding:9px 10px 9px 0;border-bottom:1px solid var(--border);vertical-align:top}
+.objbar{margin-top:6px}
+.objtrack{background:var(--surface-1);border-radius:5px;height:14px;overflow:hidden}
+.objfill{height:14px;border-radius:5px;transition:width .4s ease}
+@media (max-width:560px){.ofila{grid-template-columns:1fr;gap:4px}}
 #logout{background:none;border:1px solid #3a4a68;color:#9db4dd;font-family:inherit;font-size:11.5px;border-radius:var(--r-sm);padding:4px 10px;cursor:pointer}
 #logout:hover{background:#22314f;color:#fff}
 
@@ -146,10 +161,16 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 
 /* ---------- tabla de evolución mes a mes ---------- */
 .evo{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.evo table{border-collapse:collapse;font-size:12px;white-space:nowrap}
+/* La tabla ocupa el ancho del contenedor y las columnas de mes se reparten el sobrante en partes
+   iguales: con pocos meses no queda apretada contra la izquierda dejando un hueco, y a medida que
+   se suman meses cada columna se achica sola. El `width:1%` de la primera columna es el truco que
+   la deja tomar sólo lo que necesita el rótulo; el resto del ancho va a los meses.
+   Cuando ya no entran (muchos meses en pantalla chica) el nowrap impide que se compriman más allá
+   de lo legible y aparece el scroll horizontal del contenedor. */
+.evo table{border-collapse:collapse;font-size:12px;white-space:nowrap;width:100%;table-layout:auto}
 .evo th,.evo td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border)}
 .evo th{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
-.evo th:first-child,.evo td:first-child{text-align:left;position:sticky;left:0;background:var(--surface-2);font-weight:600;padding-left:0}
+.evo th:first-child,.evo td:first-child{text-align:left;position:sticky;left:0;background:var(--surface-2);font-weight:600;padding-left:0;width:1%;padding-right:18px}
 .evo tbody tr:last-child td{border-bottom:0}
 .evo tr.tot td{font-weight:700;border-top:2px solid var(--border);color:var(--text-primary)}
 .evo .cellv{display:block}
@@ -231,7 +252,7 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 <header>
   <span class="brand"><img src="data:image/png;base64,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" alt="Zaphira Uniformes"></span>
   <span class="htit" id="htit">Dashboard Ventas</span>
-  <span id="who" hidden><span>Sesión: <b id="whoN"></b></span><button id="logout" type="button">Salir</button></span>
+  <span id="who" hidden><span>Sesión: <b id="whoN"></b></span><button id="chgpwd" type="button">Cambiar clave</button><button id="logout" type="button">Salir</button></span>
   <span id="fresh"></span>
 </header>
 <div id="toolbar" class="bar2"></div>
@@ -239,149 +260,187 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 <div id="gate" hidden></div>
 
 <script type="module">
-/* Frontend GitHub Pages: mismos datos que la web app de Apps Script, fetcheados de ?data=1.
-   type="module" habilita await top-level: todo lo de abajo corre recién con RAW resuelto. */
+/* Frontend GitHub Pages. Los datos ya NO se piden con ?data=1 (que devolvía el dataset entero a
+   cualquiera): se piden por POST con el token de la sesión, y el backend los manda recortados.
+   type="module" habilita await top-level: todo lo de abajo corre recién con la sesión resuelta. */
 const EXEC_URL='https://script.google.com/macros/s/AKfycbxkBFVGB9x-Z1VDpONduRf2VruGhQdkl4-F3fNEMCLluZhbyU3nt2rSdyp9Rbu0pWhs/exec';
-const RAW = await fetch(EXEC_URL+'?data=1').then(r=>r.json()).catch(err=>({_err:String((err&&err.message)||err)}));
-RAW.meta = RAW.meta || {};
-RAW.rateMon = RAW.rateMon || {};
-RAW.usdFuente = RAW.usdFuente || '';
-RAW.usdFecha = RAW.usdFecha || '';
-RAW.rateDay = RAW.rateDay || [];
 const MES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MESL=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 let CUR='ARS';
 const el=(h)=>{const d=document.createElement('div');d.innerHTML=h;return d;};
 
-/* ===== ACCESO (login liviano, del lado del navegador) =====================================
-   QUÉ RESUELVE: lo que pidió Ariel el 21/08 — que en una reunión grupal el equipo comercial no
-   vea los números de sus compañeras, y que cada vendedora pueda entrar a mirar los propios.
+/* ===== ACCESO ============================================================================
+   Cada vendedora entra con su usuario y ve SÓLO sus ventas. El recorte lo hace el servidor:
+   el dataset que llega al navegador ya viene filtrado, y el diccionario de vendedoras trae
+   únicamente su nombre. Dirección entra con su propio usuario y ve todo.
 
-   QUÉ *NO* RESUELVE — leer antes de prometer confidencialidad: esto segmenta la VISTA, no los
-   datos. El dataset completo se descarga igual al navegador y el endpoint ?data=1 del backend
-   sigue siendo público y anónimo. Cualquiera con conocimiento técnico ve todo. Para que sea una
-   barrera real hay que mover el recorte al backend: Apps Script validaría el usuario y devolvería
-   el dataset YA filtrado por vendedora, con un token firmado. Está anotado en el README.
+   Acá no hay ninguna contraseña ni hash: los usuarios viven en la planilla del backend. Este
+   archivo es público (GitHub Pages) y no tiene que contener nada secreto.
 
-   DOS ACCESOS (definido con Agustín, 24/08/2026):
-     direccion → usuario "direccion", ve todo (es el tablero tal como estaba).
-     ventas    → usuario "ventas", ve todo MENOS el ranking por vendedora (5) y la conversión por
-                 vendedora (13): los dos paneles que generan comparación entre compañeras.
+   Contraseña inicial genérica + cambio obligatorio en el primer ingreso; los reseteos los hace
+   Dirección desde Configuración. La sesión dura 12 h y la marca el token, no el navegador. */
 
-   Las contraseñas no están acá: se guarda su SHA-256. Para cambiar una, sacá el hash nuevo con
-       printf '%s' 'la-contraseña' | shasum -a 256
-   y reemplazá el valor. (Igual, ver arriba: esto no es una barrera criptográfica.)
-
-   El rol 'vendedora' —tablero individual, sólo las ventas propias— está implementado y listo, pero
-   todavía sin usuarios asignados. Cuando Ariel defina quiénes son, alcanza con agregar una línea
-   por persona: el campo `ven` tiene que ser el nombre EXACTO que figura en Odoo (el mismo que
-   aparece en el filtro "Vendedora" del tablero).
-       {u:'vale', nombre:'Vale', rol:'vendedora', ven:'Valeria Pérez', hash:'…'},  */
-const USUARIOS=[
-  {u:'direccion', nombre:'Dirección', rol:'direccion', hash:'a1c6bd6fd30cd5c5839f2581710e0bb29ccb0ade06eda5e0c54427cdec6b29f0'},
-  {u:'ventas',    nombre:'Ventas',    rol:'equipo',    hash:'97781b406c49a3fa1d23a6cde4a0f00f91e3129680aeb3366ec8eb1d2af14698'},
-];
-const SES_KEY='zaphira_kpis_sesion', SES_HORAS=12;
-
-/* Hash SHA-256 en hexa. crypto.subtle sólo existe en contexto seguro: anda en https (GitHub Pages)
-   y en localhost, pero NO abriendo el index.html con doble clic (file://). */
-async function sha256(txt){
-  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(txt));
-  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+/* POST con Content-Type text/plain a propósito: con application/json el navegador manda antes un
+   preflight OPTIONS, y Apps Script no lo contesta — el pedido moriría sin llegar al servidor.
+   El cuerpo sigue siendo JSON; lo único que cambia es el rótulo. */
+async function api(op,extra){
+  const r=await fetch(EXEC_URL,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(Object.assign({op},extra||{}))
+  });
+  return r.json();
 }
-function sesionGuardar(usr){
-  try{localStorage.setItem(SES_KEY,JSON.stringify({u:usr.u,exp:Date.now()+SES_HORAS*3600e3}));}catch(e){}
-}
+
+const SES_KEY='zaphira_sesion_v2';
+function sesionGuardar(s){ try{localStorage.setItem(SES_KEY,JSON.stringify(s));}catch(e){} }
 function sesionLeer(){
   try{
     const s=JSON.parse(localStorage.getItem(SES_KEY)||'null');
-    if(!s||!s.exp||s.exp<Date.now()) return null;
-    return USUARIOS.find(x=>x.u===s.u)||null;    // si al usuario lo borraron de la lista, no entra
-  }catch(e){return null;}
+    return (s&&s.token)?s:null;    // el vencimiento lo valida el servidor, no el navegador
+  }catch(e){ return null; }
 }
-function sesionBorrar(){try{localStorage.removeItem(SES_KEY);}catch(e){}}
+function sesionBorrar(){ try{localStorage.removeItem(SES_KEY);}catch(e){} }
 
 let USER=null;
+let OBJETIVO={mes:'',empresa:0,mio:0,vendedoras:{}};
 const esDireccion =()=>!!USER&&USER.rol==='direccion';
 const esVendedora =()=>!!USER&&USER.rol==='vendedora';
-/* El ranking y la conversión por vendedora son exactamente los dos paneles que Ariel pidió sacar
-   de la vista compartida ("no queremos generar esa sensación de competencia"). */
+/* El ranking y la conversión por vendedora son los dos paneles que comparan compañeras entre sí:
+   los ve sólo Dirección. Una vendedora ya recibe el dataset con una sola persona adentro. */
 const veComparativaEntreVendedoras=()=>esDireccion();
 
 const LOGO=()=>document.querySelector('.brand img').src;
-/* El título queda igual para todos: el chip "Sesión: …" del header ya dice con qué acceso se entró
-   y no hace falta anunciar en cada pantalla qué vista es. */
 function pintarSesion(){
   const w=document.getElementById('who');
   w.hidden=!USER;
-  if(USER) document.getElementById('whoN').textContent=USER.nombre||USER.u;
+  if(USER) document.getElementById('whoN').textContent=USER.nombre||USER.usuario;
 }
 
-/* Accesos que se ofrecen en la pantalla de login. A propósito NO se describe qué muestra cada uno:
-   el que entra con "Ventas" no tiene por qué enterarse de qué paneles ve la Dirección. Una
-   vendedora individual, si algún día se da de alta, entra por "Entrar con otro usuario". */
-const ACCESOS=[
-  {u:'direccion', t:'Dirección'},
-  {u:'ventas',    t:'Ventas'}
-];
-
-/* Pantalla de login. Resuelve con el usuario cuando entra; nunca rechaza (reintenta en su lugar). */
-function pedirLogin(){
+/* Cáscara común de las pantallas a pantalla completa (login y cambio de clave). */
+function gate(html){
   const g=document.getElementById('gate');
-  let sel=ACCESOS[0].u;
-  g.hidden=false;
-  g.innerHTML=`<form class="gcard" id="gform" autocomplete="on">
+  g.hidden=false; g.innerHTML=html;
+  return id=>document.getElementById(id);
+}
+function cerrarGate(){
+  const g=document.getElementById('gate');
+  g.hidden=true; g.innerHTML='';
+}
+
+/* Pantalla de login. Resuelve con la sesión cuando entra; nunca rechaza (reintenta en su lugar).
+   No se ofrece una lista de usuarios: publicar quién tiene acceso no le sirve a quien entra y sí
+   a quien no debería. */
+function pedirLogin(msg){
+  const $=gate(`<form class="gcard" id="gform" autocomplete="on">
      <span class="gbrand"><img src="${LOGO()}" alt="Zaphira Uniformes"></span>
      <h1>Dashboard Ventas</h1>
-     <div class="sub">Elegí con qué acceso querés entrar.</div>
-     <div id="gerr"></div>
-     <div class="gsel" id="gsel">${ACCESOS.map((a,i)=>
-       `<button type="button" class="gopt${i?'':' on'}" data-u="${a.u}"><b>${a.t}</b></button>`).join('')}</div>
-     <input id="gu" name="username" autocomplete="username" value="${sel}" hidden>
+     <div class="sub">Entrá con tu usuario.</div>
+     <div id="gerr">${msg?`<div class="gerr">${msg}</div>`:''}</div>
+     <label for="gu">Usuario</label>
+     <input class="ctl" id="gu" name="username" autocomplete="username" required>
      <label for="gp">Contraseña</label>
      <input class="ctl" id="gp" name="password" type="password" autocomplete="current-password" required>
      <button class="btn" type="submit" id="gbtn">Entrar</button>
-     <div class="gnote"><a href="#" id="gotro" style="color:var(--text-accent)">Entrar con otro usuario</a></div>
-   </form>`;
-  const $=id=>document.getElementById(id);
-  setTimeout(()=>$('gp').focus(),40);
-
-  $('gsel').addEventListener('click',e=>{
-    const b=e.target.closest('.gopt'); if(!b) return;
-    sel=b.dataset.u; $('gu').value=sel;
-    [...$('gsel').querySelectorAll('.gopt')].forEach(x=>x.classList.toggle('on',x===b));
-    $('gp').focus();
-  });
-  /* Escape para un usuario que no está en la lista de accesos (ej. una vendedora individual). */
-  $('gotro').addEventListener('click',e=>{
-    e.preventDefault();
-    $('gsel').hidden=true; e.target.parentNode.hidden=true;
-    const i=$('gu'); i.hidden=false; i.className='ctl'; i.value=''; i.placeholder='Usuario'; i.focus();
-  });
+   </form>`);
+  setTimeout(()=>$('gu').focus(),40);
 
   return new Promise(resolve=>{
     $('gform').addEventListener('submit',async e=>{
       e.preventDefault();
       const btn=$('gbtn'); btn.disabled=true; btn.textContent='Verificando…';
-      const u=($('gu').value||sel).trim().toLowerCase();
-      const cand=USUARIOS.find(x=>x.u.toLowerCase()===u);
-      let h='';
-      try{ h=await sha256($('gp').value); }
-      catch(err){
-        $('gerr').innerHTML='<div class="gerr">Este navegador no puede validar la contraseña. '+
-          'Abrí el tablero por su dirección https, no como archivo local.</div>';
-        btn.disabled=false; btn.textContent='Entrar'; return;
-      }
-      if(!cand||cand.hash!==h){
-        $('gerr').innerHTML='<div class="gerr">Contraseña incorrecta.</div>';
+      let r;
+      try{ r=await api('login',{u:$('gu').value.trim().toLowerCase(),p:$('gp').value}); }
+      catch(err){ r={ok:false,error:'No pudimos conectarnos. Revisá tu conexión y probá de nuevo.'}; }
+      if(!r||!r.ok){
+        $('gerr').innerHTML=`<div class="gerr">${(r&&r.error)||'No pudimos validar el usuario.'}</div>`;
         $('gp').value=''; $('gp').focus();
         btn.disabled=false; btn.textContent='Entrar'; return;
       }
-      sesionGuardar(cand); g.hidden=true; g.innerHTML='';
-      resolve(cand);
+      const ses={token:r.token,usuario:r.usuario,nombre:r.nombre,rol:r.rol,ven:r.vendedora,cambiar:r.cambiar};
+      sesionGuardar(ses); cerrarGate(); resolve(ses);
     });
   });
 }
+
+/* Cambio de contraseña. Se usa para el primer ingreso obligatorio y también desde el header.
+   `obligatorio` saca el botón de cancelar: en el primer ingreso no hay salida más que cambiarla. */
+function pedirCambioClave(ses,obligatorio){
+  const $=gate(`<form class="gcard" id="cform" autocomplete="off">
+     <span class="gbrand"><img src="${LOGO()}" alt="Zaphira Uniformes"></span>
+     <h1>${obligatorio?'Elegí tu contraseña':'Cambiar contraseña'}</h1>
+     <div class="sub">${obligatorio
+       ? 'Estás entrando con la contraseña inicial. Poné una propia para seguir.'
+       : 'Vas a tener que volver a entrar con la nueva.'}</div>
+     <div id="cerr"></div>
+     <label for="c0">Contraseña actual</label>
+     <input class="ctl" id="c0" type="password" autocomplete="current-password" required>
+     <label for="c1">Contraseña nueva</label>
+     <input class="ctl" id="c1" type="password" autocomplete="new-password" required minlength="8">
+     <label for="c2">Repetila</label>
+     <input class="ctl" id="c2" type="password" autocomplete="new-password" required minlength="8">
+     <button class="btn" type="submit" id="cbtn">Guardar</button>
+     ${obligatorio?'':'<div class="gnote"><a href="#" id="ccancel" style="color:var(--text-accent)">Volver al tablero</a></div>'}
+   </form>`);
+  setTimeout(()=>$('c0').focus(),40);
+
+  return new Promise(resolve=>{
+    if(!obligatorio) $('ccancel').addEventListener('click',e=>{e.preventDefault();cerrarGate();resolve(ses);});
+    $('cform').addEventListener('submit',async e=>{
+      e.preventDefault();
+      if($('c1').value!==$('c2').value){
+        $('cerr').innerHTML='<div class="gerr">Las dos contraseñas nuevas no coinciden.</div>';
+        $('c2').value=''; $('c2').focus(); return;
+      }
+      const btn=$('cbtn'); btn.disabled=true; btn.textContent='Guardando…';
+      let r;
+      try{ r=await api('password',{token:ses.token,actual:$('c0').value,nueva:$('c1').value}); }
+      catch(err){ r={ok:false,error:'No pudimos conectarnos. Probá de nuevo.'}; }
+      if(!r||!r.ok){
+        $('cerr').innerHTML=`<div class="gerr">${(r&&r.error)||'No se pudo cambiar la contraseña.'}</div>`;
+        btn.disabled=false; btn.textContent='Guardar'; return;
+      }
+      const nueva=Object.assign({},ses,{token:r.token,cambiar:false});
+      sesionGuardar(nueva); cerrarGate(); resolve(nueva);
+    });
+  });
+}
+
+/* ===== arranque de la sesión y de los datos =====
+   Va antes que todo lo demás porque el dataset depende de quién entró. El bucle cubre el caso
+   de la sesión vencida: el servidor responde code:'sesion', se borra y se vuelve a pedir login. */
+let RESP=null, FATAL='';
+try{
+  USER=sesionLeer();
+  for(let intento=0; intento<4; intento++){
+    if(!USER) USER=await pedirLogin();
+    if(USER.cambiar) USER=await pedirCambioClave(USER,true);
+    RESP=await api('data',{token:USER.token});
+    if(RESP&&RESP.ok) break;
+    if(RESP&&RESP.code==='sin_vendedora'){ FATAL='sin_vendedora'; break; }
+    if(RESP&&RESP.code==='sesion'){ sesionBorrar(); USER=null; continue; }
+    FATAL=(RESP&&RESP.error)||'No pudimos cargar los datos.'; break;
+  }
+}catch(err){
+  FATAL='No pudimos conectarnos con el servidor. Recargá la página; si sigue, avisale a Calcuta.';
+}
+if(RESP&&RESP.objetivo) OBJETIVO=Object.assign(OBJETIVO,RESP.objetivo);
+
+/* Normalizar ANTES de cualquier const que lea RAW. Varias (MULTIYEAR, HASDAY, DAY0…) recorren
+   RAW.O apenas se evalúan, o sea muchísimo antes de que arrancar() pueda mostrar un cartel de
+   error: con un dataset vacío —vendedora cuyo nombre no matchea Odoo, backend sin sincronizar,
+   o caída de red— reventaban en top-level y la página quedaba en blanco sin decir nada. */
+const RAW=(RESP&&RESP.raw)||{};
+RAW.O = RAW.O || [];
+RAW.L = RAW.L || [];
+RAW.P = RAW.P || [];
+RAW.C = RAW.C || [];
+RAW.dict = RAW.dict || {VEN:[],CAN:[],TIPO:[],PROV:[],IND:[],CAT:[],MON:[],STAGE:[]};
+RAW.meta = RAW.meta || {};
+RAW.rateMon = RAW.rateMon || {};
+RAW.usdFuente = RAW.usdFuente || '';
+RAW.usdFecha = RAW.usdFecha || '';
+RAW.rateDay = RAW.rateDay || [];
 
 /* ===== fechas =====
    Cada fila trae su día como offset entero desde meta.day0. Trabajamos siempre en UTC para que
@@ -486,6 +545,9 @@ function buildToolbar(){
      aparece la competencia entre compañeras. Ver veComparativaEntreVendedoras().
      Para el rol vendedora el selector queda fijo en ella (F.ven lo clava aplicarRol). */
   const verFiltroVen=true;
+  /* Una vendedora vende sólo por venta directa (por eso Ariel pidió sacarle la sección 6): el
+     filtro de canal no le cambia nada y es lo único que le nombraba el canal web. */
+  const verFiltroCan=!esVendedora();
   const venO=esVendedora()
     ? opt(F.ven, d.VEN[Number(F.ven)]!==undefined?d.VEN[Number(F.ven)]:(USER.ven||'—'), 1)
     : opt('','Todas',1)+d.VEN.map((v,i)=>({i,v})).sort((a,b)=>a.v<b.v?-1:1).map(x=>opt(x.i,x.v)).join('');
@@ -502,11 +564,12 @@ function buildToolbar(){
       ${ICO.filt} Filtros<span class="fdot" id="fDot" style="display:none"></span></button>
     <div class="tgroup" id="tgroup">
       ${verFiltroVen?`<div class="fl"><label for="fVen">Vendedora</label><select class="ctl" id="fVen"${esVendedora()?' disabled':''}>${venO}</select></div>`:''}
-      <div class="fl"><label for="fCan">Canal</label><select class="ctl" id="fCan">${canO}</select></div>
+      ${verFiltroCan?`<div class="fl"><label for="fCan">Canal</label><select class="ctl" id="fCan">${canO}</select></div>`:''}
       <div class="actions">
         <button class="btn btn--quiet" id="reset" type="button">${ICO.x} Limpiar</button>
         <button class="btn" id="btnPdf" type="button">${ICO.pdf} PDF</button>
         <button class="btn" id="btnXlsx" type="button">${ICO.xls} Excel</button>
+        ${esDireccion()?'<button class="btn btn--quiet" id="btnCfg" type="button">Configuración</button>':''}
       </div>
     </div>
    </div>
@@ -544,21 +607,25 @@ function buildToolbar(){
   $('fFrom').addEventListener('change',onDate);
   $('fTo').addEventListener('change',onDate);
   if(verFiltroVen&&!esVendedora()) $('fVen').addEventListener('change',e=>{F.ven=e.target.value; syncChrome(); go();});
-  $('fCan').addEventListener('change',e=>{F.can=e.target.value; syncChrome(); go();});
+  if(verFiltroCan) $('fCan').addEventListener('change',e=>{F.can=e.target.value; syncChrome(); go();});
   $('reset').addEventListener('click',()=>{
     setPeriod('all'); F.can='';
     // La vendedora no puede "limpiarse" a sí misma: su recorte es el rol, no un filtro.
     if(verFiltroVen&&!esVendedora()){F.ven=''; $('fVen').value='';}
-    $('fCan').value='';
+    if(verFiltroCan) $('fCan').value='';
     syncChrome(); go();});
   $('btnPdf').addEventListener('click',()=>window.print());
+  if(esDireccion()) $('btnCfg').addEventListener('click',()=>{
+    VISTA='config';
+    if(!CFG.usuarios) cargarConfig(mesHoy()); else go();
+  });
   $('btnXlsx').addEventListener('click',()=>{
     const b=$('btnXlsx'), orig=b.innerHTML;
     b.disabled=true; b.textContent='Generando…';
-    const qs=new URLSearchParams({xlsx:'1',ven:F.ven,can:F.can,cur:CUR});
-    if(F.from!==null) qs.set('from',offToIso(F.from));
-    if(F.to!==null) qs.set('to',offToIso(F.to));
-    fetch(EXEC_URL+'?'+qs).then(r=>r.json()).then(function(res){
+    const pedido={token:USER.token,ven:F.ven,can:F.can,cur:CUR};
+    if(F.from!==null) pedido.from=offToIso(F.from);
+    if(F.to!==null) pedido.to=offToIso(F.to);
+    api('xlsx',pedido).then(function(res){
       b.disabled=false; b.innerHTML=orig;
       if(!res||!res.b64){ alert('No se pudo generar el Excel.'+(res&&res.error?' '+res.error:'')); return; }
       const a=document.createElement('a');
@@ -646,8 +713,16 @@ function compute(rng){
   const mk=Object.keys(mm).map(Number).sort((a,b)=>d.MON[a]<d.MON[b]?-1:1);
   const meses=mk.map(k=>({m:monLabel(d.MON[k]),ventas:mm[k].v,nv:mm[k].n,noRate:CUR==='USD'&&mm[k].n>0&&mm[k].v===0}));
   let ventas=0; O.forEach(o=>ventas+=toCur(o[0],o[7],o[6])); const nord=O.length;
-  let prN=0,prP=0,ent=0; L.forEach(l=>{if(l[3]===1)prP+=l[5];else prN+=l[5]; ent+=l[6];});
-  let oN=0,oP=0; O.forEach(o=>{if(o[3]===1)oP++;else oN++;});
+  /* Prendas y órdenes POR TIPO, indexadas igual que d.TIPO. Antes eran dos contadores fijos
+     (Pronta Entrega vs "todo lo demás") y por eso las 739 órdenes de Ecommerce se sumaban a
+     Tradicional. Ahora la cantidad de tipos la manda el dataset, así que si el backend agrega
+     otro no hay que tocar nada acá. */
+  const nTipos=(d.TIPO||[]).length||2;
+  const prT=new Array(nTipos).fill(0), oT=new Array(nTipos).fill(0);
+  let ent=0;
+  L.forEach(l=>{ if(l[3]<nTipos) prT[l[3]]+=l[5]; ent+=l[6]; });
+  O.forEach(o=>{ if(o[3]<nTipos) oT[o[3]]++; });
+  const prTot=prT.reduce((a,b)=>a+b,0);
   const vm={}; O.forEach(o=>{(vm[o[1]]=vm[o[1]]||{m:0,n:0}); vm[o[1]].m+=toCur(o[0],o[7],o[6]); vm[o[1]].n++;});
   const vend=Object.keys(vm).map(i=>({n:d.VEN[i],monto:vm[i].m,ops:vm[i].n})).sort((a,b)=>b.monto-a.monto).slice(0,10);
   const webI=d.CAN.indexOf('Web (Tiendanube)'), presI=d.CAN.indexOf('Venta directa');
@@ -681,8 +756,23 @@ function compute(rng){
   difs.sort((a,b)=>a-b);
   const ciclo={n:difs.length,dias:difs.length?Math.round(difs.reduce((a,b)=>a+b,0)/difs.length):0,mediana:median(difs)};
   const backlog=[{e:'Entregadas (pickings hechos)',n:st[1]||0,tone:'success'},{e:'En preparación (listas / asignadas)',n:st[2]||0,tone:'accent'},{e:'En espera de stock / producción',n:st[3]||0,tone:'warning'}];
-  const fu={}, cv={}; let won=0;
-  C.forEach(c=>{const s=d.STAGE[c[2]]; fu[s]=(fu[s]||0)+1; const u=d.VEN[c[1]]; (cv[u]=cv[u]||{w:0,t:0}); cv[u].t++; if(c[3]===1){cv[u].w++;won++;}});
+  /* ===== CRM: ESTADO y ETAPA son cosas distintas (rearmado 04/09/2026) =====
+     El embudo contaba la etapa donde quedó cada oportunidad como si fuera su estado. Cuando el
+     equipo pierde una, la archiva en la etapa donde estaba y no la mueve a "NO AVANZARA": por eso
+     el gráfico mostraba 48 perdidas cuando en Odoo hay 359, y dejaba 270 muertas contadas dentro
+     de "Qualified". Ahora el estado sale de c[5] (0 abierta · 1 ganada · 2 perdida) y la etapa se
+     muestra SÓLO sobre las abiertas, que es donde dice algo.
+     GUARD: entre el push del backend y el re-sync del trigger pasan hasta 30 min sirviendo el
+     dataset viejo, que no trae c[5]. Sin esto el embudo quedaría en cero para todos. */
+  const HASEST=C.length===0||C[0].length>5;
+  const estadoDe=c=>HASEST?c[5]:(c[3]===1?1:0);   // sin c[5] no se puede saber qué está perdido
+  const fu={}, cv={}; let won=0, crmAb=0, crmPer=0;
+  C.forEach(c=>{
+    const e=estadoDe(c), u=d.VEN[c[1]];
+    if(e===1) won++; else if(e===2) crmPer++; else { crmAb++; const s=d.STAGE[c[2]]; fu[s]=(fu[s]||0)+1; }
+    (cv[u]=cv[u]||{w:0,t:0}); cv[u].t++; if(e===1) cv[u].w++;
+  });
+  const crmEstado={abiertas:crmAb,ganadas:won,perdidas:crmPer,cerradas:won+crmPer,parcial:!HASEST};
   const ord=['New','Contactado','Qualified','Proposition','Pedido confirmado','Won','NO AVANZARA'];
   const funnel=Object.keys(fu).sort((a,b)=>{const ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);}).map(s=>({n:s,v:fu[s],win:s==='Won',lost:/NO AVANZAR/i.test(s)}));
   const convvend=Object.keys(cv).filter(u=>cv[u].t>=5&&u!=='Sin asignar').map(u=>({n:u,w:cv[u].w,t:cv[u].t})).sort((a,b)=>(b.w/b.t)-(a.w/a.t)).slice(0,6);
@@ -716,8 +806,31 @@ function compute(rng){
       .map(k=>({n:k,v:acc[k],c:(colores||{})[k]||''}));
   }
 
+  /* TICKET PROMEDIO por pedido nuevo vs reposición (pedido de Ariel: sólo acá, no en todo el
+     tablero). El backend marca cada orden en O[8] según la antigüedad del cliente: nuevo si su
+     ficha se creó en el mismo mes de la venta. Son PROMEDIOS, no sumas, así que se acumula monto
+     y cantidad por separado y se divide al final — sumar los promedios mensuales daría otra cosa.
+     Guard HASREP: el dataset previo al 04/09/2026 no trae O[8] y la tarjeta no se muestra. */
+  const palPedido={'Pedido nuevo':'#1e3a6e','Reposición':'#7fa3d9'};
+  const HASREP=O.length===0||O[0].length>8;
+  const tkAcc={'Pedido nuevo':new Array(mk.length).fill(0),'Reposición':new Array(mk.length).fill(0)};
+  const tkCnt={'Pedido nuevo':new Array(mk.length).fill(0),'Reposición':new Array(mk.length).fill(0)};
+  const tkTot={'Pedido nuevo':{m:0,n:0},'Reposición':{m:0,n:0}};
+  if(HASREP) O.forEach(o=>{
+    const j=posMes[o[0]]; if(j===undefined) return;
+    const k=o[8]===1?'Pedido nuevo':'Reposición', v=toCur(o[0],o[7],o[6]);
+    tkAcc[k][j]+=v; tkCnt[k][j]++; tkTot[k].m+=v; tkTot[k].n++;
+  });
+  const tkProm={};
+  Object.keys(tkAcc).forEach(k=>{ tkProm[k]=tkAcc[k].map((v,i)=>tkCnt[k][i]?v/tkCnt[k][i]:0); });
+  const ticketPedido=HASREP?{
+    series:aFilas(tkProm,['Pedido nuevo','Reposición'],palPedido),
+    nuevo:{n:tkTot['Pedido nuevo'].n,tk:tkTot['Pedido nuevo'].n?tkTot['Pedido nuevo'].m/tkTot['Pedido nuevo'].n:0},
+    repo :{n:tkTot['Reposición'].n, tk:tkTot['Reposición'].n ?tkTot['Reposición'].m /tkTot['Reposición'].n :0}
+  }:null;
+
   const palCanal={'Venta directa':'#1e3a6e','Web (Tiendanube)':'#7fa3d9'};
-  const palTipo ={'Tradicional':'#1e3a6e','Pronta Entrega':'#7fa3d9'};
+  const palTipo ={'Tradicional':'#1e3a6e','Pronta Entrega':'#7fa3d9','Ecommerce':'#4a6da8'};
   const topProv=provincia.filter(x=>!x.muted).slice(0,6).map(x=>x.n);
   const topVend=vend.slice(0,8).map(x=>x.n);
 
@@ -738,7 +851,7 @@ function compute(rng){
   const usdMissingMonths=Object.keys(missMonths).sort();
   const usdBlocked=CUR==='USD' && convOk===0 && convFail>0;   // nada convertible en todo el filtro
 
-  return {meses,ventas,nord,prN,prP,ent,oN,oP,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,convvend,crmN:C.length,won,yoy,evo,usdMissingMonths,usdBlocked};
+  return {meses,ventas,nord,prT,oT,prTot,ent,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,convvend,crmN:C.length,won,yoy,evo,usdMissingMonths,usdBlocked,crmEstado,ticketPedido};
 }
 
 /* ===== barra horizontal (grid: label · pista · valor) ===== */
@@ -879,8 +992,195 @@ function row2(A,h1,c1,h2,c2,flex1){A.appendChild(el(`<div class="duo"><div class
 /* ===== render ===== */
 function go(){
   const app=document.getElementById('app'); app.innerHTML='';
+  if(VISTA==='config'){ renderConfig(app); return; }
   const pr=prevRange();                       // null en "Todo el período": no hay un antes
   render(app,compute(),pr?compute(pr):null);
+}
+
+/* ===== OBJETIVO DEL MES ===================================================================
+   El objetivo se carga en pesos y con IVA, así que la barra se muestra SIEMPRE en pesos aunque
+   el tablero esté en dólares: convertir el objetivo a USD lo haría moverse solo con el tipo de
+   cambio, y un objetivo que cambia todos los días no es un objetivo. */
+function ventasDelMes(venIdx){
+  const d=RAW.dict||{}, mi=(d.MON||[]).indexOf(mesHoy());
+  if(mi<0) return 0;
+  let t=0;
+  (RAW.O||[]).forEach(o=>{ if(o[0]===mi&&(venIdx==null||o[1]===venIdx)) t+=o[6]; });
+  return t;
+}
+function barraCumpl(rot,vendido,objetivo){
+  const p=objetivo?Math.round(100*vendido/objetivo):0;
+  const color=p>=100?'#2f7d4f':p>=70?'#4a6da8':'#8a6a1f';
+  const falta=Math.max(0,objetivo-vendido);
+  return `<div class="objbar">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;margin-bottom:4px">
+      <span>${rot}</span><b>${p}% <span style="color:var(--text-muted);font-weight:400">de $ ${n0(objetivo)}</span></b></div>
+    <div class="objtrack"><div class="objfill" style="width:${Math.min(100,p)}%;background:${color}"></div></div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Vendido $ ${n0(vendido)}${
+      falta>0?' · faltan $ '+n0(falta):' · objetivo cumplido'}</div></div>`;
+}
+function barraObjetivo(){
+  const mes=mesLegible(mesHoy());
+  if(esVendedora()){
+    if(!OBJETIVO.mio) return '';
+    return `<div class="card" style="margin-bottom:12px"><h3>Tu objetivo de ${mes}</h3>${
+      barraCumpl('Tus ventas del mes',ventasDelMes(0),OBJETIVO.mio)}</div>`;
+  }
+  if(!esDireccion()) return '';
+  const porVen=Object.keys(OBJETIVO.vendedoras||{}).filter(k=>OBJETIVO.vendedoras[k]>0);
+  if(!OBJETIVO.empresa&&!porVen.length) return '';
+  const d=RAW.dict||{};
+  const detalle=porVen.map(nom=>{
+    const i=(d.VEN||[]).indexOf(nom);
+    return barraCumpl(nom,i<0?0:ventasDelMes(i),OBJETIVO.vendedoras[nom]);
+  }).join('');
+  return `<div class="card" style="margin-bottom:12px"><h3>Objetivo de ${mes}</h3>${
+    OBJETIVO.empresa?barraCumpl('<b>Toda la empresa</b>',ventasDelMes(null),OBJETIVO.empresa):''}${
+    detalle?`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">${detalle}</div>`:''}
+    <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Montos en pesos con IVA. Se cargan desde <b>Configuración</b>.</div></div>`;
+}
+
+/* ===== CONFIGURACIÓN (sólo Dirección) =====================================================
+   Dos cosas en una pantalla: los accesos del equipo y los objetivos del mes. Están juntas
+   porque se tocan en el mismo momento —cuando entra o sale alguien, y cuando arranca el mes—
+   y separarlas obligaría a acordarse de dos lugares. */
+let VISTA='tablero';
+let CFG={usuarios:null,mes:'',objetivos:null,cargando:false};
+
+const mesLegible=m=>{const p=String(m).split('-');return p.length===2?MES[+p[1]-1]+' '+p[0]:m;};
+function mesHoy(){ return (RAW.meta&&RAW.meta.today?RAW.meta.today:new Date().toISOString()).slice(0,7); }
+/* Meses ofrecidos para cargar objetivos: el actual y los tres siguientes. Cargar el objetivo de
+   un mes ya cerrado no cambia nada, y ofrecerlo sólo invita a corregir el pasado. */
+function mesesCargables(){
+  const [y,m]=mesHoy().split('-').map(Number), out=[];
+  for(let i=0;i<4;i++){ const d=new Date(Date.UTC(y,m-1+i,1)); out.push(d.toISOString().slice(0,7)); }
+  return out;
+}
+
+async function cargarConfig(mes){
+  CFG.cargando=true; go();
+  const [u,o]=await Promise.all([api('usuarios',{token:USER.token}),api('objetivos',{token:USER.token,mes})]);
+  if(u&&u.code==='sesion'){ sesionBorrar(); location.reload(); return; }
+  CFG.usuarios=(u&&u.usuarios)||[];
+  CFG.mes=(o&&o.mes)||mes;
+  CFG.objetivos=(o&&o.objetivos)||{empresa:0,vendedoras:{}};
+  CFG.cargando=false; go();
+}
+
+function renderConfig(A){
+  A.appendChild(el(`<div class="periodbar" style="justify-content:space-between">
+    <span>${ICO.cal}<span style="margin-left:6px"><b>Configuración</b> · accesos y objetivos</span></span>
+    <button class="btn btn--quiet" id="cfgBack" type="button">Volver al tablero</button></div>`));
+  document.getElementById('cfgBack').addEventListener('click',()=>{VISTA='tablero';go();});
+
+  if(CFG.cargando||!CFG.usuarios){
+    A.appendChild(el('<div class="card"><h3>Cargando…</h3></div>'));
+    return;
+  }
+
+  /* --- objetivos del mes --- */
+  const vend=CFG.usuarios.filter(u=>u.rol==='vendedora'&&u.activo);
+  const val=a=>a==='empresa'?(CFG.objetivos.empresa||0):(CFG.objetivos.vendedoras[a]||0);
+  /* El monto en letras debajo del campo NO es decoración: son objetivos de nueve cifras y un cero
+     de más o de menos no se ve a simple vista en un input numérico. Se actualiza al tipear. */
+  const filaObj=(a,rot)=>{const id='ob_'+a.replace(/\W/g,'_');return `<div class="ofila">
+      <label for="${id}">${rot}</label>
+      <div><input class="ctl" type="number" min="0" step="100000" inputmode="numeric"
+             id="${id}" data-alcance="${a}" value="${val(a)||''}" placeholder="0">
+        <div class="ohint" id="${id}_h">${val(a)?'$ '+n0(val(a)):'sin objetivo'}</div></div>
+    </div>`;};
+  A.appendChild(el(`<div class="card"><h3>Objetivo de ventas</h3>
+    <div class="pmsg" style="margin-bottom:12px">Montos con IVA, en pesos. El de la empresa se muestra en el tablero de Dirección; el de cada vendedora, en su propio tablero. Dejar en blanco es no fijar objetivo: no aparece la barra.</div>
+    <div class="ofila" style="margin-bottom:14px">
+      <label for="cfgMes">Mes</label>
+      <select class="ctl" id="cfgMes">${mesesCargables().map(m=>
+        `<option value="${m}"${m===CFG.mes?' selected':''}>${mesLegible(m)}</option>`).join('')}</select>
+    </div>
+    <div id="objForm">${filaObj('empresa','<b>Toda la empresa</b>')}
+      <div style="height:1px;background:var(--border);margin:12px 0"></div>
+      ${vend.map(u=>filaObj(u.vendedora,u.nombre)).join('')}</div>
+    <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
+      <button class="btn" id="objSave" type="button">Guardar objetivos</button>
+      <span id="objMsg" style="font-size:12px;color:var(--text-muted)"></span></div></div>`));
+
+  document.getElementById('cfgMes').addEventListener('change',e=>cargarConfig(e.target.value));
+  [...document.querySelectorAll('#objForm input')].forEach(i=>i.addEventListener('input',()=>{
+    const v=Number(i.value)||0;
+    document.getElementById(i.id+'_h').textContent=v?'$ '+n0(v):'sin objetivo';
+  }));
+  document.getElementById('objSave').addEventListener('click',async()=>{
+    const b=document.getElementById('objSave'), msg=document.getElementById('objMsg');
+    b.disabled=true; msg.textContent='Guardando…';
+    const filas=[...document.querySelectorAll('#objForm input')].map(i=>
+      ({alcance:i.dataset.alcance,objetivo:Number(i.value)||0}));
+    const r=await api('guardarObjetivos',{token:USER.token,mes:CFG.mes,filas});
+    b.disabled=false;
+    msg.textContent=r&&r.ok?'Guardado.':('No se pudo guardar. '+((r&&r.error)||''));
+    if(r&&r.ok){
+      CFG.objetivos={empresa:0,vendedoras:{}};
+      filas.forEach(f=>{ if(f.alcance==='empresa') CFG.objetivos.empresa=f.objetivo;
+                         else CFG.objetivos.vendedoras[f.alcance]=f.objetivo; });
+      // Si se cambió el objetivo del mes en curso, el tablero tiene que reflejarlo al volver.
+      if(CFG.mes===mesHoy()){
+        OBJETIVO.empresa=CFG.objetivos.empresa;
+        OBJETIVO.vendedoras=CFG.objetivos.vendedoras;
+      }
+    }
+  });
+
+  /* --- accesos --- */
+  const filaU=u=>`<tr>
+      <td><b>${u.nombre}</b><div style="font-size:11px;color:var(--text-muted)">${u.usuario}${u.vendedora?' · '+u.vendedora:''}</div></td>
+      <td>${u.rol==='direccion'?'Dirección':'Vendedora'}</td>
+      <td>${u.ultimoIngreso||'<span style="color:var(--text-muted)">nunca entró</span>'}
+          ${u.debeCambiar?'<div style="font-size:11px;color:var(--text-warning,#8a6a1f)">tiene la clave inicial</div>':''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn--quiet" data-acc="reset" data-u="${u.usuario}" type="button">Resetear clave</button>
+        <button class="btn btn--quiet" data-acc="${u.activo?'baja':'alta'}" data-u="${u.usuario}" type="button">${u.activo?'Desactivar':'Reactivar'}</button>
+      </td></tr>`;
+  const cardAcc=el(`<div class="card" style="margin-top:12px"><h3>Accesos</h3>
+    <div class="pmsg" style="margin-bottom:12px">Resetear una clave la vuelve a la inicial y obliga a cambiarla en el próximo ingreso. Desactivar no borra nada: la persona deja de entrar pero queda el registro.</div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>Persona</th><th>Rol</th><th>Último ingreso</th><th></th></tr></thead>
+      <tbody>${CFG.usuarios.filter(u=>u.activo).map(filaU).join('')}
+      ${CFG.usuarios.some(u=>!u.activo)?`<tr><td colspan="4" style="padding-top:14px;color:var(--text-muted);font-size:12px">Desactivados</td></tr>`+CFG.usuarios.filter(u=>!u.activo).map(filaU).join(''):''}</tbody></table></div>
+    <div id="accMsg" style="font-size:12px;color:var(--text-muted);margin-top:10px"></div></div>`);
+  A.appendChild(cardAcc);
+  cardAcc.addEventListener('click',async e=>{
+    const b=e.target.closest('button[data-acc]'); if(!b) return;
+    const msg=document.getElementById('accMsg'), acc=b.dataset.acc, u=b.dataset.u;
+    if(acc==='reset'&&!confirm('¿Resetear la clave de '+u+' a la inicial?')) return;
+    b.disabled=true; msg.textContent='…';
+    const r=acc==='reset' ? await api('reset',{token:USER.token,usuario:u})
+                          : await api('baja',{token:USER.token,usuario:u,activo:acc==='alta'});
+    if(r&&r.ok){
+      msg.textContent=acc==='reset'?('Listo. La clave de '+u+' quedó en: '+r.clave):'Listo.';
+      cargarConfig(CFG.mes);
+    } else { b.disabled=false; msg.textContent=(r&&r.error)||'No se pudo.'; }
+  });
+
+  /* --- alta --- */
+  A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Sumar una persona</h3>
+    <div class="altaform">
+      <div class="ofila"><label for="nu">Usuario</label><input class="ctl" id="nu" placeholder="inicial + apellido"></div>
+      <div class="ofila"><label for="nn">Nombre</label><input class="ctl" id="nn" placeholder="Nombre y apellido"></div>
+      <div class="ofila"><label for="nr">Rol</label><select class="ctl" id="nr"><option value="vendedora">Vendedora</option><option value="direccion">Dirección</option></select></div>
+      <div class="ofila"><label for="nv">Nombre en Odoo</label><input class="ctl" id="nv" placeholder="tal cual figura en Odoo"></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <button class="btn" id="altaBtn" type="button">Dar de alta</button>
+      <span id="altaMsg" style="font-size:12px;color:var(--text-muted)"></span></div></div>`));
+
+  document.getElementById('altaBtn').addEventListener('click',async()=>{
+    const g=id=>document.getElementById(id).value.trim();
+    const msg=document.getElementById('altaMsg');
+    msg.textContent='…';
+    const r=await api('alta',{token:USER.token,usuario:g('nu').toLowerCase(),nombre:g('nn'),
+                              rol:g('nr'),vendedora:g('nv')});
+    if(r&&r.ok){ msg.textContent='Listo. Entra con la clave '+r.clave+' y la tiene que cambiar.';
+                 ['nu','nn','nv'].forEach(i=>document.getElementById(i).value='');
+                 cargarConfig(CFG.mes); }
+    else msg.textContent=(r&&r.error)||'No se pudo dar de alta.';
+  });
 }
 
 function render(A,D,PREV){
@@ -893,6 +1193,13 @@ function render(A,D,PREV){
   if(F.ven!=='') chips.push('Vendedora: <b>'+d.VEN[Number(F.ven)]+'</b>');
   if(F.can!=='') chips.push('Canal: <b>'+d.CAN[Number(F.can)]+'</b>');
   A.appendChild(el(`<div class="periodbar">${ICO.cal}<span><b>${rangeLabel()}</b>${chips.length?' · '+chips.join(' · '):''}</span></div>`));
+
+  /* Cumplimiento del objetivo del MES EN CURSO. Va antes del corte por "sin ventas en el período"
+     y se calcula sobre el mes corriente sin mirar el filtro: es un indicador de cómo viene el mes,
+     no del recorte que esté mirando la persona. Si eso no fuera así, elegir "mes anterior" en el
+     filtro mostraría un cumplimiento del mes pasado contra el objetivo del actual. */
+  const barra=barraObjetivo();
+  if(barra) A.appendChild(el(barra));
 
   if(D.nord===0){A.appendChild(el('<div class="card"><h3>Sin ventas en este período</h3><div class="pmsg">No hay órdenes confirmadas para el filtro elegido. Probá ampliar el rango de fechas o tocar <b>Limpiar</b>.</div></div>'));return;}
 
@@ -915,7 +1222,7 @@ function render(A,D,PREV){
   const SC=[
    {l:'Ventas confirmadas',v:M(D.ventas),      s:n0(D.nord)+' órdenes',  a:D.ventas,     b:PREV&&PREV.ventas},
    {l:'Órdenes',           v:n0(D.nord),       s:'confirmadas',          a:D.nord,       b:PREV&&PREV.nord},
-   {l:'Prendas vendidas',  v:n0(D.prN+D.prP),  s:'unidades',             a:D.prN+D.prP,  b:PREV&&(PREV.prN+PREV.prP)},
+   {l:'Prendas vendidas',  v:n0(D.prTot),      s:'unidades',             a:D.prTot,      b:PREV&&PREV.prTot},
    {l:'Ticket promedio',   v:MF(tk),           s:'por orden',            a:tk,           b:tkP},
    {l:'Ciclo pedido→entrega',v:D.ciclo.dias+' días',s:'mediana '+D.ciclo.mediana},
   ];
@@ -929,14 +1236,8 @@ function render(A,D,PREV){
     A.appendChild(el(`<div class="card pend" style="margin-bottom:14px;padding:10px 14px"><div class="pmsg">🚧 <b>En construcción:</b> todavía no hay cotización oficial promedio para ${lbl}. Esos meses quedan afuera de los totales en USD hasta que se cargue.</div></div>`));
   }
 
-  /* Órdenes que Odoo dejó confirmadas pero cuya facturación se reversó entera con nota de crédito:
-     el backend ya las sacó de todos los números. Se avisa para que el total no parezca "faltante". */
-  if(RAW.meta.anuladasN){
-    A.appendChild(el(`<div class="card" style="margin-bottom:14px;padding:10px 14px;border-color:var(--bg-warning)"><div class="pmsg">`
-      +`<b>${n0(RAW.meta.anuladasN)} ${RAW.meta.anuladasN===1?'orden confirmada quedó':'órdenes confirmadas quedaron'} anulada${RAW.meta.anuladasN===1?'':'s'} por nota de crédito</b> `
-      +`($ ${n0(RAW.meta.anuladasMonto||0)} netos) y no se cuenta${RAW.meta.anuladasN===1?'':'n'} como venta en ningún indicador.`
-      +`</div></div>`));
-  }
+  /* Acá iba el cartel de "órdenes anuladas por nota de crédito". Se sacó el 04/09/2026 junto con
+     la exclusión que lo generaba: el criterio ahora es que una venta caída se cancela en Odoo. */
 
   /* 1·2 — el rótulo dice "ventas confirmadas" y no "facturación" a propósito: el dato sale de las
      órdenes de venta cerradas en Odoo (criterio comercial, imputado a la fecha en que se vendió),
@@ -946,18 +1247,25 @@ function render(A,D,PREV){
     {line:true,delta:true,fmt:M,h:265,aria:'Ventas confirmadas y cantidad de órdenes por mes, con variación mensual'});
   A.appendChild(el(`<div class="card"><h3>Evolución mensual — ventas y órdenes de compra</h3>${evoChart}
     ${legendHTML([{c:'var(--fill-primary)',t:'Ventas confirmadas (eje izquierdo)'},{c:SERIE2,t:'Órdenes de compra (eje derecho)',line:1}])}
-    <div class="cmpnote">Bajo cada mes, la variación del monto contra el mes anterior. Monto neto sin IVA de las órdenes cerradas en Odoo, imputado a la fecha de la venta.</div></div>`));
+    <div class="cmpnote">Bajo cada mes, la variación del monto contra el mes anterior. Monto con IVA incluido de las órdenes cerradas en Odoo, imputado a la fecha de la venta.</div></div>`));
 
-  /* 3 */
-  sec(A,'3','Ventas en cantidad de prendas — Pronta Entrega vs Tradicional');
-  const tp=D.prN+D.prP, pp=tp?D.prN/tp*100:0;
-  const dpr=`<div style="display:flex;align-items:center;gap:16px">
-    <div class="donut3" style="width:120px;height:120px;border-radius:50%;background:conic-gradient(#1e3a6e 0 ${pp}%,#7fa3d9 ${pp}% 100%);position:relative">
+  /* 3 — el donut se arma desde d.TIPO, así que sigue a la cantidad de tipos que traiga el dataset
+     (desde el 04/09/2026 son tres: Tradicional, Pronta Entrega y Ecommerce). */
+  const TIPOS=(RAW.dict.TIPO||[]).map((n,i)=>({n,u:D.prT[i]||0,o:D.oT[i]||0,
+    c:{'Tradicional':'#1e3a6e','Pronta Entrega':'#7fa3d9','Ecommerce':'#4a6da8'}[n]||'#a9b6c9'}))
+    .filter(t=>t.u||t.o);
+  sec(A,'3','Ventas en cantidad de prendas — por tipo de orden');
+  const tp=D.prTot;
+  let acum=0;
+  const tramos=TIPOS.map(t=>{const desde=tp?acum/tp*100:0; acum+=t.u; const hasta=tp?acum/tp*100:0;
+    return `${t.c} ${desde.toFixed(2)}% ${hasta.toFixed(2)}%`;}).join(',');
+  const dpr=`<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div class="donut3" style="width:120px;height:120px;border-radius:50%;background:conic-gradient(${tramos||'#a9b6c9 0 100%'});position:relative">
      <div style="position:absolute;inset:24px;background:var(--surface-2);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-weight:600">${n0(tp)}<span style="font-size:9px;color:var(--text-muted);font-weight:400">prendas</span></div></div>
-    <div style="font-size:12.5px">
-     <div style="margin-bottom:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#1e3a6e"></span> Tradicional: <b>${n0(D.prN)} u</b> (${Math.round(pp)}%)</div>
-     <div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#7fa3d9"></span> Pronta Entrega: <b>${n0(D.prP)} u</b> (${Math.round(100-pp)}%)</div></div></div>`;
-  const dpr2=`<b>${n0(tp)} prendas</b> en total. Órdenes: Tradicional ${n0(D.oN)} · Pronta Entrega ${n0(D.oP)}. Entregadas hasta hoy: <b>${n0(D.ent)} u</b> — el resto es backlog (KPI 11).`;
+    <div style="font-size:12.5px">${TIPOS.map(t=>
+      `<div style="margin-bottom:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${t.c}"></span> ${t.n}: <b>${n0(t.u)} u</b> (${tp?Math.round(100*t.u/tp):0}%)</div>`
+     ).join('')}</div></div>`;
+  const dpr2=`<b>${n0(tp)} prendas</b> en total. Órdenes: ${TIPOS.map(t=>t.n+' '+n0(t.o)).join(' · ')}. Entregadas hasta hoy: <b>${n0(D.ent)} u</b> — el resto es backlog (KPI 11).`;
   row2(A,'Prendas por tipo de orden',dpr,'Lectura','<div class="pmsg">'+dpr2+'</div>',1);
   A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes — prendas y órdenes por tipo</h3>
     ${evoTable(D.evo.lbl,D.evo.tipoPrendas,n0)}
@@ -991,17 +1299,21 @@ function render(A,D,PREV){
     A.appendChild(el(`<div class="card"><h3>Tu evolución</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M,{total:false})}</div>`));
   }
 
-  /* 6 */
-  sec(A,'6','Ventas por canal — comparativo e incidencia');
-  const totM=D.web.m+D.pres.m||1, totO=D.web.n+D.pres.n||1;
-  const cr=(nm,dd,col)=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${nm}</span><b>${M(dd.m)} · ${n0(dd.n)} órd.</b></div>
-    <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${(dd.m/totM*100).toFixed(1)}%;height:10px;border-radius:4px;background:${col};opacity:.8"></div></div>
-    <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">${Math.round(dd.m/totM*100)}% del monto · ${Math.round(dd.n/totO*100)}% de las órdenes</div></div>`;
-  A.appendChild(el(`<div class="card"><h3>Venta directa vs Web</h3>${cr('Venta directa',D.pres,'#1e3a6e')+cr('Web (Tiendanube)',D.web,'#7fa3d9')}</div>`));
-  A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por canal${curTag}</h3>
-    ${evoTable(D.evo.lbl,D.evo.canalMonto,M)}
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-      <h3>Órdenes por canal</h3>${evoTable(D.evo.lbl,D.evo.canalOrd,n0)}</div></div>`));
+  /* 6 — fuera del tablero individual (pedido de Ariel, 04/09/2026): las vendedoras venden sólo
+     por venta directa, así que el comparativo por canal no les dice nada. La sección desaparece
+     entera, sin cartel, igual que se hace con el ranking en la vista Ventas. */
+  if(!esVendedora()){
+    sec(A,'6','Ventas por canal — comparativo e incidencia');
+    const totM=D.web.m+D.pres.m||1, totO=D.web.n+D.pres.n||1;
+    const cr=(nm,dd,col)=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${nm}</span><b>${M(dd.m)} · ${n0(dd.n)} órd.</b></div>
+      <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${(dd.m/totM*100).toFixed(1)}%;height:10px;border-radius:4px;background:${col};opacity:.8"></div></div>
+      <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">${Math.round(dd.m/totM*100)}% del monto · ${Math.round(dd.n/totO*100)}% de las órdenes</div></div>`;
+    A.appendChild(el(`<div class="card"><h3>Venta directa vs Web</h3>${cr('Venta directa',D.pres,'#1e3a6e')+cr('Web (Tiendanube)',D.web,'#7fa3d9')}</div>`));
+    A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por canal${curTag}</h3>
+      ${evoTable(D.evo.lbl,D.evo.canalMonto,M)}
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+        <h3>Órdenes por canal</h3>${evoTable(D.evo.lbl,D.evo.canalOrd,n0)}</div></div>`));
+  }
 
   /* 7 */
   sec(A,'7','Ticket promedio — evolución');
@@ -1009,6 +1321,20 @@ function render(A,D,PREV){
     {fmt:M,delta:true,h:225,barColor:'#4a6da8',aria:'Ticket promedio por mes, con variación mensual'});
   A.appendChild(el(`<div class="card"><h3>Ticket promedio por mes</h3>${th}<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Global del filtro ${MF(tk)}`
     +(PREV&&!usdPend?' '+dltBadge(tk,tkP,cmpT):'')+`</div></div>`));
+
+  /* Pedido nuevo vs reposición: sólo en esta sección, como pidió Ariel. */
+  if(D.ticketPedido&&D.ticketPedido.series.length){
+    const TP=D.ticketPedido;
+    const tarjeta=(rot,d,col)=>`<div style="flex:1 1 160px;min-width:0">
+        <div style="font-size:11.5px;color:var(--text-muted)"><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:${col};margin-right:5px"></span>${rot}</div>
+        <div style="font-size:19px;font-weight:600;margin-top:2px">${MF(d.tk)}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${n0(d.n)} ${d.n===1?'orden':'órdenes'}</div></div>`;
+    A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Ticket promedio — pedido nuevo vs reposición${curTag}</h3>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px">
+        ${tarjeta('Pedido nuevo',TP.nuevo,'#1e3a6e')}${tarjeta('Reposición',TP.repo,'#7fa3d9')}</div>
+      ${evoTable(D.evo.lbl,TP.series,MF,{total:false})}
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Es <b>pedido nuevo</b> cuando el cliente se dio de alta en Odoo el mismo mes de la venta; si ya era cliente, es <b>reposición</b>. Los valores son promedios por orden, no totales.</div></div>`));
+  }
 
   /* 8 */
   sec(A,'8','Ventas por industria');
@@ -1053,59 +1379,83 @@ function render(A,D,PREV){
   A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por segmento${curTag}</h3>
     ${evoTable(D.evo.lbl,D.evo.segmento,M)}</div>`));
 
-  /* 13 */
+  /* 13 — rearmado el 04/09/2026. Antes era una sola lista de etapas y se leía como si fuera el
+     estado de cada oportunidad. Ahora arriba van los tres estados (que es la pregunta real: cuántas
+     ganamos de las que se cerraron) y abajo la etapa, sólo sobre las que siguen abiertas. */
   sec(A,'13',veComparativaEntreVendedoras()?'Tasas de conversión — vendedora y etapa del embudo':'Tasas de conversión — etapas del embudo');
+  const CE=D.crmEstado, cerr=CE.cerradas;
+  const convPct=cerr?Math.round(100*CE.ganadas/cerr):0;
+  const estadoTiles=`<div class="kpis" style="margin-bottom:12px">
+      <div class="kpi"><div class="kl">Ganadas</div><div class="kv" style="color:#2f7d4f">${n0(CE.ganadas)}</div><div class="ks">${cerr?Math.round(100*CE.ganadas/cerr):0}% de las cerradas</div></div>
+      <div class="kpi"><div class="kl">Perdidas</div><div class="kv" style="color:#b23b3b">${n0(CE.perdidas)}</div><div class="ks">${cerr?Math.round(100*CE.perdidas/cerr):0}% de las cerradas</div></div>
+      <div class="kpi"><div class="kl">Abiertas</div><div class="kv">${n0(CE.abiertas)}</div><div class="ks">todavía en juego</div></div>
+    </div>`;
   const mxf=Math.max(...D.funnel.map(x=>x.v),1);
-  const fh=D.funnel.map(x=>hb(x.n,x.v/mxf*100,'<b>'+n0(x.v)+'</b>',{color:x.win?'#2f7d4f':x.lost?'#b23b3b':'#4a6da8'})).join('');
-  const wonPct=D.crmN?Math.round(100*D.won/D.crmN):0;
+  const fh=D.funnel.length
+    ? D.funnel.map(x=>hb(x.n,x.v/mxf*100,'<b>'+n0(x.v)+'</b>',{color:x.win?'#2f7d4f':x.lost?'#b23b3b':'#4a6da8'})).join('')
+    : '<div class="pmsg">No quedan oportunidades abiertas en este filtro.</div>';
   const cvh=D.convvend.map(x=>{const p=Math.round(100*x.w/x.t);return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${p}% <span style="color:var(--text-muted);font-weight:400">(${x.w}/${x.t})</span></b></div>
     <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${p}%;height:10px;border-radius:4px;background:${p>=60?'#2f7d4f':p>=45?'#4a6da8':'#8a6a1f'};opacity:.8"></div></div></div>`;}).join('')||'<div class="pmsg">Sin oportunidades para este filtro.</div>';
   /* El segundo panel que Ariel pidió sacar de la vista compartida. La vendedora sí ve el suyo:
      el filtro ya la dejó sola en el recorte, así que no hay dato de nadie más. En la vista Ventas
      el embudo pasa a ocupar la tarjeta entera, sin dejar hueco ni cartel de "no disponible". */
-  const embudo=fh+`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${n0(D.crmN)} oportunidades · <b>${n0(D.won)} ganadas (${wonPct}%)</b></div>`;
+  const nota=CE.parcial
+    ? 'Estamos actualizando los datos del CRM; en unos minutos se ve el detalle de ganadas y perdidas.'
+    : `${n0(D.crmN)} oportunidades · <b>${n0(CE.ganadas)} ganadas sobre ${n0(cerr)} cerradas (${convPct}%)</b>. Las etapas de abajo son sólo de las abiertas: una oportunidad perdida se archiva en la etapa donde estaba, así que contarla ahí la haría parecer viva.`;
+  const embudo=estadoTiles+fh+`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${nota}</div>`;
   if(veComparativaEntreVendedoras()||esVendedora()){
-    row2(A,'Embudo CRM por etapa',embudo,esVendedora()?'Tu conversión':'Conversión por vendedora',cvh,1);
+    row2(A,'Estado y etapa de las oportunidades',embudo,esVendedora()?'Tu conversión':'Conversión por vendedora',cvh,1);
   } else {
-    A.appendChild(el(`<div class="card"><h3>Embudo CRM por etapa</h3>${embudo}</div>`));
+    A.appendChild(el(`<div class="card"><h3>Estado y etapa de las oportunidades</h3>${embudo}</div>`));
   }
 
   const usdFootNote = CUR==='USD'
     ? (usdPend ? ' Sin cotización oficial disponible para este filtro: los montos en USD no están completos.'
        : ' Convertidos a USD al dólar oficial del día de cada venta (no un tipo de cambio único): si ese día no hubo publicación —finde o feriado— se arrastra el último, y si falta el día se usa el promedio del mes.')
     : ' Están en pesos (ARS); usá el switch ARS/USD arriba.';
-  A.appendChild(el(`<div style="font-size:11px;color:var(--text-muted);margin-top:24px">Datos de Odoo por API · ${RAW.pull} · se actualiza solo cada 30 min · dólar oficial ${RAW.usdFuente}${RAW.usdFecha?' ('+RAW.usdFecha+')':''} · montos netos (sin IVA).${usdFootNote}</div>`));
+  A.appendChild(el(`<div style="font-size:11px;color:var(--text-muted);margin-top:24px">Datos de Odoo por API · ${RAW.pull} · se actualiza solo cada 30 min · dólar oficial ${RAW.usdFuente}${RAW.usdFecha?' ('+RAW.usdFecha+')':''} · montos con IVA incluido.${usdFootNote}</div>`));
 }
 
 /* ===== arranque (al final: ya están definidas todas las const/función) ===== */
 document.getElementById('logout').addEventListener('click',()=>{sesionBorrar();location.reload();});
+document.getElementById('chgpwd').addEventListener('click',async()=>{
+  USER=await pedirCambioClave(USER,false); pintarSesion();
+});
 
-/* Deja el filtro clavado en la vendedora que inició sesión, ANTES de dibujar nada. Si su nombre no
-   coincide con ninguno de Odoo devuelve false: sin ese corte el filtro quedaría en "Todas" y vería
-   el tablero completo, que es justo lo contrario de lo que se pidió. */
+/* Deja el filtro clavado en la vendedora que inició sesión, ANTES de dibujar nada. El backend ya
+   mandó el dataset recortado —el diccionario trae un solo nombre—, así que esto es el cinturón
+   además del tirante: si por lo que fuera llegara el dataset entero, el filtro igual la deja
+   viendo sólo lo suyo en vez de todo. */
 function aplicarRol(){
   if(!esVendedora()) return true;
-  const i=(RAW.dict.VEN||[]).indexOf(USER.ven);
+  const i=((RAW.dict&&RAW.dict.VEN)||[]).indexOf(USER.ven);
   if(i<0) return false;
   F.ven=String(i);
   return true;
 }
 
-async function arrancar(){
-  const app=document.getElementById('app');
-  if(!RAW || !RAW.O || !RAW.O.length){
-    app.innerHTML='<div class="card" style="margin-top:20px"><h3>'+(RAW&&RAW._err?'No se pudieron cargar los datos':'Todavía no hay datos')+'</h3><div class="pmsg">'+(RAW&&RAW._err?('Error: '+RAW._err+'. Recargá la página; si sigue, avisá a Calcuta.'):'El servidor todavía no sincronizó con Odoo. Probá recargar en unos minutos.')+'</div></div>';
-    return;
-  }
+function pantalla(titulo,texto){
+  document.getElementById('app').innerHTML=
+    '<div class="card" style="margin-top:20px"><h3>'+titulo+'</h3><div class="pmsg">'+texto+'</div></div>';
+}
 
-  USER = sesionLeer() || await pedirLogin();
+function arrancar(){
   pintarSesion();
-
+  if(FATAL==='sin_vendedora'){
+    return pantalla('No encontramos tus ventas',
+      'Tu usuario está asociado a <b>'+((USER&&USER.ven)||'(sin asignar)')+'</b>, que no figura con ese '
+      +'nombre exacto entre las vendedoras de Odoo. Avisale a Calcuta para corregirlo.');
+  }
+  if(FATAL) return pantalla('No se pudieron cargar los datos',FATAL);
+  if(!RAW.O||!RAW.O.length){
+    return pantalla('Todavía no hay datos',
+      esVendedora()?'Todavía no figuran ventas tuyas en el período sincronizado.'
+                   :'El servidor todavía no sincronizó con Odoo. Probá recargar en unos minutos.');
+  }
   if(!aplicarRol()){
-    app.innerHTML='<div class="card" style="margin-top:20px"><h3>No encontramos tus ventas</h3>'
-      +'<div class="pmsg">Tu usuario está asociado a <b>'+(USER.ven||'(sin asignar)')+'</b>, '
-      +'que no figura con ese nombre exacto entre las vendedoras de Odoo. Avisale a Calcuta para corregirlo.</div></div>';
-    return;
+    return pantalla('No encontramos tus ventas',
+      'Tu usuario está asociado a <b>'+(USER.ven||'(sin asignar)')+'</b>, que no figura con ese '
+      +'nombre exacto entre las vendedoras de Odoo. Avisale a Calcuta para corregirlo.');
   }
   buildToolbar(); go();
 }
