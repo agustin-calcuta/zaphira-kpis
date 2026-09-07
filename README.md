@@ -8,5 +8,6 @@ Frontend estático (GitHub Pages) del tablero de KPIs de ventas de Zaphira.
 - **Export XLSX:** lo genera el mismo backend (`{op:'xlsx', token, …}`), también recortado.
 
 El código fuente del backend vive en el proyecto Apps Script (repo/carpeta `appscript-zaphira`, se deploya con `clasp`).
+- **Mantenimiento:** `mantenimiento/` guarda scripts sueltos que van pegados en ese proyecto Apps Script, no acá (ej. `alta-direccion.gs`, para dar de alta o resetear un usuario sin entrar al tablero como Dirección).
 
 Desarrollado por [Calcuta Consulting](https://calcutaconsulting.com).
