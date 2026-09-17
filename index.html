@@ -1213,13 +1213,14 @@ function renderConfig(A){
     b.disabled=true; msg.textContent='Guardando…';
     const filas=[...document.querySelectorAll('#objForm input')].map(i=>
       ({alcance:i.dataset.alcance,objetivo:Number(i.value)||0}));
-    const r=await api('guardarObjetivos',{token:USER.token,mes:CFG.mes,filas});
+    let r;
+    try{ r=await api('guardarObjetivos',{token:USER.token,mes:CFG.mes,filas}); }
+    catch(err){ r={ok:false,error:'No pudimos conectarnos con la planilla.'}; }
     b.disabled=false;
-    msg.textContent=r&&r.ok?'Guardado.':('No se pudo guardar. '+((r&&r.error)||''));
+    msg.textContent=r&&r.ok?'Guardado y verificado.':('No se pudo guardar. '+((r&&r.error)||''));
     if(r&&r.ok){
-      CFG.objetivos={empresa:0,vendedoras:{}};
-      filas.forEach(f=>{ if(f.alcance==='empresa') CFG.objetivos.empresa=f.objetivo;
-                         else CFG.objetivos.vendedoras[f.alcance]=f.objetivo; });
+      // Usamos lo que el servidor releyó de la hoja, no los valores todavía presentes en pantalla.
+      CFG.objetivos=r.objetivos||{empresa:0,vendedoras:{}};
       // Si se cambió el objetivo del mes en curso, el tablero tiene que reflejarlo al volver.
       if(CFG.mes===mesHoy()){
         OBJETIVO.empresa=CFG.objetivos.empresa;
