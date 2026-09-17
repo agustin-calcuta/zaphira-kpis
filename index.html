@@ -498,6 +498,7 @@ const n0=v=>Math.round(v||0).toLocaleString('es-AR');
 const MULTIYEAR=(function(){var y={};RAW.O.forEach(o=>{var m=RAW.dict.MON[o[0]];if(/^\d{4}/.test(m))y[m.slice(0,4)]=1;});return Object.keys(y).length>1;})();
 const monLabel=m=>/^\d{4}-\d{2}$/.test(m)?MES[+m.slice(5,7)-1]+(MULTIYEAR?" '"+m.slice(2,4):''):m;
 const monFull=m=>/^\d{4}-\d{2}$/.test(m)?MES[+m.slice(5,7)-1]+' '+m.slice(0,4):m;
+const canLabel=n=>n==='Web (Tiendanube)'?'Web/Jenny (Tienda Nube)':n;
 const shortProv=n=>({'Ciudad Autónoma de Buenos Aires':'CABA','Ciudad Autonoma de Buenos Aires':'CABA'})[n]||n;
 const titch=s=>s.toLowerCase().replace(/(^|\s|\/)\S/g,m=>m.toUpperCase());
 
@@ -551,7 +552,7 @@ function buildToolbar(){
   const venO=esVendedora()
     ? opt(F.ven, d.VEN[Number(F.ven)]!==undefined?d.VEN[Number(F.ven)]:(USER.ven||'—'), 1)
     : opt('','Todas',1)+d.VEN.map((v,i)=>({i,v})).sort((a,b)=>a.v<b.v?-1:1).map(x=>opt(x.i,x.v)).join('');
-  const canO=opt('','Todos',1)+d.CAN.map((c,i)=>opt(i,c)).join('');
+  const canO=opt('','Todos',1)+d.CAN.map((c,i)=>opt(i,canLabel(c))).join('');
   const minIso=offToIso(0), maxIso=offToIso(Math.max(MAXOFF,TODAY));
   /* Chips de período: "Todo" primero para que el valor por defecto se vea sin scrollear en celular. */
   const chips=[['all','Todo']].concat(PRESETS).concat([['custom','Rango a medida…']])
@@ -691,7 +692,10 @@ function compute(rng){
   const passO=o=>inR(o[7])&&(F.ven===''||o[1]==F.ven)&&(F.can===''||o[2]==F.can);
   const passL=l=>inR(l[8])&&(F.ven===''||l[1]==F.ven)&&(F.can===''||l[2]==F.can);
   const passP=p=>inR(p[5])&&(F.ven===''||p[1]==F.ven)&&(F.can===''||p[2]==F.can);
-  const passC=c=>inR(c[4])&&(F.ven===''||c[1]==F.ven);
+  /* CRM usa más de una fecha: recibida=create_date, ganada/perdida=date_closed y convertida=
+     date_conversion. Recortarlo todo por create_date hacía desaparecer cierres del mes de leads
+     nacidos antes y permitía que un cierre futuro reescribiera el histórico. */
+  const passC=c=>(F.ven===''||c[1]==F.ven);
   const O=RAW.O.filter(passO), L=RAW.L.filter(passL), P=RAW.P.filter(passP), C=RAW.C.filter(passC);
 
   /* conversión USD acá y sólo acá — money()/moneyFull() sólo formatean.
@@ -766,16 +770,35 @@ function compute(rng){
      dataset viejo, que no trae c[5]. Sin esto el embudo quedaría en cero para todos. */
   const HASEST=C.length===0||C[0].length>5;
   const estadoDe=c=>HASEST?c[5]:(c[3]===1?1:0);   // sin c[5] no se puede saber qué está perdido
-  const fu={}, cv={}; let won=0, crmAb=0, crmPer=0;
+  const HASDATES=C.length===0||C[0].length>8;
+  const received=C.filter(c=>inR(c[4]));
+  const converted=HASDATES?C.filter(c=>c[7]>=0&&inR(c[7])):[];
+  const fu={}, cv={}, lostReasons={}; let won=0, crmAb=0, crmPer=0;
+  const wonIdsAll={};
+  C.forEach(c=>{ if(estadoDe(c)===1&&c.length>8) wonIdsAll[c[8]]=1; });
+  received.forEach(c=>{
+    if(estadoDe(c)!==0) return;
+    crmAb++;
+    const s=d.STAGE[c[2]]; fu[s]=(fu[s]||0)+1;
+  });
   C.forEach(c=>{
-    const e=estadoDe(c), u=d.VEN[c[1]];
-    if(e===1) won++; else if(e===2) crmPer++; else { crmAb++; const s=d.STAGE[c[2]]; fu[s]=(fu[s]||0)+1; }
+    const e=estadoDe(c); if(e===0) return;
+    const closeDay=HASDATES&&c[6]>=0?c[6]:c[4];
+    if(!inR(closeDay)) return;
+    const u=d.VEN[c[1]];
+    if(e===1) won++; else { crmPer++; if(c[10]) lostReasons[c[10]]=(lostReasons[c[10]]||0)+1; }
     (cv[u]=cv[u]||{w:0,t:0}); cv[u].t++; if(e===1) cv[u].w++;
   });
-  const crmEstado={abiertas:crmAb,ganadas:won,perdidas:crmPer,cerradas:won+crmPer,parcial:!HASEST};
-  const ord=['New','Contactado','Qualified','Proposition','Pedido confirmado','Won','NO AVANZARA'];
-  const funnel=Object.keys(fu).sort((a,b)=>{const ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);}).map(s=>({n:s,v:fu[s],win:s==='Won',lost:/NO AVANZAR/i.test(s)}));
+  const crmEstado={recibidas:received.length,convertidas:converted.length,abiertas:crmAb,ganadas:won,
+    perdidas:crmPer,cerradas:won+crmPer,parcial:!HASEST||!HASDATES,fechasCierre:HASDATES};
+  const ord=(RAW.meta.stageOrder||[]);
+  const funnel=Object.keys(fu).sort((a,b)=>{const ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?999:ia)-(ib<0?999:ib)||a.localeCompare(b);})
+    .map(s=>({n:s,v:fu[s],win:/won|ganad/i.test(s),lost:/NO AVANZAR|PERDID/i.test(s)}));
   const convvend=Object.keys(cv).filter(u=>cv[u].t>=5&&u!=='Sin asignar').map(u=>({n:u,w:cv[u].w,t:cv[u].t})).sort((a,b)=>(b.w/b.t)-(a.w/a.t)).slice(0,6);
+  const linked=O.filter(o=>o.length>9&&o[9]>0);
+  const crmReconciliation={ordenes:O.length,vinculadas:linked.length,
+    vinculadasGanadas:linked.filter(o=>wonIdsAll[o[9]]).length,sinOportunidad:O.length-linked.length};
+  const motivosPerdida=Object.keys(lostReasons).map(n=>({n,v:lostReasons[n]})).sort((a,b)=>b.v-a.v);
 
   /* Year to Year — sólo si hay 2+ años realmente presentes en O */
   let yoy=null;
@@ -836,8 +859,8 @@ function compute(rng){
 
   const evo={
     lbl: mesLbl,
-    canalMonto:  aFilas(serieMes(O,o=>d.CAN[o[2]],o=>toCur(o[0],o[7],o[6])), d.CAN, palCanal),
-    canalOrd:    aFilas(serieMes(O,o=>d.CAN[o[2]],()=>1),                    d.CAN, palCanal),
+    canalMonto:  aFilas(serieMes(O,o=>d.CAN[o[2]],o=>toCur(o[0],o[7],o[6])), d.CAN, palCanal).map(x=>Object.assign({},x,{n:canLabel(x.n)})),
+    canalOrd:    aFilas(serieMes(O,o=>d.CAN[o[2]],()=>1),                    d.CAN, palCanal).map(x=>Object.assign({},x,{n:canLabel(x.n)})),
     tipoPrendas: aFilas(serieMes(L,l=>d.TIPO[l[3]],l=>l[5]),                 d.TIPO, palTipo),
     tipoOrdenes: aFilas(serieMes(O,o=>d.TIPO[o[3]],()=>1),                   d.TIPO, palTipo),
     segmento:    aFilas(serieMes(L,l=>bucketOf(d.CAT[l[4]]),l=>toCur(l[0],l[8],l[7])),
@@ -851,7 +874,7 @@ function compute(rng){
   const usdMissingMonths=Object.keys(missMonths).sort();
   const usdBlocked=CUR==='USD' && convOk===0 && convFail>0;   // nada convertible en todo el filtro
 
-  return {meses,ventas,nord,prT,oT,prTot,ent,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,convvend,crmN:C.length,won,yoy,evo,usdMissingMonths,usdBlocked,crmEstado,ticketPedido};
+  return {meses,ventas,nord,prT,oT,prTot,ent,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,convvend,crmN:received.length,won,yoy,evo,usdMissingMonths,usdBlocked,crmEstado,ticketPedido,crmReconciliation,motivosPerdida};
 }
 
 /* ===== barra horizontal (grid: label · pista · valor) ===== */
@@ -1030,6 +1053,13 @@ function barraObjetivo(){
   const porVen=Object.keys(OBJETIVO.vendedoras||{}).filter(k=>OBJETIVO.vendedoras[k]>0);
   if(!OBJETIVO.empresa&&!porVen.length) return '';
   const d=RAW.dict||{};
+  /* Dirección filtrando una persona ve sólo su objetivo. Sin filtro conserva el consolidado. */
+  if(F.ven!==''){
+    const i=Number(F.ven), nom=(d.VEN||[])[i], objetivo=OBJETIVO.vendedoras[nom]||0;
+    if(!objetivo) return '';
+    return `<div class="card" style="margin-bottom:12px"><h3>Objetivo de ${nom} · ${mes}</h3>${
+      barraCumpl(nom,ventasDelMes(i),objetivo)}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Monto en pesos con IVA.</div></div>`;
+  }
   const detalle=porVen.map(nom=>{
     const i=(d.VEN||[]).indexOf(nom);
     return barraCumpl(nom,i<0?0:ventasDelMes(i),OBJETIVO.vendedoras[nom]);
@@ -1219,11 +1249,14 @@ function render(A,D,PREV){
      —"Todo el período"— no hay contra qué medir y las tarjetas salen sin badge. */
   const tk=D.nord?D.ventas/D.nord:0, tkP=PREV&&PREV.nord?PREV.ventas/PREV.nord:0;
   const cmpT=PREV?'vs '+prevLabel():'';
+  const CEtop=D.crmEstado, cerrTop=CEtop.cerradas, convTop=cerrTop?Math.round(100*CEtop.ganadas/cerrTop):0;
   const SC=[
    {l:'Ventas confirmadas',v:M(D.ventas),      s:n0(D.nord)+' órdenes',  a:D.ventas,     b:PREV&&PREV.ventas},
+   {l:'Tasa de conversión',v:convTop+'%',       s:n0(CEtop.ganadas)+' ganadas / '+n0(cerrTop)+' cerradas'},
+   {l:'Ticket promedio',   v:MF(tk),           s:'por orden',            a:tk,           b:tkP},
+   {l:'Oportunidades ganadas',v:n0(CEtop.ganadas),s:'por fecha de cierre'},
    {l:'Órdenes',           v:n0(D.nord),       s:'confirmadas',          a:D.nord,       b:PREV&&PREV.nord},
    {l:'Prendas vendidas',  v:n0(D.prTot),      s:'unidades',             a:D.prTot,      b:PREV&&PREV.prTot},
-   {l:'Ticket promedio',   v:MF(tk),           s:'por orden',            a:tk,           b:tkP},
    {l:'Ciclo pedido→entrega',v:D.ciclo.dias+' días',s:'mediana '+D.ciclo.mediana},
   ];
   A.appendChild(el('<div class="kpis">'+SC.map(k=>
@@ -1292,7 +1325,7 @@ function render(A,D,PREV){
     sec(A,'5','Ventas por vendedora');
     const mxv=D.vend[0]?D.vend[0].monto:1;
     const vh=D.vend.map(x=>hb(x.n,x.monto/mxv*100,M(x.monto)+' · '+n0(x.ops)+' órd.')).join('');
-    A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web (Tiendanube)" = órdenes automáticas sin vendedora.</div></div>`));
+    A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web/Jenny (Tienda Nube)" = órdenes automáticas sin vendedora.</div></div>`));
     A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por vendedora</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M)}</div>`));
   } else if(esVendedora()){
     sec(A,'5','Tus ventas mes a mes');
@@ -1308,7 +1341,7 @@ function render(A,D,PREV){
     const cr=(nm,dd,col)=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${nm}</span><b>${M(dd.m)} · ${n0(dd.n)} órd.</b></div>
       <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${(dd.m/totM*100).toFixed(1)}%;height:10px;border-radius:4px;background:${col};opacity:.8"></div></div>
       <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">${Math.round(dd.m/totM*100)}% del monto · ${Math.round(dd.n/totO*100)}% de las órdenes</div></div>`;
-    A.appendChild(el(`<div class="card"><h3>Venta directa vs Web</h3>${cr('Venta directa',D.pres,'#1e3a6e')+cr('Web (Tiendanube)',D.web,'#7fa3d9')}</div>`));
+    A.appendChild(el(`<div class="card"><h3>Venta directa vs Web</h3>${cr('Venta directa',D.pres,'#1e3a6e')+cr('Web/Jenny (Tienda Nube)',D.web,'#7fa3d9')}</div>`));
     A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por canal${curTag}</h3>
       ${evoTable(D.evo.lbl,D.evo.canalMonto,M)}
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
@@ -1386,6 +1419,8 @@ function render(A,D,PREV){
   const CE=D.crmEstado, cerr=CE.cerradas;
   const convPct=cerr?Math.round(100*CE.ganadas/cerr):0;
   const estadoTiles=`<div class="kpis" style="margin-bottom:12px">
+      <div class="kpi"><div class="kl">Recibidas</div><div class="kv">${n0(CE.recibidas)}</div><div class="ks">por fecha de alta</div></div>
+      <div class="kpi"><div class="kl">Convertidas</div><div class="kv">${n0(CE.convertidas)}</div><div class="ks">lead → oportunidad</div></div>
       <div class="kpi"><div class="kl">Ganadas</div><div class="kv" style="color:#2f7d4f">${n0(CE.ganadas)}</div><div class="ks">${cerr?Math.round(100*CE.ganadas/cerr):0}% de las cerradas</div></div>
       <div class="kpi"><div class="kl">Perdidas</div><div class="kv" style="color:#b23b3b">${n0(CE.perdidas)}</div><div class="ks">${cerr?Math.round(100*CE.perdidas/cerr):0}% de las cerradas</div></div>
       <div class="kpi"><div class="kl">Abiertas</div><div class="kv">${n0(CE.abiertas)}</div><div class="ks">todavía en juego</div></div>
@@ -1399,10 +1434,12 @@ function render(A,D,PREV){
   /* El segundo panel que Ariel pidió sacar de la vista compartida. La vendedora sí ve el suyo:
      el filtro ya la dejó sola en el recorte, así que no hay dato de nadie más. En la vista Ventas
      el embudo pasa a ocupar la tarjeta entera, sin dejar hueco ni cartel de "no disponible". */
+  const R=D.crmReconciliation;
+  const conciliacion=`<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--surface-1);font-size:11px;line-height:1.55"><b>Conciliación CRM ↔ órdenes:</b> ${n0(R.ordenes)} órdenes del filtro · ${n0(R.vinculadas)} vinculadas a una oportunidad · ${n0(R.vinculadasGanadas)} vinculadas a una ganada · ${n0(R.sinOportunidad)} sin oportunidad. Por eso órdenes y ganadas no tienen por qué coincidir.</div>`;
   const nota=CE.parcial
-    ? 'Estamos actualizando los datos del CRM; en unos minutos se ve el detalle de ganadas y perdidas.'
-    : `${n0(D.crmN)} oportunidades · <b>${n0(CE.ganadas)} ganadas sobre ${n0(cerr)} cerradas (${convPct}%)</b>. Las etapas de abajo son sólo de las abiertas: una oportunidad perdida se archiva en la etapa donde estaba, así que contarla ahí la haría parecer viva.`;
-  const embudo=estadoTiles+fh+`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${nota}</div>`;
+    ? 'El dataset anterior no trae todas las fechas del CRM; el detalle histórico se completa después de la próxima sincronización.'
+    : `${n0(D.crmN)} recibidas · <b>${n0(CE.ganadas)} ganadas sobre ${n0(cerr)} cerradas (${convPct}%)</b>. Ganadas y perdidas se imputan por fecha de cierre; las etapas son las oportunidades todavía abiertas recibidas en el período.`;
+  const embudo=estadoTiles+fh+conciliacion+`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${nota}</div>`;
   if(veComparativaEntreVendedoras()||esVendedora()){
     row2(A,'Estado y etapa de las oportunidades',embudo,esVendedora()?'Tu conversión':'Conversión por vendedora',cvh,1);
   } else {
