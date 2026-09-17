@@ -769,7 +769,8 @@ function compute(rng){
      GUARD: entre el push del backend y el re-sync del trigger pasan hasta 30 min sirviendo el
      dataset viejo, que no trae c[5]. Sin esto el embudo quedaría en cero para todos. */
   const HASEST=C.length===0||C[0].length>5;
-  const estadoDe=c=>HASEST?c[5]:(c[3]===1?1:0);   // sin c[5] no se puede saber qué está perdido
+  const etapaGanada=c=>/^(won|ganad[oa]|pedido confirmado)$/i.test(String(d.STAGE[c[2]]||'').trim());
+  const estadoDe=c=>etapaGanada(c)?1:(HASEST?c[5]:(c[3]===1?1:0)); // Pedido confirmado es cierre terminal en Safina
   const HASDATES=C.length===0||C[0].length>8;
   const received=C.filter(c=>inR(c[4]));
   const converted=HASDATES?C.filter(c=>c[7]>=0&&inR(c[7])):[];
@@ -1435,7 +1436,7 @@ function render(A,D,PREV){
      el filtro ya la dejó sola en el recorte, así que no hay dato de nadie más. En la vista Ventas
      el embudo pasa a ocupar la tarjeta entera, sin dejar hueco ni cartel de "no disponible". */
   const R=D.crmReconciliation;
-  const conciliacion=`<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--surface-1);font-size:11px;line-height:1.55"><b>Conciliación CRM ↔ órdenes:</b> ${n0(R.ordenes)} órdenes del filtro · ${n0(R.vinculadas)} vinculadas a una oportunidad · ${n0(R.vinculadasGanadas)} vinculadas a una ganada · ${n0(R.sinOportunidad)} sin oportunidad. Por eso órdenes y ganadas no tienen por qué coincidir.</div>`;
+  const conciliacion=`<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--surface-1);font-size:11px;line-height:1.55"><b>Conciliación CRM ↔ órdenes:</b> ${n0(R.ordenes)} órdenes del filtro · ${n0(R.vinculadas)} vinculadas a una oportunidad · ${n0(R.vinculadasGanadas)} vinculadas a una ganada · ${n0(R.sinOportunidad)} sin oportunidad. <b>Conversión</b> mide el paso de lead a oportunidad; <b>orden</b> mide una venta confirmada, por eso esos números no tienen que coincidir. Para comparar ventas se usan las ganadas (incluye “Pedido confirmado”) y sus órdenes vinculadas.</div>`;
   const nota=CE.parcial
     ? 'El dataset anterior no trae todas las fechas del CRM; el detalle histórico se completa después de la próxima sincronización.'
     : `${n0(D.crmN)} recibidas · <b>${n0(CE.ganadas)} ganadas sobre ${n0(cerr)} cerradas (${convPct}%)</b>. Ganadas y perdidas se imputan por fecha de cierre; las etapas son las oportunidades todavía abiertas recibidas en el período.`;
