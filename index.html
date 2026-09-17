@@ -1332,7 +1332,6 @@ function render(A,D,PREV){
    {l:'Oportunidades ganadas',v:n0(CEtop.ganadas),s:'por fecha de cierre'},
    {l:'Órdenes',           v:n0(D.nord),       s:'confirmadas',          a:D.nord,       b:PREV&&PREV.nord},
    {l:'Prendas vendidas',  v:n0(D.prTot),      s:'unidades',             a:D.prTot,      b:PREV&&PREV.prTot},
-   {l:'Ciclo pedido→entrega',v:D.ciclo.dias+' días',s:'mediana '+D.ciclo.mediana},
   ];
   A.appendChild(el('<div class="kpis">'+SC.map(k=>
    `<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div>`
