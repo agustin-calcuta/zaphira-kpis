@@ -29,11 +29,23 @@ html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--surface-0);font-family:var(--font-sans);color:var(--text-primary);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 
 /* ---------- header ---------- */
-header{background:#17233b;color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header{min-height:68px;background:#17233b;color:#fff;padding:11px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .brand{background:#fff;border-radius:var(--r-sm);padding:6px 11px;display:inline-flex;align-items:center;line-height:0;flex:none}
 .brand img{height:26px;width:auto;display:block}
-.htit{color:#9db4dd;font-size:13px;min-width:0}
-#fresh{margin-left:auto;font-size:11px;color:#8397b5;text-align:right;line-height:1.5}
+.title-block{min-width:0}
+.title-block strong{display:block;font-size:14px;font-weight:650;color:#fff}
+.title-block span{display:block;margin-top:2px;font-size:11px;color:#9db4dd}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:16px;min-width:0}
+.sync-status{display:flex;align-items:center;gap:9px;color:#9db4dd;font-size:11px;text-align:right;white-space:nowrap}
+.sync-dot{width:8px;height:8px;flex:none;border-radius:50%;background:#efcb71;box-shadow:0 0 0 4px rgba(239,203,113,.12)}
+.sync-dot.ok{background:#70bf8c;box-shadow:0 0 0 4px rgba(112,191,140,.12)}
+.sync-dot.error{background:#d98978;box-shadow:0 0 0 4px rgba(217,137,120,.12)}
+#fresh{color:inherit;line-height:1.5}
+.loading-card{margin-top:20px;display:flex;align-items:center;gap:13px}
+.loading-spinner{width:19px;height:19px;flex:none;border:2px solid #d7dfeb;border-top-color:var(--fill-primary);border-radius:50%;animation:spin .8s linear infinite}
+.loading-card h3{margin-bottom:3px}
+.loading-detail{font-size:11.5px;color:var(--text-muted)}
+@keyframes spin{to{transform:rotate(360deg)}}
 footer.made{padding:18px 22px;text-align:center;font-size:11px;letter-spacing:.4px;color:var(--text-muted)}
 footer.made b{color:var(--text-secondary);font-weight:600}
 
@@ -201,7 +213,7 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 /* ---------- tablet ---------- */
 @media (max-width:900px){
  .hrow{grid-template-columns:minmax(0,120px) minmax(0,1fr) max-content;gap:8px}
- #fresh{width:100%;margin-left:0;text-align:left}
+ .header-right{gap:10px}
 }
 
 /* ---------- mobile: filtros colapsables ---------- */
@@ -218,9 +230,12 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
  .actions{margin-left:0;width:100%;flex-wrap:wrap}
  .actions .btn{flex:1 1 auto;height:42px}
  .seg button{padding:0 14px}
- header{padding:11px 14px;gap:10px}
- .htit{flex-basis:100%;order:3;font-size:12px}
- #fresh{order:2;margin-left:auto;text-align:right;width:auto;font-size:10.5px;max-width:52%}
+ header{padding:10px 14px;gap:11px}
+ .title-block{display:none}
+ .header-right{margin-left:auto;gap:9px}
+ .sync-status{font-size:10.5px}
+ #who>span{display:none}
+ #chgpwd{display:none}
  .wrap{padding:14px 12px 44px}
  .sec{margin:22px 2px 10px}
  .sect{font-size:15px}
@@ -251,12 +266,14 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 <body>
 <header>
   <span class="brand"><img src="data:image/png;base64,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" alt="Zaphira Uniformes"></span>
-  <span class="htit" id="htit">Dashboard Ventas</span>
-  <span id="who" hidden><span>Sesión: <b id="whoN"></b></span><button id="chgpwd" type="button">Cambiar clave</button><button id="logout" type="button">Salir</button></span>
-  <span id="fresh"></span>
+  <div class="title-block"><strong>Dashboard ventas</strong><span id="headerSubtitle">Gestión comercial</span></div>
+  <div class="header-right">
+    <div class="sync-status"><span class="sync-dot" id="syncDot" aria-hidden="true"></span><span id="fresh">Conectando con Odoo…</span></div>
+    <span id="who" hidden><span>Sesión: <b id="whoN"></b></span><button id="chgpwd" type="button">Cambiar clave</button><button id="logout" type="button">Salir</button></span>
+  </div>
 </header>
 <div id="toolbar" class="bar2"></div>
-<div class="wrap"><div class="mk" id="app"><div class="card" style="margin-top:20px"><h3>Cargando datos…</h3></div></div></div>
+<div class="wrap"><div class="mk" id="app"><div class="card loading-card"><span class="loading-spinner" aria-hidden="true"></span><div><h3 id="loadingTitle">Abriendo el tablero…</h3><div class="loading-detail" id="loadingDetail">Validando la sesión.</div></div></div></div></div>
 <div id="gate" hidden></div>
 
 <script type="module">
@@ -283,13 +300,19 @@ const el=(h)=>{const d=document.createElement('div');d.innerHTML=h;return d;};
 /* POST con Content-Type text/plain a propósito: con application/json el navegador manda antes un
    preflight OPTIONS, y Apps Script no lo contesta — el pedido moriría sin llegar al servidor.
    El cuerpo sigue siendo JSON; lo único que cambia es el rótulo. */
-async function api(op,extra){
-  const r=await fetch(EXEC_URL,{
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify(Object.assign({op},extra||{}))
-  });
-  return r.json();
+async function api(op,extra,timeoutMs){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs||45000);
+  try{
+    const r=await fetch(EXEC_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(Object.assign({op},extra||{})),
+      cache:'no-store',signal:controller.signal
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return await r.json();
+  }finally{ clearTimeout(timer); }
 }
 
 const SES_KEY='zaphira_sesion_v2';
@@ -301,6 +324,29 @@ function sesionLeer(){
   }catch(e){ return null; }
 }
 function sesionBorrar(){ try{localStorage.removeItem(SES_KEY);}catch(e){} }
+const DATA_CACHE_PREFIX='zaphira_data_v1_';
+const dataCacheKey=u=>DATA_CACHE_PREFIX+String((u&&u.usuario)||'').toLowerCase();
+function dataCacheLeer(u){
+  try{
+    const item=JSON.parse(localStorage.getItem(dataCacheKey(u))||'null');
+    return item&&item.response&&item.response.ok?item:null;
+  }catch(e){ return null; }
+}
+function dataCacheGuardar(u,response){
+  try{ localStorage.setItem(dataCacheKey(u),JSON.stringify({saved:Date.now(),response})); }catch(e){}
+}
+function dataCacheBorrar(u){ try{localStorage.removeItem(dataCacheKey(u));}catch(e){} }
+function loadingState(title,detail){
+  const t=document.getElementById('loadingTitle'),d=document.getElementById('loadingDetail');
+  if(t) t.textContent=title;
+  if(d) d.textContent=detail;
+}
+function syncState(text,tone){
+  document.getElementById('fresh').textContent=text;
+  const dot=document.getElementById('syncDot');
+  dot.classList.toggle('ok',tone==='ok');
+  dot.classList.toggle('error',tone==='error');
+}
 
 let USER=null;
 let OBJETIVO={mes:'',empresa:0,mio:0,vendedoras:{}};
@@ -314,7 +360,10 @@ const LOGO=()=>document.querySelector('.brand img').src;
 function pintarSesion(){
   const w=document.getElementById('who');
   w.hidden=!USER;
-  if(USER) document.getElementById('whoN').textContent=USER.nombre||USER.usuario;
+  if(USER){
+    document.getElementById('whoN').textContent=USER.nombre||USER.usuario;
+    document.getElementById('headerSubtitle').textContent=esDireccion()?'Dirección · gestión comercial':'Ventas · gestión comercial';
+  }
 }
 
 /* Cáscara común de las pantallas a pantalla completa (login y cambio de clave). */
@@ -409,21 +458,47 @@ function pedirCambioClave(ses,obligatorio){
 /* ===== arranque de la sesión y de los datos =====
    Va antes que todo lo demás porque el dataset depende de quién entró. El bucle cubre el caso
    de la sesión vencida: el servidor responde code:'sesion', se borra y se vuelve a pedir login. */
-let RESP=null, FATAL='';
+let RESP=null, FATAL='', BACKGROUND_REFRESH=null, USED_CACHE=false;
 try{
   USER=sesionLeer();
   for(let intento=0; intento<4; intento++){
     if(!USER) USER=await pedirLogin();
     if(USER.cambiar) USER=await pedirCambioClave(USER,true);
-    RESP=await api('data',{token:USER.token});
+    pintarSesion();
+    const cached=dataCacheLeer(USER);
+    if(cached){
+      loadingState('Validando la sesión…','La última sincronización guardada está lista para abrir.');
+      syncState('Validando sesión…','loading');
+      let validation=null;
+      try{ validation=await api('objetivos',{token:USER.token},15000); }catch(err){}
+      if(validation&&validation.code==='sesion'){
+        dataCacheBorrar(USER); sesionBorrar(); USER=null; continue;
+      }
+      if(validation&&validation.ok){
+        RESP=cached.response;
+        RESP.objetivo=esDireccion()
+          ? {mes:validation.mes,empresa:validation.objetivos.empresa,vendedoras:validation.objetivos.vendedoras}
+          : {mes:validation.mes,mio:validation.mio};
+        USED_CACHE=true;
+        BACKGROUND_REFRESH=api('data',{token:USER.token},45000);
+        break;
+      }
+    }
+    loadingState('Trayendo la última sincronización…','La primera carga puede tardar unos segundos; después se abre desde memoria local.');
+    syncState('Conectando con Odoo…','loading');
+    RESP=await api('data',{token:USER.token},45000);
     if(RESP&&RESP.ok) break;
     if(RESP&&RESP.code==='sin_vendedora'){ FATAL='sin_vendedora'; break; }
     if(RESP&&RESP.code==='sesion'){ sesionBorrar(); USER=null; continue; }
     FATAL=(RESP&&RESP.error)||'No pudimos cargar los datos.'; break;
   }
 }catch(err){
-  FATAL='No pudimos conectarnos con el servidor. Recargá la página; si sigue, avisale a Calcuta.';
+  syncState('Odoo no disponible','error');
+  FATAL=err&&err.name==='AbortError'
+    ? 'La carga superó los 45 segundos y se canceló. Recargá la página; si sigue, avisale a Calcuta.'
+    : 'No pudimos conectarnos con el servidor. Recargá la página; si sigue, avisale a Calcuta.';
 }
+if(RESP&&RESP.ok&&!USED_CACHE) dataCacheGuardar(USER,RESP);
 if(RESP&&RESP.objetivo) OBJETIVO=Object.assign(OBJETIVO,RESP.objetivo);
 
 /* Normalizar ANTES de cualquier const que lea RAW. Varias (MULTIYEAR, HASDAY, DAY0…) recorren
@@ -1215,7 +1290,7 @@ function renderConfig(A){
 
 function render(A,D,PREV){
   const d=RAW.dict;
-  document.getElementById('fresh').textContent='Odoo · '+RAW.pull+(rate?(' · dólar oficial $'+n0(rate)+(RAW.usdFecha?' al '+fmtFecha(RAW.usdFecha):'')):'');
+  syncState('Odoo · '+RAW.pull+(rate?(' · dólar oficial $'+n0(rate)+(RAW.usdFecha?' al '+fmtFecha(RAW.usdFecha):'')):''),'ok');
 
   /* Barra de contexto: qué período y qué filtros están activos. Va en el contenido (no en la
      toolbar) para que salga también en el PDF, donde la toolbar se oculta. */
@@ -1454,7 +1529,7 @@ function render(A,D,PREV){
 }
 
 /* ===== arranque (al final: ya están definidas todas las const/función) ===== */
-document.getElementById('logout').addEventListener('click',()=>{sesionBorrar();location.reload();});
+document.getElementById('logout').addEventListener('click',()=>{dataCacheBorrar(USER);sesionBorrar();location.reload();});
 document.getElementById('chgpwd').addEventListener('click',async()=>{
   USER=await pedirCambioClave(USER,false); pintarSesion();
 });
@@ -1497,6 +1572,15 @@ function arrancar(){
   buildToolbar(); go();
 }
 arrancar();
+if(BACKGROUND_REFRESH){
+  BACKGROUND_REFRESH.then(fresh=>{
+    if(!fresh||!fresh.ok) return;
+    dataCacheGuardar(USER,fresh);
+    const newPull=fresh.raw&&fresh.raw.pull;
+    if(newPull&&newPull!==RAW.pull) syncState('Hay datos nuevos listos · recargá para verlos','loading');
+    else syncState('Odoo · '+RAW.pull,'ok');
+  }).catch(()=>syncState('Odoo · '+RAW.pull+' · última sincronización','ok'));
+}
 </script>
 <footer class="made">Desarrollado por <b>CALCUTA</b></footer>
 </body>
