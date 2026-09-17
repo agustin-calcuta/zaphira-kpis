@@ -83,7 +83,7 @@ input[type=date].ctl{-webkit-appearance:none;appearance:none;min-width:150px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:6px}
 .kpi{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;min-width:0}
 .kv{font-size:21px;font-weight:600;margin-top:4px;overflow-wrap:anywhere;line-height:1.2}
-.kl{font-size:12px;color:var(--text-secondary)}
+.kl{font-size:12px;color:var(--text-secondary);line-height:1.35;min-height:32px}
 .ks{font-size:11px;color:var(--text-muted);margin-top:3px}
 h3{font-size:15px;font-weight:600;margin:0 0 10px}
 .sec{display:flex;align-items:baseline;gap:10px;margin:26px 2px 12px}
@@ -151,17 +151,9 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 #logout{background:none;border:1px solid #3a4a68;color:#9db4dd;font-family:inherit;font-size:11.5px;border-radius:var(--r-sm);padding:4px 10px;cursor:pointer}
 #logout:hover{background:#22314f;color:#fff}
 
-/* ---------- barra de período (fuera del panel colapsable: tiene que verse siempre) ---------- */
-.perbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
-.perbar>svg{width:15px;height:15px;color:var(--text-muted);flex:none}
-.perlbl{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-right:2px}
-.chip{border:1px solid var(--border);background:var(--surface-2);color:var(--text-secondary);font-family:inherit;font-size:12.5px;font-weight:600;border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
-.chip:hover{background:var(--surface-1);color:var(--text-primary)}
-.chip.on{background:var(--fill-primary);border-color:var(--fill-primary);color:#fff}
-.chip:focus-visible{outline:none;box-shadow:var(--ring)}
-.perbar .ctl{height:32px;min-width:142px;font-size:12.5px}
-.perdates{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-.perdates span{font-size:12px;color:var(--text-muted)}
+.period-select{min-width:190px}
+.perdates{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.perdates .ctl{min-width:142px}
 
 /* ---------- variación (delta) ---------- */
 .dlt{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;white-space:nowrap;line-height:1.5}
@@ -239,14 +231,8 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
  .wrap{padding:14px 12px 44px}
  .sec{margin:22px 2px 10px}
  .sect{font-size:15px}
- /* Los chips de período NO se colapsan con el resto de los filtros: el pedido de Ariel fue
-    justamente que el rango de fechas esté a la vista. Scrollean en horizontal en su propia fila. */
- .perbar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;margin:9px -14px 0;padding:10px 14px 2px;scrollbar-width:none}
- .perbar::-webkit-scrollbar{display:none}
- .perbar>svg,.perlbl{display:none}
- .chip{padding:7px 13px;flex:none}
- .perdates{flex:none}
- .perbar .ctl{height:36px;min-width:132px}
+ .perdates{width:100%;align-items:stretch}
+ .perdates .fl{flex:1 1 140px}
 }
 
 /* ---------- teléfono ---------- */
@@ -517,6 +503,19 @@ RAW.usdFuente = RAW.usdFuente || '';
 RAW.usdFecha = RAW.usdFecha || '';
 RAW.rateDay = RAW.rateDay || [];
 
+/* Compatibilidad inmediata con datasets ya cacheados: Yeni es la cuenta técnica de Tiendanube,
+   no una vendedora. Compactar el diccionario y remapear las filas evita que figure duplicada
+   incluso antes de que termine la siguiente sincronización de Apps Script. */
+(function agruparTiendanube(raw){
+  const old=(raw.dict&&raw.dict.VEN)||[];
+  if(!old.some(v=>/^yeni$/i.test(String(v).trim()))) return;
+  const labels=old.map(v=>/^yeni$/i.test(String(v).trim())?'Web (Tiendanube)':v), compact=[];
+  labels.forEach(v=>{if(compact.indexOf(v)<0) compact.push(v);});
+  const remap=labels.map(v=>compact.indexOf(v));
+  [raw.O,raw.L,raw.P,raw.C].forEach(rows=>(rows||[]).forEach(row=>{if(remap[row[1]]!==undefined)row[1]=remap[row[1]];}));
+  raw.dict.VEN=compact;
+})(RAW);
+
 /* ===== fechas =====
    Cada fila trae su día como offset entero desde meta.day0. Trabajamos siempre en UTC para que
    el filtro no se corra un día según el huso del navegador, y "hoy" sale de meta.today (TZ del
@@ -529,6 +528,7 @@ const offToIso=off=>offToDate(off).toISOString().slice(0,10);
 const isoToOff=iso=>isoToDayN(iso)-DAY0;
 const TODAY=isoToOff(RAW.meta.today||RAW.meta.maxDate||RAW.meta.day0||'2000-01-01');
 const MAXOFF=isoToOff(RAW.meta.maxDate||RAW.meta.today||RAW.meta.day0||'2000-01-01');
+const MINOFF=Math.max(0,isoToOff(RAW.meta.dateFrom||'2026-03-01'));
 const fmtDay=off=>{const t=offToDate(off);return t.getUTCDate()+' '+MESL[t.getUTCMonth()]+' '+t.getUTCFullYear();};
 const fmtFecha=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s||''));return m?(m[3]+'/'+m[2]+'/'+m[1]):(s||'');};
 
@@ -544,11 +544,12 @@ function rangeOf(key){
   if(key==='d90') return [TODAY-89,TODAY];
   if(key==='qtd') return [mk(Y,Math.floor(M/3)*3,1),TODAY];
   if(key==='ytd') return [mk(Y,0,1),TODAY];
-  return [null,null];   // 'all' y cualquier clave desconocida
+  return [MINOFF,null];   // 'all' y cualquier clave desconocida
 }
-let F={per:'all',from:null,to:null,ven:'',can:''};
-function setPeriod(key){F.per=key;const r=rangeOf(key);F.from=r[0];F.to=r[1];}
+let F={per:'all',from:MINOFF,to:null,ven:'',can:''};
+function setPeriod(key){F.per=key;const r=rangeOf(key);F.from=r[0]===null?MINOFF:Math.max(MINOFF,r[0]);F.to=r[1];}
 function rangeLabel(){
+  if(F.per==='all') return 'Todo el período · '+fmtDay(MINOFF)+' a '+fmtDay(MAXOFF);
   if(F.from===null&&F.to===null) return 'Todo el período · '+fmtDay(0)+' a '+fmtDay(MAXOFF);
   if(F.from===null) return 'Hasta '+fmtDay(F.to);
   if(F.to===null) return 'Desde '+fmtDay(F.from);
@@ -573,7 +574,7 @@ const n0=v=>Math.round(v||0).toLocaleString('es-AR');
 const MULTIYEAR=(function(){var y={};RAW.O.forEach(o=>{var m=RAW.dict.MON[o[0]];if(/^\d{4}/.test(m))y[m.slice(0,4)]=1;});return Object.keys(y).length>1;})();
 const monLabel=m=>/^\d{4}-\d{2}$/.test(m)?MES[+m.slice(5,7)-1]+(MULTIYEAR?" '"+m.slice(2,4):''):m;
 const monFull=m=>/^\d{4}-\d{2}$/.test(m)?MES[+m.slice(5,7)-1]+' '+m.slice(0,4):m;
-const canLabel=n=>n==='Web (Tiendanube)'?'Web/Jenny (Tienda Nube)':n;
+const canLabel=n=>n;
 const shortProv=n=>({'Ciudad Autónoma de Buenos Aires':'CABA','Ciudad Autonoma de Buenos Aires':'CABA'})[n]||n;
 const titch=s=>s.toLowerCase().replace(/(^|\s|\/)\S/g,m=>m.toUpperCase());
 
@@ -603,14 +604,12 @@ const ICO={
   xls:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M6.5 6v7.5"/></svg>',
   x:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>'
 };
-/* El contador del botón "Filtros" ya NO cuenta el período: los chips de período viven fuera del
-   panel colapsable y se ven siempre, así que marcarlos ahí sería redundante. */
-function activeCount(){return (F.ven!==''?1:0)+(F.can!==''?1:0);}
+function activeCount(){return (F.ven!==''?1:0)+(F.can!==''?1:0)+(F.per!=='all'?1:0);}
 function syncChrome(){   /* refresca lo que depende del estado del filtro, sin re-armar la toolbar */
   const n=activeCount(), dot=document.getElementById('fDot');
   dot.textContent=n||''; dot.style.display=n?'block':'none';
   document.getElementById('perdates').hidden=(F.per!=='custom');
-  [...document.querySelectorAll('#perbar .chip')].forEach(c=>c.classList.toggle('on',c.dataset.per===F.per));
+  document.getElementById('fPer').value=F.per;
 }
 function buildToolbar(){
   const d=RAW.dict;
@@ -628,10 +627,9 @@ function buildToolbar(){
     ? opt(F.ven, d.VEN[Number(F.ven)]!==undefined?d.VEN[Number(F.ven)]:(USER.ven||'—'), 1)
     : opt('','Todas',1)+d.VEN.map((v,i)=>({i,v})).sort((a,b)=>a.v<b.v?-1:1).map(x=>opt(x.i,x.v)).join('');
   const canO=opt('','Todos',1)+d.CAN.map((c,i)=>opt(i,canLabel(c))).join('');
-  const minIso=offToIso(0), maxIso=offToIso(Math.max(MAXOFF,TODAY));
-  /* Chips de período: "Todo" primero para que el valor por defecto se vea sin scrollear en celular. */
-  const chips=[['all','Todo']].concat(PRESETS).concat([['custom','Rango a medida…']])
-    .map(p=>`<button type="button" class="chip${p[0]===F.per?' on':''}" data-per="${p[0]}">${p[1]}</button>`).join('');
+  const minIso=offToIso(MINOFF), maxIso=offToIso(Math.max(MAXOFF,TODAY));
+  const periodO=[['all','Todo el período']].concat(PRESETS).concat([['custom','Rango a medida…']])
+    .map(p=>opt(p[0],p[1],p[0]===F.per)).join('');
   document.getElementById('toolbar').innerHTML=`
    <div class="tbar">
     <div class="fl"><label>Moneda</label><div class="seg" id="segCur" role="group" aria-label="Moneda">
@@ -641,6 +639,11 @@ function buildToolbar(){
     <div class="tgroup" id="tgroup">
       ${verFiltroVen?`<div class="fl"><label for="fVen">Vendedora</label><select class="ctl" id="fVen"${esVendedora()?' disabled':''}>${venO}</select></div>`:''}
       ${verFiltroCan?`<div class="fl"><label for="fCan">Canal</label><select class="ctl" id="fCan">${canO}</select></div>`:''}
+      <div class="fl"><label for="fPer">Período</label><select class="ctl period-select" id="fPer">${periodO}</select></div>
+      <div class="perdates" id="perdates" hidden>
+        <div class="fl"><label for="fFrom">Desde</label><input class="ctl" type="date" id="fFrom" min="${minIso}" max="${maxIso}" value="${F.from!==null?offToIso(F.from):minIso}"></div>
+        <div class="fl"><label for="fTo">Hasta</label><input class="ctl" type="date" id="fTo" min="${minIso}" max="${maxIso}" value="${F.to!==null?offToIso(F.to):maxIso}"></div>
+      </div>
       <div class="actions">
         <button class="btn btn--quiet" id="reset" type="button">${ICO.x} Limpiar</button>
         <button class="btn" id="btnPdf" type="button">${ICO.pdf} PDF</button>
@@ -648,22 +651,12 @@ function buildToolbar(){
         ${esDireccion()?'<button class="btn btn--quiet" id="btnCfg" type="button">Configuración</button>':''}
       </div>
     </div>
-   </div>
-   <div class="perbar" id="perbar" role="group" aria-label="Período">
-     ${ICO.cal}<span class="perlbl">Período</span>${chips}
-     <div class="perdates" id="perdates" hidden>
-       <input class="ctl" type="date" id="fFrom" aria-label="Desde" min="${minIso}" max="${maxIso}" value="${minIso}">
-       <span>a</span>
-       <input class="ctl" type="date" id="fTo" aria-label="Hasta" min="${minIso}" max="${maxIso}" value="${maxIso}">
-     </div>
    </div>`;
 
   const $=id=>document.getElementById(id);
   if(!HASDAY){   // dataset previo al día por fila: el período no puede filtrar todavía
-    [...document.querySelectorAll('#perbar .chip')].forEach(c=>{
-      c.disabled=true;
-      c.title='El filtro por fechas se habilita en la próxima sincronización (cada 30 min).';
-    });
+    $('fPer').disabled=true;
+    $('fPer').title='El filtro por fechas se habilita en la próxima sincronización (cada 30 min).';
   }
   $('segCur').addEventListener('click',e=>{
     const b=e.target.closest('button'); if(!b) return; CUR=b.dataset.cur;
@@ -671,9 +664,8 @@ function buildToolbar(){
   $('fToggle').addEventListener('click',()=>{
     const open=$('tgroup').classList.toggle('open');
     $('fToggle').setAttribute('aria-expanded',open?'true':'false');});
-  $('perbar').addEventListener('click',e=>{
-    const b=e.target.closest('.chip'); if(!b||b.disabled) return;
-    setPeriod(b.dataset.per);
+  $('fPer').addEventListener('change',e=>{
+    setPeriod(e.target.value);
     if(F.per==='custom'){F.from=isoToOff($('fFrom').value);F.to=isoToOff($('fTo').value);}
     syncChrome(); go();});
   const onDate=()=>{
@@ -867,8 +859,11 @@ function compute(rng){
   const crmEstado={recibidas:received.length,convertidas:converted.length,abiertas:crmAb,ganadas:won,
     perdidas:crmPer,cerradas:won+crmPer,parcial:!HASEST||!HASDATES,fechasCierre:HASDATES};
   const ord=(RAW.meta.stageOrder||[]);
+  /* La API de Odoo puede devolver los nombres base en inglés aunque la interfaz del cliente esté
+     en español. Se muestran los mismos rótulos que usa el CRM de Zaphira. */
+  const stageLabel=s=>({New:'Nuevo',Qualified:'Calificado',Proposition:'Propuesta',Won:'Ganado'}[s]||s);
   const funnel=Object.keys(fu).sort((a,b)=>{const ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?999:ia)-(ib<0?999:ib)||a.localeCompare(b);})
-    .map(s=>({n:s,v:fu[s],win:/won|ganad/i.test(s),lost:/NO AVANZAR|PERDID/i.test(s)}));
+    .map(s=>({n:stageLabel(s),v:fu[s],win:/won|ganad/i.test(s),lost:/NO AVANZAR|PERDID/i.test(s)}));
   const convvend=Object.keys(cv).filter(u=>cv[u].t>=5&&u!=='Sin asignar').map(u=>({n:u,w:cv[u].w,t:cv[u].t})).sort((a,b)=>(b.w/b.t)-(a.w/a.t)).slice(0,6);
   const linked=O.filter(o=>o.length>9&&o[9]>0);
   const crmReconciliation={ordenes:O.length,vinculadas:linked.length,
@@ -1399,7 +1394,7 @@ function render(A,D,PREV){
     sec(A,'5','Ventas por vendedora');
     const mxv=D.vend[0]?D.vend[0].monto:1;
     const vh=D.vend.map(x=>hb(x.n,x.monto/mxv*100,M(x.monto)+' · '+n0(x.ops)+' órd.')).join('');
-    A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web/Jenny (Tienda Nube)" = órdenes automáticas sin vendedora.</div></div>`));
+    A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web (Tiendanube)" = órdenes automáticas del canal online.</div></div>`));
     A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por vendedora</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M)}</div>`));
   } else if(esVendedora()){
     sec(A,'5','Tus ventas mes a mes');
@@ -1415,7 +1410,7 @@ function render(A,D,PREV){
     const cr=(nm,dd,col)=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${nm}</span><b>${M(dd.m)} · ${n0(dd.n)} órd.</b></div>
       <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${(dd.m/totM*100).toFixed(1)}%;height:10px;border-radius:4px;background:${col};opacity:.8"></div></div>
       <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">${Math.round(dd.m/totM*100)}% del monto · ${Math.round(dd.n/totO*100)}% de las órdenes</div></div>`;
-    A.appendChild(el(`<div class="card"><h3>Venta directa vs Web</h3>${cr('Venta directa',D.pres,'#1e3a6e')+cr('Web/Jenny (Tienda Nube)',D.web,'#7fa3d9')}</div>`));
+    A.appendChild(el(`<div class="card"><h3>Venta directa vs Web</h3>${cr('Venta directa',D.pres,'#1e3a6e')+cr('Web (Tiendanube)',D.web,'#7fa3d9')}</div>`));
     A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por canal${curTag}</h3>
       ${evoTable(D.evo.lbl,D.evo.canalMonto,M)}
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
@@ -1462,16 +1457,7 @@ function render(A,D,PREV){
   A.appendChild(el('<div class="card pend"><div class="pmsg"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> Se completa cargando el tamaño/segmento del cliente en Odoo.</div></div>'));
 
   /* 11 */
-  sec(A,'11','Ciclo de vida de las ventas');
-  const commitNote=RAW.meta.commitmentLoaded ? '' :
-    `<div class="pend" style="margin-top:12px;padding:8px 10px;border-radius:8px"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> <span class="pmsg">Se activa cargando la fecha de entrega pactada en Odoo.</span></div>`;
-  const ct=`<div style="display:flex;align-items:baseline;gap:10px"><div style="font-size:38px;font-weight:600">${D.ciclo.dias}</div><div style="font-size:13px;color:var(--text-secondary)">días promedio<br>pedido → entrega</div></div>
-    <div style="font-size:12px;color:var(--text-secondary);margin-top:10px;line-height:1.6">Sobre ${n0(D.ciclo.n)} entregas hechas · mediana ${D.ciclo.mediana} d.</div>${commitNote}`;
-  const bkh=D.backlog.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:9px 0;border-bottom:1px solid var(--border)"><span>${x.e}</span><span class="bdg" style="background:var(--bg-${x.tone});color:var(--text-${x.tone})">${n0(x.n)} remitos</span></div>`).join('');
-  row2(A,'Tiempo pedido → entrega',ct,'Backlog de entregas',bkh,1);
-
-  /* 12 */
-  sec(A,'12','Ventas por tipo de producto — Administración · Sanidad · Laboral');
+  sec(A,'11','Ventas por tipo de producto — Administración · Sanidad · Laboral');
   const bh=D.buckets.map(x=>`<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${M(x.v)} · ${x.p}%</b></div>
     <div style="background:var(--surface-1);border-radius:4px;height:11px"><div style="width:${x.p}%;height:11px;border-radius:4px;background:${x.c}"></div></div></div>`).join('')
     +`<div style="margin-top:6px;padding-top:9px;border-top:1px dashed var(--border)">
@@ -1489,7 +1475,7 @@ function render(A,D,PREV){
   /* 13 — rearmado el 04/09/2026. Antes era una sola lista de etapas y se leía como si fuera el
      estado de cada oportunidad. Ahora arriba van los tres estados (que es la pregunta real: cuántas
      ganamos de las que se cerraron) y abajo la etapa, sólo sobre las que siguen abiertas. */
-  sec(A,'13',veComparativaEntreVendedoras()?'Tasas de conversión — vendedora y etapa del embudo':'Tasas de conversión — etapas del embudo');
+  sec(A,'12',veComparativaEntreVendedoras()?'Tasas de conversión — vendedora y etapa del embudo':'Tasas de conversión — etapas del embudo');
   const CE=D.crmEstado, cerr=CE.cerradas;
   const convPct=cerr?Math.round(100*CE.ganadas/cerr):0;
   const estadoTiles=`<div class="kpis" style="margin-bottom:12px">
@@ -1508,12 +1494,7 @@ function render(A,D,PREV){
   /* El segundo panel que Ariel pidió sacar de la vista compartida. La vendedora sí ve el suyo:
      el filtro ya la dejó sola en el recorte, así que no hay dato de nadie más. En la vista Ventas
      el embudo pasa a ocupar la tarjeta entera, sin dejar hueco ni cartel de "no disponible". */
-  const R=D.crmReconciliation;
-  const conciliacion=`<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--surface-1);font-size:11px;line-height:1.55"><b>Conciliación CRM ↔ órdenes:</b> ${n0(R.ordenes)} órdenes del filtro · ${n0(R.vinculadas)} vinculadas a una oportunidad · ${n0(R.vinculadasGanadas)} vinculadas a una ganada · ${n0(R.sinOportunidad)} sin oportunidad. <b>Conversión de lead</b> mide el paso de lead a oportunidad; <b>orden</b> mide una venta confirmada; y <b>Ganado</b> indica anticipo cobrado. Son eventos distintos y por eso esos números no tienen que coincidir. “Pedido confirmado” permanece como etapa previa y no se suma a Ganado.</div>`;
-  const nota=CE.parcial
-    ? 'El dataset anterior no trae todas las fechas del CRM; el detalle histórico se completa después de la próxima sincronización.'
-    : `${n0(D.crmN)} recibidas · <b>${n0(CE.ganadas)} ganadas sobre ${n0(cerr)} cerradas (${convPct}%)</b>. Ganadas y perdidas se imputan por fecha de cierre; las etapas son las oportunidades todavía abiertas recibidas en el período.`;
-  const embudo=estadoTiles+fh+conciliacion+`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${nota}</div>`;
+  const embudo=estadoTiles+fh;
   if(veComparativaEntreVendedoras()||esVendedora()){
     row2(A,'Estado y etapa de las oportunidades',embudo,esVendedora()?'Tu conversión':'Conversión por vendedora',cvh,1);
   } else {
