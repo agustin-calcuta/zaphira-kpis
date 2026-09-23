@@ -79,8 +79,8 @@ class DashboardTests(unittest.TestCase):
     def test_general_has_four_commercial_cards_and_explained_crm(self):
         self.load()
         self.assertEqual(['Ventas confirmadas', 'Ticket promedio', 'Órdenes', 'Prendas vendidas'], self.top_labels())
-        self.assertIn('Cerradas = ganadas + perdidas', self.text())
-        self.assertIn('40%', self.text())
+        self.assertIn('Flujo de oportunidades — etapas de Odoo', self.text())
+        self.assertIn('agrupadas por su etapa actual', self.text())
 
     def test_seller_has_six_cards_and_correct_rate(self):
         self.load()
@@ -115,28 +115,77 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('Sin cierres', card.inner_text())
         self.assertNotIn('0%', card.inner_text())
 
-    def test_missing_close_date_disables_percentage(self):
+    def test_missing_close_date_keeps_counts_and_discloses_reference(self):
         raw = copy.deepcopy(RAW)
         raw['C'][2][6] = -1
         self.load(raw)
         self.page.select_option('#fVen', '0')
-        self.assertIn('Sin datos completos', self.text())
-        self.assertNotIn('40%', self.text())
+        self.assertIn('40%', self.text())
+        self.assertIn('2 ganadas / (2 ganadas + 3 perdidas)', self.text())
+        self.assertIn('1 oportunidades sin fecha de cierre incluidas por fecha de alta', self.text())
+        self.assertNotIn('Sin datos completos', self.text())
 
-    def test_mixed_legacy_rows_disable_percentage(self):
+    def test_mixed_legacy_rows_do_not_hide_or_inflate_known_results(self):
         raw = copy.deepcopy(RAW)
         raw['C'][-1] = raw['C'][-1][:5]
         self.load(raw)
         self.page.select_option('#fVen', '0')
-        self.assertIn('Sin datos completos', self.text())
+        self.assertIn('50%', self.text())
+        self.assertIn('2 ganadas / (2 ganadas + 2 perdidas)', self.text())
+        self.assertIn('1 registros sin estado identificable excluidos', self.text())
+        self.assertNotIn('Sin datos completos', self.text())
+
+    def test_other_seller_missing_date_does_not_block_selected_seller(self):
+        raw = copy.deepcopy(RAW)
+        raw['C'].append([0, 1, 1, 0, 1, 2, -1, -1, 999, 'opportunity', ''])
+        self.load(raw)
+        self.page.select_option('#fVen', '0')
+        self.assertIn('40%', self.text())
+        self.assertNotIn('sin fecha de cierre incluidas', self.text())
+
+    def test_all_closures_missing_dates_still_count_known_states(self):
+        raw = copy.deepcopy(RAW)
+        for row in raw['C']:
+            row[6] = -1
+        self.load(raw)
+        self.page.select_option('#fVen', '0')
+        self.assertIn('40%', self.text())
+        self.assertIn('2 ganadas / (2 ganadas + 3 perdidas)', self.text())
+        self.assertIn('5 oportunidades sin fecha de cierre incluidas por fecha de alta', self.text())
+
+    def test_date_filter_uses_closure_when_known_and_scopes_missing_date_note(self):
+        raw = copy.deepcopy(RAW)
+        raw['C'].append([0, 0, 1, 0, 1, 2, -1, -1, 999, 'opportunity', ''])
+        self.load(raw)
+        self.page.select_option('#fVen', '0')
+        self.page.select_option('#fPer', 'custom')
+        self.page.locator('#fFrom').fill('2026-09-10')
+        self.page.locator('#fFrom').dispatch_event('change')
+        self.page.locator('#fTo').fill('2026-09-15')
+        self.page.locator('#fTo').dispatch_event('change')
+        # Five closures on September 13 remain despite creation on September 2.
+        # The undated closure referenced to September 2 is outside this range.
+        self.assertIn('2 ganadas / (2 ganadas + 3 perdidas)', self.text())
+        self.assertIn('40%', self.text())
+        self.assertNotIn('sin fecha de cierre incluidas', self.text())
+
+    def test_only_unknown_states_do_not_display_false_zero_rate(self):
+        raw = copy.deepcopy(RAW)
+        raw['C'] = [[0, 0, 1, 0, 1]]
+        self.load(raw)
+        self.page.select_option('#fVen', '0')
+        card = self.page.locator('.kpi').filter(has=self.page.get_by_text('% de oportunidades ganadas', exact=True))
+        self.assertIn('Sin cierres identificados', card.inner_text())
+        self.assertNotIn('0%', card.inner_text())
 
     def test_crm_visible_without_any_orders(self):
         raw = copy.deepcopy(RAW)
         raw['O'] = []
         raw['L'] = []
         self.load(raw)
+        self.page.select_option('#fVen', '0')
         self.assertIn('Sin ventas en este período', self.text())
-        self.assertIn('40%', self.text())
+        self.assertIn('Flujo de oportunidades — etapas de Odoo', self.text())
 
     def test_legacy_yeni_is_web(self):
         raw = copy.deepcopy(RAW)
@@ -155,6 +204,70 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(0, self.page.locator('#fCan').count())
         self.assertEqual(6, len(self.top_labels()))
         self.assertNotIn('Web (Tiendanube)', self.text())
+
+    def flow_fixture(self):
+        raw = copy.deepcopy(RAW)
+        names = ['Nueva consulta', 'Contactado', 'Cotizacion enviada', 'Negociación',
+                 'Pedido confirmado', 'Ganado', 'NO AVANZARA']
+        raw['dict']['STAGE'] = names
+        raw['meta']['stageOrder'] = names
+        # Pedido confirmado is deliberately flagged won: its stage must stay separate.
+        raw['C'] = [[0, 0, stage, int(stage in (4, 5)), 12,
+                     int(stage in (4, 5)), -1, -1, 200+stage, 'opportunity', '', 1]
+                    for stage in range(7)]
+        raw['C'] += [
+            [0, 0, 5, 1, 12, 1, -1, -1, 300, 'opportunity', '', 0],  # archived won
+            [0, 0, 2, 0, 12, 2, -1, -1, 301, 'opportunity', '', 0],  # archived lost
+            [0, 0, 0, 0, 12, 0, -1, -1, 302, 'lead', '', 1],
+            [0, 1, 2, 0, 12, 0, -1, -1, 303, 'opportunity', '', 1],
+        ]
+        return raw
+
+    def flow_counts(self):
+        return {card.locator('.kl').inner_text(): card.locator('.kv').inner_text()
+                for card in self.page.locator('.crm-flujo .kpi').all()}
+
+    def test_flow_matches_stages_with_explicit_groups_and_archived_excluded(self):
+        self.load(self.flow_fixture())
+        self.page.select_option('#fVen', '0')
+        self.assertEqual({'Contacto inicial': '2', 'En gestión': '2',
+                          'Pedido confirmado': '1', 'Ganado': '1', 'No avanzará': '1'},
+                         self.flow_counts())
+        flow = self.page.locator('.crm-flujo').inner_text()
+        self.assertIn('7 oportunidades en el flujo', flow)
+        self.assertIn('2 oportunidades archivadas', flow)
+        self.assertIn('Cotizacion enviada: 1', flow)
+        self.assertIn('Negociación: 1', flow)
+        self.assertNotIn('próxima sincronización', flow)
+
+    def test_flow_general_adds_sellers_and_web_still_hides_it(self):
+        self.load(self.flow_fixture())
+        self.assertEqual('3', self.flow_counts()['En gestión'])
+        self.page.select_option('#fVen', '1')
+        self.assertEqual(0, self.page.locator('.crm-flujo').count())
+
+    def test_flow_dates_use_creation_and_keep_empty_stages_visible(self):
+        raw = self.flow_fixture()
+        raw['C'][5][4] = 1  # Ganado created outside range, with closure inside.
+        raw['C'][5][6] = 12
+        self.load(raw)
+        self.page.select_option('#fVen', '0')
+        self.page.select_option('#fPer', 'custom')
+        self.page.locator('#fFrom').fill('2026-09-10')
+        self.page.locator('#fFrom').dispatch_event('change')
+        self.page.locator('#fTo').fill('2026-09-15')
+        self.page.locator('#fTo').dispatch_event('change')
+        self.assertEqual('0', self.flow_counts()['Ganado'])
+        self.assertEqual('1', self.flow_counts()['Pedido confirmado'])
+        self.assertIn('6 oportunidades en el flujo', self.page.locator('.crm-flujo').inner_text())
+
+    def test_flow_with_only_archived_opportunities_is_empty(self):
+        raw = self.flow_fixture()
+        for row in raw['C']:
+            row[11] = 0
+        self.load(raw)
+        self.assertTrue(all(value == '0' for value in self.flow_counts().values()))
+        self.assertIn('Sin oportunidades activas creadas en este período', self.text())
 
 
 if __name__ == '__main__':

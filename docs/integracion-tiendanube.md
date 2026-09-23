@@ -1,6 +1,6 @@
 # Integración de métricas web — pendiente de accesos
 
-Estado al 23/09/2026: cambios del frontend implementados y probados con datos sintéticos. Backend revisado, sin cambios publicados en Apps Script. No se integraron todavía Tiendanube ni GA4 y no se muestran visitas inventadas o ceros para una fuente desconectada.
+Estado al 23/09/2026: cambios del frontend implementados y probados con datos sintéticos. El backend incorpora el flag activo/archivado de cada oportunidad para reflejar el flujo de etapas. No se integraron todavía Tiendanube ni GA4 y no se muestran visitas inventadas o ceros para una fuente desconectada.
 
 ## Accesos que faltan
 

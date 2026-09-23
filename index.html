@@ -763,6 +763,26 @@ function contextoCRM(){
 function porcentajeCierres(cantidad,total){
   return total?Math.round(100*cantidad/total)+'%':'Sin cierres';
 }
+function notaCalidadCRM(estado){
+  const notas=[];
+  if(estado.sinFechaCierre) notas.push(n0(estado.sinFechaCierre)+' oportunidades sin fecha de cierre incluidas por fecha de alta; el porcentaje usa esa referencia');
+  if(estado.sinEstado) notas.push(n0(estado.sinEstado)+' registros sin estado identificable excluidos (por fecha de alta)');
+  return notas.join('. ');
+}
+function agruparEtapasCRM(etapas){
+  const grupos=[];
+  etapas.forEach(etapa=>{
+    const nombre=normRoot(etapa.n);
+    const grupo=['NUEVA CONSULTA','CONTACTADO'].includes(nombre)?'Contacto inicial'
+      :['COTIZACION ENVIADA','NEGOCIACION'].includes(nombre)?'En gestión'
+      :nombre==='NO AVANZARA'?'No avanzará':etapa.n;
+    let item=grupos.find(g=>g.n===grupo);
+    if(!item){item={n:grupo,v:0,etapas:[]};grupos.push(item);}
+    item.v+=etapa.v;
+    item.etapas.push(etapa);
+  });
+  return grupos;
+}
 function compute(rng){
   const d=RAW.dict;
   const RA=rng?rng[0]:F.from, RB=rng?rng[1]:F.to;
@@ -847,10 +867,11 @@ function compute(rng){
      GUARD: entre el push del backend y el re-sync del trigger pasan hasta 30 min sirviendo el
      dataset viejo, que no trae c[5]. Sin esto el embudo quedaría en cero para todos. */
   const tieneEstado=c=>[0,1,2].includes(c[5]);
-  const HASEST=C.every(tieneEstado);
-  const estadoDe=c=>tieneEstado(c)?c[5]:(c[3]===1?1:0);
-  const HASDATES=C.every(c=>c.length>8);
-  const sinFechaCierre=C.filter(c=>estadoDe(c)!==0&&(!Number.isFinite(c[6])||c[6]<0)).length;
+  // Una fila antigua permite reconocer una ganada, pero no distinguir abierta de perdida.
+  const estadoDe=c=>tieneEstado(c)?c[5]:(c[3]===1?1:null);
+  const tieneCierre=c=>Number.isFinite(c[6])&&c[6]>=0;
+  const sinEstado=C.filter(c=>estadoDe(c)===null&&inR(c[4])).length;
+  let sinFechaCierre=0;
   const received=C.filter(c=>inR(c[4]));
   const converted=C.filter(c=>c.length>8&&Number.isFinite(c[7])&&c[7]>=0&&inR(c[7]));
   const fu={}, cv={}, lostReasons={}; let won=0, crmAb=0, crmPer=0;
@@ -862,24 +883,36 @@ function compute(rng){
     const s=d.STAGE[c[2]]; fu[s]=(fu[s]||0)+1;
   });
   C.forEach(c=>{
-    if(!tieneEstado(c)||!Number.isFinite(c[6])||c[6]<0) return;
-    const e=estadoDe(c); if(e===0) return;
-    const closeDay=c[6];
+    const e=estadoDe(c); if(e===0||e===null) return;
+    // Conserva el criterio previo: alta como referencia explícita si falta el cierre.
+    // No modifica la fecha original ni oculta el resto de resultados válidos.
+    const fechaCierre=tieneCierre(c), closeDay=fechaCierre?c[6]:c[4];
     if(!inR(closeDay)) return;
+    if(!fechaCierre) sinFechaCierre++;
     const u=d.VEN[c[1]];
     if(e===1) won++; else { crmPer++; if(c[10]) lostReasons[c[10]]=(lostReasons[c[10]]||0)+1; }
-    (cv[u]=cv[u]||{w:0,t:0}); cv[u].t++; if(e===1) cv[u].w++;
+    (cv[u]=cv[u]||{w:0,t:0,sinFecha:0}); cv[u].t++; if(e===1) cv[u].w++;
+    if(!fechaCierre) cv[u].sinFecha++;
   });
   const crmEstado={recibidas:received.length,convertidas:converted.length,abiertas:crmAb,ganadas:won,
-    perdidas:crmPer,cerradas:won+crmPer,parcial:!HASEST||!HASDATES||sinFechaCierre>0,
-    fechasCierre:HASDATES&&sinFechaCierre===0};
+    perdidas:crmPer,cerradas:won+crmPer,sinFechaCierre,sinEstado};
   const ord=(RAW.meta.stageOrder||[]);
   /* La API de Odoo puede devolver los nombres base en inglés aunque la interfaz del cliente esté
      en español. Se muestran los mismos rótulos que usa el CRM de Zaphira. */
   const stageLabel=s=>({New:'Nuevo',Qualified:'Calificado',Proposition:'Propuesta',Won:'Ganado'}[s]||s);
+  // Flujo de Odoo: oportunidades activas por etapa ACTUAL, filtradas por fecha de alta.
+  // C[11] es independiente de "ganada": una ganada también puede estar archivada.
+  const flujoTipos=received.filter(c=>c[9]===undefined||c[9]==='opportunity');
+  const flujoFilas=flujoTipos.filter(c=>c[11]===0?false:c[11]===1?true:estadoDe(c)!==2);
+  const flujoConteos={};
+  flujoFilas.forEach(c=>{const s=d.STAGE[c[2]]||'(sin etapa)';flujoConteos[s]=(flujoConteos[s]||0)+1;});
+  const flujoNombres=[...new Set([...ord,...(d.STAGE||[]),...Object.keys(flujoConteos)])];
+  const flujoCRM={total:flujoFilas.length,archivadas:flujoTipos.length-flujoFilas.length,
+    compatibilidad:flujoTipos.some(c=>c[11]!==0&&c[11]!==1||c[9]===undefined),
+    etapas:flujoNombres.map(s=>({n:stageLabel(s),v:flujoConteos[s]||0}))};
   const funnel=Object.keys(fu).sort((a,b)=>{const ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?999:ia)-(ib<0?999:ib)||a.localeCompare(b);})
     .map(s=>({n:stageLabel(s),v:fu[s],win:/won|ganad/i.test(s),lost:/NO AVANZAR|PERDID/i.test(s)}));
-  const convvend=Object.keys(cv).filter(u=>cv[u].t>=5&&u!=='Sin asignar').map(u=>({n:u,w:cv[u].w,t:cv[u].t})).sort((a,b)=>(b.w/b.t)-(a.w/a.t)).slice(0,6);
+  const convvend=Object.keys(cv).filter(u=>cv[u].t>=5&&u!=='Sin asignar').map(u=>({n:u,w:cv[u].w,t:cv[u].t,sinFecha:cv[u].sinFecha})).sort((a,b)=>(b.w/b.t)-(a.w/a.t)).slice(0,6);
   const linked=O.filter(o=>o.length>9&&o[9]>0);
   const crmReconciliation={ordenes:O.length,vinculadas:linked.length,
     vinculadasGanadas:linked.filter(o=>wonIdsAll[o[9]]).length,sinOportunidad:O.length-linked.length};
@@ -959,7 +992,7 @@ function compute(rng){
   const usdMissingMonths=Object.keys(missMonths).sort();
   const usdBlocked=CUR==='USD' && convOk===0 && convFail>0;   // nada convertible en todo el filtro
 
-  return {meses,ventas,nord,prT,oT,prTot,ent,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,convvend,crmN:received.length,won,yoy,evo,usdMissingMonths,usdBlocked,crmEstado,ticketPedido,crmReconciliation,motivosPerdida};
+  return {meses,ventas,nord,prT,oT,prTot,ent,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,flujoCRM,convvend,crmN:received.length,won,yoy,evo,usdMissingMonths,usdBlocked,crmEstado,ticketPedido,crmReconciliation,motivosPerdida};
 }
 
 /* ===== barra horizontal (grid: label · pista · valor) ===== */
@@ -1348,9 +1381,9 @@ function render(A,D,PREV){
    {l:'Prendas vendidas',  v:n0(D.prTot),      s:'unidades',             a:D.prTot,      b:PREV&&PREV.prTot},
   ];
   if(crmVista.principal) SC.push(
-    {l:'% de oportunidades ganadas',v:CEtop.parcial?'Sin datos completos':porcentajeCierres(CEtop.ganadas,cerrTop),
-      s:CEtop.parcial?'Faltan estados o fechas de cierre':cerrTop?n0(CEtop.ganadas)+' ganadas / ('+n0(CEtop.ganadas)+' ganadas + '+n0(CEtop.perdidas)+' perdidas)':'No hubo oportunidades ganadas ni perdidas en el período'},
-    {l:'Oportunidades ganadas',v:CEtop.parcial?'Sin datos completos':n0(CEtop.ganadas),s:'CRM · por fecha de cierre'}
+    {l:'% de oportunidades ganadas',v:cerrTop?porcentajeCierres(CEtop.ganadas,cerrTop):CEtop.sinEstado?'Sin cierres identificados':'Sin cierres',
+      s:(cerrTop?n0(CEtop.ganadas)+' ganadas / ('+n0(CEtop.ganadas)+' ganadas + '+n0(CEtop.perdidas)+' perdidas)':'Sin oportunidades cerradas identificadas en el período')+(notaCalidadCRM(CEtop)?'. '+notaCalidadCRM(CEtop):'')},
+    {l:'Oportunidades ganadas',v:n0(CEtop.ganadas),s:CEtop.sinFechaCierre?'CRM · cierre o alta como referencia':'CRM · por fecha de cierre'}
   );
   A.appendChild(el('<div class="kpis">'+SC.map(k=>
    `<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div>`
@@ -1506,44 +1539,24 @@ function render(A,D,PREV){
 }
 
 function renderCRM(A,D){
-  const crmVista=contextoCRM();
-  /* 13 — rearmado el 04/09/2026. Antes era una sola lista de etapas y se leía como si fuera el
-     estado de cada oportunidad. Ahora arriba van los tres estados (que es la pregunta real: cuántas
-     ganamos de las que se cerraron) y abajo la etapa, sólo sobre las que siguen abiertas. */
-  if(crmVista.visible){
-  sec(A,'12','Oportunidades del CRM — resultados y etapas');
-  const CE=D.crmEstado, cerr=CE.cerradas;
-  const cierreNota=CE.parcial
-    ? 'Faltan estados o fechas de cierre: los resultados de cierres no están disponibles. No se reemplaza la fecha de cierre por la de alta.'
-    : 'Cierres del período según su fecha de cierre en Odoo.';
-  const porcentaje=valor=>CE.parcial?'Sin datos completos':porcentajeCierres(valor,cerr);
-  const estadoTiles=`<div class="kpis" style="margin-bottom:12px">
-      <div class="kpi"><div class="kl">Recibidas</div><div class="kv">${n0(CE.recibidas)}</div><div class="ks">por fecha de alta</div></div>
-      <div class="kpi"><div class="kl">Convertidas</div><div class="kv">${n0(CE.convertidas)}</div><div class="ks">lead → oportunidad</div></div>
-      <div class="kpi"><div class="kl">Ganadas</div><div class="kv" style="color:#2f7d4f">${CE.parcial?'Sin datos completos':n0(CE.ganadas)}</div><div class="ks">${porcentaje(CE.ganadas)}${cerr&&!CE.parcial?' de los cierres':''}</div></div>
-      <div class="kpi"><div class="kl">Perdidas</div><div class="kv" style="color:#b23b3b">${CE.parcial?'Sin datos completos':n0(CE.perdidas)}</div><div class="ks">${porcentaje(CE.perdidas)}${cerr&&!CE.parcial?' de los cierres':''}</div></div>
-      <div class="kpi"><div class="kl">Abiertas</div><div class="kv">${n0(CE.abiertas)}</div><div class="ks">recibidas en el período y aún abiertas</div></div>
-    </div>`;
-  const mxf=Math.max(...D.funnel.map(x=>x.v),1);
-  const fh=D.funnel.length
-    ? D.funnel.map(x=>hb(x.n,x.v/mxf*100,'<b>'+n0(x.v)+'</b>',{color:x.win?'#2f7d4f':x.lost?'#b23b3b':'#4a6da8'})).join('')
-    : '<div class="pmsg">No quedan oportunidades abiertas en este filtro.</div>';
-  const cvh=CE.parcial?'<div class="pmsg">Sin datos completos para calcular porcentajes.</div>':D.convvend.map(x=>{const p=Math.round(100*x.w/x.t);return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${p}% <span style="color:var(--text-muted);font-weight:400">(${x.w} ganadas / ${x.t} cierres)</span></b></div>
-    <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${p}%;height:10px;border-radius:4px;background:${p>=60?'#2f7d4f':p>=45?'#4a6da8':'#8a6a1f'};opacity:.8"></div></div></div>`;}).join('')||'<div class="pmsg">No hay vendedoras con al menos 5 cierres en este filtro.</div>';
-  /* El segundo panel que Ariel pidió sacar de la vista compartida. La vendedora sí ve el suyo:
-     el filtro ya la dejó sola en el recorte, así que no hay dato de nadie más. En la vista Ventas
-     el embudo pasa a ocupar la tarjeta entera, sin dejar hueco ni cartel de "no disponible". */
-  const embudo='<div class="pmsg" style="margin-bottom:12px">Fuente: CRM de Odoo. Cerradas = ganadas + perdidas. Porcentaje de éxito = ganadas / (ganadas + perdidas). Son oportunidades, no órdenes de venta. '+cierreNota+'</div>'+estadoTiles+fh;
-  if(veComparativaEntreVendedoras()||esVendedora()){
-    row2(A,'Estado y etapa de las oportunidades',embudo,'% de oportunidades ganadas'+(esVendedora()?'':' por vendedora'),cvh,1);
-  } else {
-    A.appendChild(el(`<div class="card"><h3>Estado y etapa de las oportunidades</h3>${embudo}</div>`));
-  }
-
-  } else if(!crmVista.web){
+  const vista=contextoCRM();
+  if(vista.web) return;
+  if(!vista.visible){
     A.appendChild(el('<div class="card"><div class="pmsg">Para consultar las oportunidades del CRM, seleccioná «Todos» en Canal. Podés mantener el filtro de vendedora.</div></div>'));
+    return;
   }
-
+  const flujo=D.flujoCRM;
+  sec(A,'12','Flujo de oportunidades — etapas de Odoo');
+  const tarjetas=agruparEtapasCRM(flujo.etapas).map(x=>`<div class="kpi"><div class="kl">${x.n}</div><div class="kv">${n0(x.v)}</div><div class="ks">${x.etapas.length>1?x.etapas.map(e=>e.n+': '+n0(e.v)).join('<br>'):'oportunidades'}</div></div>`).join('');
+  const nota=flujo.compatibilidad
+    ? 'La próxima sincronización completará la identificación de archivadas. Mientras tanto se usa la clasificación disponible.'
+    : n0(flujo.archivadas)+' oportunidades archivadas fuera del flujo visible.';
+  A.appendChild(el(`<div class="card crm-flujo"><h3>${n0(flujo.total)} oportunidades en el flujo</h3>
+    <div class="pmsg" style="margin-bottom:12px">Fuente: CRM de Odoo. Oportunidades creadas en el período seleccionado, agrupadas por su etapa actual. Cada oportunidad se cuenta una sola vez.</div>
+    <div class="kpis">${tarjetas}</div>
+    ${flujo.total?'':'<div class="pmsg">Sin oportunidades activas creadas en este período.</div>'}
+    <div class="ks" style="margin-top:10px">${nota} Los leads se consultan por separado en Odoo. «NO AVANZARA» es una etapa y se conserva como tal.</div>
+  </div>`));
 }
 
 /* ===== arranque (al final: ya están definidas todas las const/función) ===== */

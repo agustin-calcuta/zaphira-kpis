@@ -1,0 +1,12 @@
+--- a/Code.js
++++ b/Code.js
+@@ -495,3 +495,3 @@
+     /* [4]=alta/recibida · [5]=estado · [6]=cierre · [7]=conversión lead→oportunidad ·
+-       [8]=id CRM · [9]=tipo · [10]=motivo de pérdida. Los nuevos campos van al final para que
++       [8]=id CRM · [9]=tipo · [10]=motivo de pérdida · [11]=activo (1/0). Los nuevos campos van al final para que
+        el frontend pueda convivir con el dataset anterior durante la ventana de resincronización. */
+@@ -500,3 +500,3 @@
+             c.date_conversion ? dayOff_(c.date_conversion) : -1,
+-            c.id, c.type || 'opportunity', c.lost_reason_id ? c.lost_reason_id[1] : ''];
++            c.id, c.type || 'opportunity', c.lost_reason_id ? c.lost_reason_id[1] : '', c.active === false ? 0 : 1];
+   });
