@@ -1431,6 +1431,9 @@ function render(A,D,PREV){
     ${legendHTML([{c:'var(--fill-primary)',t:'Ventas confirmadas (eje izquierdo)'},{c:SERIE2,t:'Órdenes de compra (eje derecho)',line:1}])}
     <div class="cmpnote">Bajo cada mes, la variación del monto contra el mes anterior. Monto con IVA incluido de las órdenes confirmadas en Odoo, imputado a la fecha de la venta.</div></div>`));
 
+  if(esVendedora()){
+    A.appendChild(el(`<div class="card" style="margin-top:12px">${evoTable(D.evo.lbl,D.evo.vendedora,M,{total:false})}</div>`));
+  }
   renderCRM(A,D);
 
   /* 3 — el donut se arma desde d.TIPO, así que sigue a la cantidad de tipos que traiga el dataset
@@ -1457,7 +1460,7 @@ function render(A,D,PREV){
       <h3>Órdenes por tipo</h3>${evoTable(D.evo.lbl,D.evo.tipoOrdenes,n0)}</div></div>`));
 
   /* 4 */
-  if(D.yoy&&D.yoy.length>=2){
+  if(!esVendedora()&&D.yoy&&D.yoy.length>=2){
     sec(A,'Comparación entre años');
     const mxy=Math.max(...D.yoy.map(x=>x.v),1);
     const yh=D.yoy.map(x=>hb(x.y,x.v/mxy*100,M(x.v)+' · '+n0(x.n)+' órd.')).join('');
@@ -1466,19 +1469,13 @@ function render(A,D,PREV){
     A.appendChild(el(`<div class="card"><h3>Comparativo interanual</h3>${yh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Variación ${last.y} vs ${first.y}: <b style="color:${delta>=0?'var(--text-success)':'var(--text-danger)'}">${delta>=0?'+':''}${delta}%</b></div></div>`));
   }
 
-  /* 5 — el ranking es uno de los dos paneles que Ariel pidió sacar de la vista compartida.
-     Dirección lo ve completo; una vendedora ve su propia evolución (son sus datos); en la vista
-     Ventas la sección desaparece entera, sin cartel: quien entra por ahí no tiene por qué saber
-     que existe un panel que no está viendo. La numeración de secciones salta y está bien así. */
+  /* Ranking exclusivo de Dirección. El detalle mensual individual está bajo el primer gráfico. */
   if(veComparativaEntreVendedoras()){
     sec(A,'Ventas por vendedora');
     const mxv=D.vend[0]?D.vend[0].monto:1;
     const vh=D.vend.map(x=>hb(x.n,x.monto/mxv*100,M(x.monto)+' · '+n0(x.ops)+' órd.')).join('');
     A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web (Tiendanube)" = órdenes automáticas del canal online.</div></div>`));
     A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por vendedora</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M)}</div>`));
-  } else if(esVendedora()){
-    sec(A,'Tus ventas mes a mes');
-    A.appendChild(el(`<div class="card"><h3>Tu evolución</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M,{total:false})}</div>`));
   }
 
   /* 6 — fuera del tablero individual (pedido de Ariel, 04/09/2026): las vendedoras venden sólo

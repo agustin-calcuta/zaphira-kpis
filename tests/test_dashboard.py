@@ -52,11 +52,16 @@ class DashboardTests(unittest.TestCase):
 
     def load(self, raw=None, seller=False, objective=None):
         raw = copy.deepcopy(raw if raw is not None else RAW)
+        if seller:
+            for key in ('O', 'L', 'P', 'C'):
+                raw[key] = [row for row in raw.get(key, []) if row[1] == 0]
+            raw['dict']['VEN'] = ['Ana']
         session = {'token': 'synthetic-test-token', 'usuario': 'test', 'nombre': 'Test',
                    'rol': 'vendedora' if seller else 'direccion', 'ven': 'Ana', 'cambiar': False}
         self.context.add_init_script('localStorage.setItem("zaphira_sesion_v2", '
                                      + json.dumps(json.dumps(session)) + ');')
         self.saved_goals = None
+        self.export_request = None
         def route(request):
             if request.request.url.startswith('http://dashboard.test'):
                 request.fulfill(status=200, content_type='text/html', body=HTML)
@@ -71,6 +76,9 @@ class DashboardTests(unittest.TestCase):
                 elif payload['op'] == 'guardarObjetivos':
                     self.saved_goals = payload['filas']
                     result = {'ok': True, 'objetivos': {'empresa': payload['filas'][0]['objetivo'], 'vendedoras': {'Ana': payload['filas'][1]['objetivo']}}}
+                elif payload['op'] == 'xlsx':
+                    self.export_request = payload
+                    result = {'ok': True, 'b64': 'dGVzdA==', 'filename': 'synthetic.xlsx'}
                 request.fulfill(status=200, content_type='application/json',
                                 headers={'Access-Control-Allow-Origin': '*'},
                                 body=json.dumps(result))
@@ -352,6 +360,35 @@ class DashboardTests(unittest.TestCase):
             self.assertNotIn('En construcción', self.text())
             numbers = self.page.locator('.secn').all_text_contents()
             self.assertEqual([str(n) for n in range(1, len(numbers)+1)], numbers)
+
+    def test_seller_has_only_requested_sections_and_own_exports(self):
+        self.load(self.flow_fixture(), seller=True, objective={'mio': 4000})
+        self.assertEqual([
+            'Ventas confirmadas — evolución mensual',
+            'Flujo de oportunidades — etapas de Odoo',
+            'Prendas vendidas — por tipo de orden',
+            'Ticket promedio — evolución',
+            'Ventas por provincia',
+            'Ventas por tipo de producto',
+        ], self.page.locator('.sect').all_text_contents())
+        self.assertEqual(6, len(self.top_labels()))
+        self.assertTrue(self.page.locator('#fVen').is_disabled())
+        self.assertEqual(['Ana'], self.page.locator('#fVen option').all_text_contents())
+        self.assertEqual(0, self.page.locator('#btnCfg, #fCan, .crm-comparativa').count())
+        self.page.select_option('#fPer', 'custom')
+        for field, value in [('fFrom', '2026-09-10'), ('fTo', '2026-09-20')]:
+            self.page.locator('#'+field).fill(value)
+            self.page.locator('#'+field).dispatch_event('change')
+        self.page.click('[data-cur="USD"]')
+        self.page.evaluate('window.print = () => { window.printCalled = true; }')
+        self.page.click('#btnPdf')
+        self.assertTrue(self.page.evaluate('window.printCalled'))
+        with self.page.expect_download():
+            self.page.click('#btnXlsx')
+        self.assertEqual('USD', self.export_request['cur'])
+        self.assertEqual('0', self.export_request['ven'])
+        self.assertEqual('2026-09-10', self.export_request['from'])
+        self.assertEqual('2026-09-20', self.export_request['to'])
 
     def test_objectives_convert_all_amounts_preserving_compliance(self):
         raw = copy.deepcopy(RAW)

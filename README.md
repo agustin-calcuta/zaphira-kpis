@@ -61,3 +61,9 @@ Desarrollado por [Calcuta Consulting](https://calcutaconsulting.com).
 El selector ARS/USD también convierte objetivos, ventas del mes y saldo pendiente, tanto para Dirección como para cada vendedora. Los tres usan la misma referencia (promedio oficial del mes, o cotización actual si no hay promedio); el porcentaje de cumplimiento se calcula en ARS y permanece estable. Las ventas del resto del tablero conservan su conversión histórica por día, con promedio mensual como respaldo.
 
 Configuración muestra y permite editar objetivos en la moneda seleccionada. Los objetivos se guardan siempre en ARS; cambiar de moneda conserva el borrador y no modifica los valores guardados. Sin cotización, se indica la falta del dato y se bloquea la edición en USD.
+
+## Perfil de vendedora
+
+Muestra sus KPI y objetivo, evolución mensual de ventas con detalle colapsado, flujo de oportunidades, prendas vendidas, ticket promedio, provincias y tipos de producto. Conserva fecha, ARS/USD, PDF y Excel. No muestra configuración, rankings, comparativas entre personas, canales ni comparativo interanual.
+
+Apps Script limita los registros de órdenes, líneas, entregas y CRM por la identidad del token, y entrega únicamente el objetivo propio. Excel aplica el mismo recorte antes de exportar. El selector del navegador no determina los permisos. Las pruebas `node tests/backend_permissions.cjs <directorio-backend>` usan datos sintéticos sobre las funciones del backend descargado; incluyen intentos de cambiar vendedora/rol desde la petición y operaciones administrativas denegadas.
