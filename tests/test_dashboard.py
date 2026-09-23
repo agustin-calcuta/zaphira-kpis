@@ -50,20 +50,30 @@ class DashboardTests(unittest.TestCase):
         self.context.close()
         self.assertEqual([], self.errors)
 
-    def load(self, raw=None, seller=False):
+    def load(self, raw=None, seller=False, objective=None):
         raw = copy.deepcopy(raw if raw is not None else RAW)
         session = {'token': 'synthetic-test-token', 'usuario': 'test', 'nombre': 'Test',
                    'rol': 'vendedora' if seller else 'direccion', 'ven': 'Ana', 'cambiar': False}
         self.context.add_init_script('localStorage.setItem("zaphira_sesion_v2", '
                                      + json.dumps(json.dumps(session)) + ');')
+        self.saved_goals = None
         def route(request):
             if request.request.url.startswith('http://dashboard.test'):
                 request.fulfill(status=200, content_type='text/html', body=HTML)
             elif request.request.url.startswith('https://script.google.com/'):
                 self.assertEqual('synthetic-test-token', request.request.post_data_json['token'])
+                payload = request.request.post_data_json
+                result = {'ok': True, 'raw': raw, 'objetivo': objective or {}}
+                if payload['op'] == 'usuarios':
+                    result = {'ok': True, 'usuarios': [{'rol': 'vendedora', 'activo': True, 'vendedora': 'Ana', 'nombre': 'Ana', 'usuario': 'ana'}]}
+                elif payload['op'] == 'objetivos':
+                    result = {'ok': True, 'mes': '2026-09', 'objetivos': objective}
+                elif payload['op'] == 'guardarObjetivos':
+                    self.saved_goals = payload['filas']
+                    result = {'ok': True, 'objetivos': {'empresa': payload['filas'][0]['objetivo'], 'vendedoras': {'Ana': payload['filas'][1]['objetivo']}}}
                 request.fulfill(status=200, content_type='application/json',
                                 headers={'Access-Control-Allow-Origin': '*'},
-                                body=json.dumps({'ok': True, 'raw': raw}))
+                                body=json.dumps(result))
             else:
                 request.abort()
         self.context.route('**/*', route)
@@ -342,6 +352,50 @@ class DashboardTests(unittest.TestCase):
             self.assertNotIn('En construcción', self.text())
             numbers = self.page.locator('.secn').all_text_contents()
             self.assertEqual([str(n) for n in range(1, len(numbers)+1)], numbers)
+
+    def test_objectives_convert_all_amounts_preserving_compliance(self):
+        raw = copy.deepcopy(RAW)
+        raw['rate'] = 2000  # Goals use the monthly reference when available.
+        self.load(raw, objective={'empresa': 6000, 'vendedoras': {'Ana': 4000}})
+        bars = self.page.locator('.objbar')
+        self.assertIn('de $ 6.000', bars.first.inner_text())
+        self.page.click('[data-cur="USD"]')
+        self.assertIn('50% de US$ 6', bars.first.inner_text())
+        self.assertIn('Vendido US$ 3 · faltan US$ 3', bars.first.inner_text())
+        self.page.select_option('#fVen', '0')
+        self.assertIn('25% de US$ 4', bars.first.inner_text())
+        self.assertIn('Vendido US$ 1 · faltan US$ 3', bars.first.inner_text())
+        self.page.click('[data-cur="ARS"]')
+        self.assertIn('25% de $ 4.000', bars.first.inner_text())
+
+    def test_seller_objective_uses_usd_and_missing_rate_is_not_zero(self):
+        raw = copy.deepcopy(RAW)
+        raw['rate'] = 0
+        raw['rateMon'] = {}
+        self.load(raw, seller=True, objective={'mio': 4000})
+        self.page.click('[data-cur="USD"]')
+        text = self.page.locator('.objbar').inner_text()
+        self.assertIn('25%', text)
+        self.assertIn('Sin cotización', text)
+        self.assertNotIn('US$ 0', text)
+
+    def test_usd_objective_editor_saves_ars_and_keeps_draft_when_toggling(self):
+        self.load(objective={'empresa': 6000, 'vendedoras': {'Ana': 4000}})
+        self.page.click('[data-cur="USD"]')
+        self.page.click('#btnCfg')
+        field = self.page.locator('#ob_empresa')
+        field.wait_for()
+        self.assertEqual('6', field.input_value())
+        field.fill('8.5')
+        self.page.click('[data-cur="ARS"]')
+        self.assertEqual('8500', field.input_value())
+        self.page.click('[data-cur="USD"]')
+        self.assertEqual('8.5', field.input_value())
+        self.page.click('#objSave')
+        self.page.wait_for_function("document.getElementById('objMsg').textContent.includes('verificado')")
+        self.assertEqual([{'alcance': 'empresa', 'objetivo': 8500}, {'alcance': 'Ana', 'objetivo': 4000}], self.saved_goals)
+        self.page.click('#cfgBack')
+        self.assertIn('de US$ 9', self.page.locator('.objbar').first.inner_text())
 
 
 if __name__ == '__main__':

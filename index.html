@@ -1146,9 +1146,21 @@ function go(){
 }
 
 /* ===== OBJETIVO DEL MES ===================================================================
-   El objetivo se carga en pesos y con IVA, así que la barra se muestra SIEMPRE en pesos aunque
-   el tablero esté en dólares: convertir el objetivo a USD lo haría moverse solo con el tipo de
-   cambio, y un objetivo que cambia todos los días no es un objetivo. */
+   Metas guardadas en ARS. Convertimos meta, vendido y saldo con la misma referencia;
+   el cumplimiento no cambia al alternar moneda. */
+function tasaObjetivo(mes=mesHoy()){
+  const r=Number((RAW.rateMon||{})[mes])||Number(RAW.rate);
+  return Number.isFinite(r)&&r>0?r:0;
+}
+function montoObjetivo(ars,mes=mesHoy()){
+  if(CUR!=='USD') return moneyFull(ars);
+  const r=tasaObjetivo(mes);
+  return r?moneyFull(ars/r):'Sin cotización';
+}
+function notaObjetivo(){
+  if(CUR==='USD'&&!tasaObjetivo()) return 'Sin cotización disponible para mostrar objetivos en USD.';
+  return CUR==='USD'?`Montos con IVA en USD · referencia: ARS ${n0(tasaObjetivo())} por USD. Cumplimiento calculado en ARS.`:'Montos con IVA en ARS.';
+}
 function ventasDelMes(venIdx){
   const d=RAW.dict||{}, mi=(d.MON||[]).indexOf(mesHoy());
   if(mi<0) return 0;
@@ -1162,17 +1174,17 @@ function barraCumpl(rot,vendido,objetivo){
   const falta=Math.max(0,objetivo-vendido);
   return `<div class="objbar">
     <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;margin-bottom:4px">
-      <span>${rot}</span><b>${p}% <span style="color:var(--text-muted);font-weight:400">de $ ${n0(objetivo)}</span></b></div>
+      <span>${rot}</span><b>${p}% <span style="color:var(--text-muted);font-weight:400">de ${montoObjetivo(objetivo)}</span></b></div>
     <div class="objtrack"><div class="objfill" style="width:${Math.min(100,p)}%;background:${color}"></div></div>
-    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Vendido $ ${n0(vendido)}${
-      falta>0?' · faltan $ '+n0(falta):' · objetivo cumplido'}</div></div>`;
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Vendido ${montoObjetivo(vendido)}${
+      falta>0?' · faltan '+montoObjetivo(falta):' · objetivo cumplido'}</div></div>`;
 }
 function barraObjetivo(){
   const mes=mesLegible(mesHoy());
   if(esVendedora()){
     if(!OBJETIVO.mio) return '';
     return `<div class="card" style="margin-bottom:12px"><h3>Tu objetivo de ${mes}</h3>${
-      barraCumpl('Tus ventas del mes',ventasDelMes(0),OBJETIVO.mio)}</div>`;
+      barraCumpl('Tus ventas del mes',ventasDelMes(0),OBJETIVO.mio)}<div class="pmsg">${notaObjetivo()}</div></div>`;
   }
   if(!esDireccion()) return '';
   const porVen=Object.keys(OBJETIVO.vendedoras||{}).filter(k=>OBJETIVO.vendedoras[k]>0);
@@ -1183,7 +1195,7 @@ function barraObjetivo(){
     const i=Number(F.ven), nom=(d.VEN||[])[i], objetivo=OBJETIVO.vendedoras[nom]||0;
     if(!objetivo) return '';
     return `<div class="card" style="margin-bottom:12px"><h3>Objetivo de ${nom} · ${mes}</h3>${
-      barraCumpl(nom,ventasDelMes(i),objetivo)}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Monto en pesos con IVA.</div></div>`;
+      barraCumpl(nom,ventasDelMes(i),objetivo)}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${notaObjetivo()}</div></div>`;
   }
   const detalle=porVen.map(nom=>{
     const i=(d.VEN||[]).indexOf(nom);
@@ -1192,7 +1204,7 @@ function barraObjetivo(){
   return `<div class="card" style="margin-bottom:12px"><h3>Objetivo de ${mes}</h3>${
     OBJETIVO.empresa?barraCumpl('<b>Toda la empresa</b>',ventasDelMes(null),OBJETIVO.empresa):''}${
     detalle?`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">${detalle}</div>`:''}
-    <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Montos en pesos con IVA. Se cargan desde <b>Configuración</b>.</div></div>`;
+    <div style="font-size:11px;color:var(--text-muted);margin-top:8px">${notaObjetivo()} Se cargan desde <b>Configuración</b>.</div></div>`;
 }
 
 /* ===== CONFIGURACIÓN (sólo Dirección) =====================================================
@@ -1235,17 +1247,18 @@ function renderConfig(A){
 
   /* --- objetivos del mes --- */
   const vend=CFG.usuarios.filter(u=>u.rol==='vendedora'&&u.activo);
+  const tipoCambio=CUR==='USD'?tasaObjetivo(CFG.mes):1;
   const val=a=>a==='empresa'?(CFG.objetivos.empresa||0):(CFG.objetivos.vendedoras[a]||0);
   /* El monto en letras debajo del campo NO es decoración: son objetivos de nueve cifras y un cero
      de más o de menos no se ve a simple vista en un input numérico. Se actualiza al tipear. */
   const filaObj=(a,rot)=>{const id='ob_'+a.replace(/\W/g,'_');return `<div class="ofila">
       <label for="${id}">${rot}</label>
-      <div><input class="ctl" type="number" min="0" step="100000" inputmode="numeric"
-             id="${id}" data-alcance="${a}" value="${val(a)||''}" placeholder="0">
-        <div class="ohint" id="${id}_h">${val(a)?'$ '+n0(val(a)):'sin objetivo'}</div></div>
+      <div><input class="ctl" type="number" min="0" step="any" inputmode="decimal" ${!tipoCambio?'disabled':''}
+             id="${id}" data-alcance="${a}" value="${tipoCambio&&val(a)?Number((val(a)/tipoCambio).toFixed(6)):''}" placeholder="0">
+        <div class="ohint" id="${id}_h">${val(a)?montoObjetivo(val(a),CFG.mes):'sin objetivo'}</div></div>
     </div>`;};
   A.appendChild(el(`<div class="card"><h3>Objetivo de ventas</h3>
-    <div class="pmsg" style="margin-bottom:12px">Montos con IVA, en pesos. El de la empresa se muestra en el tablero de Dirección; el de cada vendedora, en su propio tablero. Dejar en blanco es no fijar objetivo: no aparece la barra.</div>
+    <div class="pmsg" style="margin-bottom:12px">Montos con IVA, en ${CUR}. ${CUR==='USD'?'Se guardan en pesos a la cotización de referencia de esta pantalla (ARS '+n0(tipoCambio)+' por USD). ':''}El de la empresa se muestra en el tablero de Dirección; el de cada vendedora, en su propio tablero. Dejar en blanco es no fijar objetivo: no aparece la barra.</div>
     <div class="ofila" style="margin-bottom:14px">
       <label for="cfgMes">Mes</label>
       <select class="ctl" id="cfgMes">${mesesCargables().map(m=>
@@ -1255,19 +1268,22 @@ function renderConfig(A){
       <div style="height:1px;background:var(--border);margin:12px 0"></div>
       ${vend.map(u=>filaObj(u.vendedora,u.nombre)).join('')}</div>
     <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
-      <button class="btn" id="objSave" type="button">Guardar objetivos</button>
+      <button class="btn" id="objSave" type="button" ${!tipoCambio?'disabled':''}>Guardar objetivos</button>
       <span id="objMsg" style="font-size:12px;color:var(--text-muted)"></span></div></div>`));
 
   document.getElementById('cfgMes').addEventListener('change',e=>cargarConfig(e.target.value));
   [...document.querySelectorAll('#objForm input')].forEach(i=>i.addEventListener('input',()=>{
     const v=Number(i.value)||0;
-    document.getElementById(i.id+'_h').textContent=v?'$ '+n0(v):'sin objetivo';
+    const ars=Math.round(v*tipoCambio*100)/100;
+    if(i.dataset.alcance==='empresa') CFG.objetivos.empresa=ars;
+    else CFG.objetivos.vendedoras[i.dataset.alcance]=ars;
+    document.getElementById(i.id+'_h').textContent=v?moneyFull(v):'sin objetivo';
   }));
   document.getElementById('objSave').addEventListener('click',async()=>{
     const b=document.getElementById('objSave'), msg=document.getElementById('objMsg');
     b.disabled=true; msg.textContent='Guardando…';
     const filas=[...document.querySelectorAll('#objForm input')].map(i=>
-      ({alcance:i.dataset.alcance,objetivo:Number(i.value)||0}));
+      ({alcance:i.dataset.alcance,objetivo:val(i.dataset.alcance)}));
     let r;
     try{ r=await api('guardarObjetivos',{token:USER.token,mes:CFG.mes,filas}); }
     catch(err){ r={ok:false,error:'No pudimos conectarnos con la planilla.'}; }
@@ -1279,7 +1295,7 @@ function renderConfig(A){
       // Si se cambió el objetivo del mes en curso, el tablero tiene que reflejarlo al volver.
       if(CFG.mes===mesHoy()){
         OBJETIVO.empresa=CFG.objetivos.empresa;
-        OBJETIVO.vendedoras=CFG.objetivos.vendedoras;
+        OBJETIVO.vendedoras={...CFG.objetivos.vendedoras};
       }
     }
   });

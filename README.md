@@ -56,3 +56,8 @@ Apps Script agrega `C[11]` con el flag activo (`1`) / archivado (`0`), independi
 La integración de visitas y las dependencias pendientes se describen en [docs/integracion-tiendanube.md](docs/integracion-tiendanube.md).
 
 Desarrollado por [Calcuta Consulting](https://calcutaconsulting.com).
+# Moneda de los objetivos
+
+El selector ARS/USD también convierte objetivos, ventas del mes y saldo pendiente, tanto para Dirección como para cada vendedora. Los tres usan la misma referencia (promedio oficial del mes, o cotización actual si no hay promedio); el porcentaje de cumplimiento se calcula en ARS y permanece estable. Las ventas del resto del tablero conservan su conversión histórica por día, con promedio mensual como respaldo.
+
+Configuración muestra y permite editar objetivos en la moneda seleccionada. Los objetivos se guardan siempre en ARS; cambiar de moneda conserva el borrador y no modifica los valores guardados. Sin cotización, se indica la falta del dato y se bloquea la edición en USD.
