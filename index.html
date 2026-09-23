@@ -81,6 +81,9 @@ input[type=date].ctl{-webkit-appearance:none;appearance:none;min-width:150px}
 .periodbar svg{width:15px;height:15px;color:var(--text-muted);flex:none}
 .periodbar b{color:var(--text-primary)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:6px}
+.crm-flujo .kpis{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.evo-detail>summary{cursor:pointer;color:var(--text-accent);font-size:12px;font-weight:600;padding:10px 0}
+.evo-detail>summary:focus-visible{outline:2px solid var(--text-accent);outline-offset:3px}
 .kpi{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;min-width:0}
 .kv{font-size:21px;font-weight:600;margin-top:4px;overflow-wrap:anywhere;line-height:1.2}
 .kl{font-size:12px;color:var(--text-secondary);line-height:1.35;min-height:32px}
@@ -904,15 +907,19 @@ function compute(rng){
   // C[11] es independiente de "ganada": una ganada también puede estar archivada.
   const flujoTipos=received.filter(c=>c[9]===undefined||c[9]==='opportunity');
   const flujoFilas=flujoTipos.filter(c=>c[11]===0?false:c[11]===1?true:estadoDe(c)!==2);
+  const flujoPerdidas=flujoTipos.filter(c=>estadoDe(c)===2&&(c[11]===undefined||c[11]===0)).length;
   const flujoConteos={};
   flujoFilas.forEach(c=>{const s=d.STAGE[c[2]]||'(sin etapa)';flujoConteos[s]=(flujoConteos[s]||0)+1;});
   const flujoNombres=[...new Set([...ord,...(d.STAGE||[]),...Object.keys(flujoConteos)])];
-  const flujoCRM={total:flujoFilas.length,archivadas:flujoTipos.length-flujoFilas.length,
+  const flujoCRM={total:flujoFilas.length+flujoPerdidas,perdidas:flujoPerdidas,
+    archivadasFuera:flujoTipos.length-flujoFilas.length-flujoPerdidas,
     compatibilidad:flujoTipos.some(c=>c[11]!==0&&c[11]!==1||c[9]===undefined),
     etapas:flujoNombres.map(s=>({n:stageLabel(s),v:flujoConteos[s]||0}))};
   const funnel=Object.keys(fu).sort((a,b)=>{const ia=ord.indexOf(a),ib=ord.indexOf(b);return (ia<0?999:ia)-(ib<0?999:ib)||a.localeCompare(b);})
     .map(s=>({n:stageLabel(s),v:fu[s],win:/won|ganad/i.test(s),lost:/NO AVANZAR|PERDID/i.test(s)}));
-  const convvend=Object.keys(cv).filter(u=>cv[u].t>=5&&u!=='Sin asignar').map(u=>({n:u,w:cv[u].w,t:cv[u].t,sinFecha:cv[u].sinFecha})).sort((a,b)=>(b.w/b.t)-(a.w/a.t)).slice(0,6);
+  const convvend=[...new Set(d.VEN)].filter(u=>! /^(web\s*\(tiendanube\)|yeni|sin asignar|sin vendedora)$/i.test(u.trim()))
+    .map(u=>({n:u,...(cv[u]||{w:0,t:0,sinFecha:0})}))
+    .sort((a,b)=>b.w-a.w||b.t-a.t||a.n.localeCompare(b.n));
   const linked=O.filter(o=>o.length>9&&o[9]>0);
   const crmReconciliation={ordenes:O.length,vinculadas:linked.length,
     vinculadasGanadas:linked.filter(o=>wonIdsAll[o[9]]).length,sinOportunidad:O.length-linked.length};
@@ -997,7 +1004,7 @@ function compute(rng){
 
 /* ===== barra horizontal (grid: label · pista · valor) ===== */
 function hb(label,pct,val,opt){opt=opt||{};const w=opt.muted?Math.min(100,pct||0):(pct||0);return `<div class="hrow"><span class="hlbl" title="${label}"${opt.muted?' style="color:var(--text-muted)"':''}>${label}</span><div class="htrack"><div class="hbar" style="width:${Math.max(2,w).toFixed(1)}%;background:${opt.color||'var(--fill-primary)'}${opt.muted?';opacity:.5':''}"></div></div><span class="hval">${val}</span></div>`;}
-function sec(A,n,t){A.appendChild(el(`<div class="sec"><span class="secn">${n}</span><span class="sect">${t}</span></div>`));}
+function sec(A,t){const n=A.querySelectorAll('.sec').length+1;A.appendChild(el(`<div class="sec"><span class="secn">${n}</span><span class="sect">${t}</span></div>`));}
 
 /* ===== variación porcentual =====
    pct() devuelve null cuando no hay base contra la cual medir (base 0). Un "+100%" o un "+∞%"
@@ -1030,9 +1037,9 @@ function evoTable(lbl,filas,fmt,opt){
     const t=lbl.map((_,i)=>filas.reduce((s,f)=>s+f.v[i],0));
     tot=`<tr class="tot"><td>Total</td>`+t.map((v,i)=>celda(v,t[i-1],i)).join('')+'</tr>';
   }
-  return `<div class="evo"><table><thead><tr><th></th>${lbl.map(m=>`<th>${m}</th>`).join('')}</tr></thead>`
+  return `<details class="evo-detail"><summary>Detalle mes a mes</summary><div class="evo"><table><thead><tr><th></th>${lbl.map(m=>`<th>${m}</th>`).join('')}</tr></thead>`
     +`<tbody>${body}${tot}</tbody></table></div>`
-    +`<div class="cmpnote">Debajo de cada valor, la variación contra el mes anterior.</div>`;
+    +`<div class="cmpnote">Debajo de cada valor, la variación contra el mes anterior.</div></details>`;
 }
 
 /* ===== gráfico de columnas + línea opcional en eje secundario =====
@@ -1382,13 +1389,15 @@ function render(A,D,PREV){
   ];
   if(crmVista.principal) SC.push(
     {l:'% de oportunidades ganadas',v:cerrTop?porcentajeCierres(CEtop.ganadas,cerrTop):CEtop.sinEstado?'Sin cierres identificados':'Sin cierres',
-      s:(cerrTop?n0(CEtop.ganadas)+' ganadas / ('+n0(CEtop.ganadas)+' ganadas + '+n0(CEtop.perdidas)+' perdidas)':'Sin oportunidades cerradas identificadas en el período')+(notaCalidadCRM(CEtop)?'. '+notaCalidadCRM(CEtop):'')},
+      s:cerrTop?n0(CEtop.ganadas)+' ganadas / ('+n0(CEtop.ganadas)+' ganadas + '+n0(CEtop.perdidas)+' perdidas)':'Sin oportunidades cerradas identificadas en el período',
+      ayuda:'Calculado por fecha de cierre; si falta, se usa la fecha de alta como referencia. '+notaCalidadCRM(CEtop)},
     {l:'Oportunidades ganadas',v:n0(CEtop.ganadas),s:CEtop.sinFechaCierre?'CRM · cierre o alta como referencia':'CRM · por fecha de cierre'}
   );
   A.appendChild(el('<div class="kpis">'+SC.map(k=>
-   `<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div>`
+   `<div class="kpi"><div class="kl">${k.l}${k.ayuda?'<span tabindex="0" role="img" aria-label="'+k.ayuda+'" title="'+k.ayuda+'" style="margin-left:5px;cursor:help">ⓘ</span>':''}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div>`
    +(PREV&&k.a!==undefined&&!usdPend?dltBadge(k.a,k.b,cmpT):'')+'</div>').join('')+'</div>'));
   if(PREV) A.appendChild(el(`<div class="cmpnote" style="margin:-2px 2px 10px">Las variaciones comparan contra ${prevLabel()}.</div>`));
+  renderCRM(A,D);
 
   if(CUR==='USD' && D.usdMissingMonths.length){
     const lbl=D.usdMissingMonths.map(monFull).join(', ');
@@ -1401,7 +1410,7 @@ function render(A,D,PREV){
   /* 1·2 — el rótulo dice "ventas confirmadas" y no "facturación" a propósito: el dato sale de las
      órdenes de venta cerradas en Odoo (criterio comercial, imputado a la fecha en que se vendió),
      no del módulo de facturación. Decirle "facturación" fue lo que hizo dudar del número. */
-  sec(A,'1·2','Ventas confirmadas por mes y por año — evolución'+curTag);
+  sec(A,'Ventas confirmadas — evolución mensual'+curTag);
   const evoChart=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.ventas,n:x.nv,noRate:x.noRate})),
     {line:true,delta:true,fmt:M,h:265,aria:'Ventas confirmadas y cantidad de órdenes por mes, con variación mensual'});
   A.appendChild(el(`<div class="card"><h3>Evolución mensual — ventas y órdenes de compra</h3>${evoChart}
@@ -1413,7 +1422,7 @@ function render(A,D,PREV){
   const TIPOS=(RAW.dict.TIPO||[]).map((n,i)=>({n,u:D.prT[i]||0,o:D.oT[i]||0,
     c:{'Tradicional':'#1e3a6e','Pronta Entrega':'#7fa3d9','Ecommerce':'#4a6da8'}[n]||'#a9b6c9'}))
     .filter(t=>t.u||t.o);
-  sec(A,'3','Ventas en cantidad de prendas — por tipo de orden');
+  sec(A,'Prendas vendidas — por tipo de orden');
   const tp=D.prTot;
   let acum=0;
   const tramos=TIPOS.map(t=>{const desde=tp?acum/tp*100:0; acum+=t.u; const hasta=tp?acum/tp*100:0;
@@ -1424,7 +1433,7 @@ function render(A,D,PREV){
     <div style="font-size:12.5px">${TIPOS.map(t=>
       `<div style="margin-bottom:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${t.c}"></span> ${t.n}: <b>${n0(t.u)} u</b> (${tp?Math.round(100*t.u/tp):0}%)</div>`
      ).join('')}</div></div>`;
-  const dpr2=`<b>${n0(tp)} prendas</b> en total. Órdenes: ${TIPOS.map(t=>t.n+' '+n0(t.o)).join(' · ')}. Entregadas hasta hoy: <b>${n0(D.ent)} u</b> — el resto es backlog (KPI 11).`;
+  const dpr2=`<b>${n0(tp)} prendas</b> en total. Órdenes: ${TIPOS.map(t=>t.n+' '+n0(t.o)).join(' · ')}. Entregadas hasta hoy: <b>${n0(D.ent)} u</b> — el resto está pendiente de entrega.`;
   row2(A,'Prendas por tipo de orden',dpr,'Lectura','<div class="pmsg">'+dpr2+'</div>',1);
   A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes — prendas y órdenes por tipo</h3>
     ${evoTable(D.evo.lbl,D.evo.tipoPrendas,n0)}
@@ -1432,15 +1441,13 @@ function render(A,D,PREV){
       <h3>Órdenes por tipo</h3>${evoTable(D.evo.lbl,D.evo.tipoOrdenes,n0)}</div></div>`));
 
   /* 4 */
-  sec(A,'4','Year to Year');
-  if(D.yoy){
+  if(D.yoy&&D.yoy.length>=2){
+    sec(A,'Comparación entre años');
     const mxy=Math.max(...D.yoy.map(x=>x.v),1);
     const yh=D.yoy.map(x=>hb(x.y,x.v/mxy*100,M(x.v)+' · '+n0(x.n)+' órd.')).join('');
     const first=D.yoy[0], last=D.yoy[D.yoy.length-1];
     const delta=first.v?Math.round(100*(last.v-first.v)/first.v):0;
     A.appendChild(el(`<div class="card"><h3>Comparativo interanual</h3>${yh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Variación ${last.y} vs ${first.y}: <b style="color:${delta>=0?'var(--text-success)':'var(--text-danger)'}">${delta>=0?'+':''}${delta}%</b></div></div>`));
-  } else {
-    A.appendChild(el('<div class="card pend"><div class="pmsg"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> Se activa cuando haya 2+ años de datos en Odoo.</div></div>'));
   }
 
   /* 5 — el ranking es uno de los dos paneles que Ariel pidió sacar de la vista compartida.
@@ -1448,13 +1455,13 @@ function render(A,D,PREV){
      Ventas la sección desaparece entera, sin cartel: quien entra por ahí no tiene por qué saber
      que existe un panel que no está viendo. La numeración de secciones salta y está bien así. */
   if(veComparativaEntreVendedoras()){
-    sec(A,'5','Ventas por vendedora');
+    sec(A,'Ventas por vendedora');
     const mxv=D.vend[0]?D.vend[0].monto:1;
     const vh=D.vend.map(x=>hb(x.n,x.monto/mxv*100,M(x.monto)+' · '+n0(x.ops)+' órd.')).join('');
     A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web (Tiendanube)" = órdenes automáticas del canal online.</div></div>`));
     A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por vendedora</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M)}</div>`));
   } else if(esVendedora()){
-    sec(A,'5','Tus ventas mes a mes');
+    sec(A,'Tus ventas mes a mes');
     A.appendChild(el(`<div class="card"><h3>Tu evolución</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M,{total:false})}</div>`));
   }
 
@@ -1462,7 +1469,7 @@ function render(A,D,PREV){
      por venta directa, así que el comparativo por canal no les dice nada. La sección desaparece
      entera, sin cartel, igual que se hace con el ranking en la vista Ventas. */
   if(!esVendedora()){
-    sec(A,'6','Ventas por canal — comparativo e incidencia');
+    sec(A,'Ventas por canal');
     const totM=D.web.m+D.pres.m||1, totO=D.web.n+D.pres.n||1;
     const cr=(nm,dd,col)=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${nm}</span><b>${M(dd.m)} · ${n0(dd.n)} órd.</b></div>
       <div style="background:var(--surface-1);border-radius:4px;height:10px"><div style="width:${(dd.m/totM*100).toFixed(1)}%;height:10px;border-radius:4px;background:${col};opacity:.8"></div></div>
@@ -1475,7 +1482,7 @@ function render(A,D,PREV){
   }
 
   /* 7 */
-  sec(A,'7','Ticket promedio — evolución');
+  sec(A,'Ticket promedio — evolución');
   const th=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.nv?x.ventas/x.nv:0,noRate:x.noRate})),
     {fmt:M,delta:true,h:225,barColor:'#4a6da8',aria:'Ticket promedio por mes, con variación mensual'});
   A.appendChild(el(`<div class="card"><h3>Ticket promedio por mes</h3>${th}<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Global del filtro ${MF(tk)}`
@@ -1495,12 +1502,8 @@ function render(A,D,PREV){
       <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Es <b>pedido nuevo</b> cuando el cliente se dio de alta en Odoo el mismo mes de la venta; si ya era cliente, es <b>reposición</b>. Los valores son promedios por orden, no totales.</div></div>`));
   }
 
-  /* 8 */
-  sec(A,'8','Ventas por industria');
-  A.appendChild(el('<div class="card pend"><div class="pmsg"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> Se completa cargando la industria del cliente en Odoo.</div></div>'));
-
   /* 9 */
-  sec(A,'9','Ventas por geografía');
+  sec(A,'Ventas por provincia');
   const provinciaNoMuted=D.provincia.filter(x=>!x.muted);
   const mxp=Math.max(...provinciaNoMuted.map(x=>x.v),1);
   const gh=D.provincia.map(x=>hb(x.n,x.v/mxp*100,M(x.v),{muted:x.muted,color:x.muted?'#c3ccd6':'#1e3a6e'})).join('');
@@ -1509,12 +1512,8 @@ function render(A,D,PREV){
     ${evoTable(D.evo.lbl,D.evo.provincia,M)}
     <div class="cmpnote">El total de estas filas no es el total del período: quedan afuera las provincias fuera del top 6 y los clientes sin provincia cargada.</div></div>`));
 
-  /* 10 */
-  sec(A,'10','Ventas por tamaño del cliente');
-  A.appendChild(el('<div class="card pend"><div class="pmsg"><span class="bdg" style="background:var(--bg-warning);color:var(--text-warning)">🚧 En construcción</span> Se completa cargando el tamaño/segmento del cliente en Odoo.</div></div>'));
-
   /* 11 */
-  sec(A,'11','Ventas por tipo de producto — Administración · Sanidad · Laboral');
+  sec(A,'Ventas por tipo de producto');
   const bh=D.buckets.map(x=>`<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${M(x.v)} · ${x.p}%</b></div>
     <div style="background:var(--surface-1);border-radius:4px;height:11px"><div style="width:${x.p}%;height:11px;border-radius:4px;background:${x.c}"></div></div></div>`).join('')
     +`<div style="margin-top:6px;padding-top:9px;border-top:1px dashed var(--border)">
@@ -1528,8 +1527,6 @@ function render(A,D,PREV){
     'Categorías reales de Odoo',ch,1);
   A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por segmento${curTag}</h3>
     ${evoTable(D.evo.lbl,D.evo.segmento,M)}</div>`));
-
-  renderCRM(A,D);
 
   const usdFootNote = CUR==='USD'
     ? (usdPend ? ' Sin cotización oficial disponible para este filtro: los montos en USD no están completos.'
@@ -1546,16 +1543,28 @@ function renderCRM(A,D){
     return;
   }
   const flujo=D.flujoCRM;
-  sec(A,'12','Flujo de oportunidades — etapas de Odoo');
-  const tarjetas=agruparEtapasCRM(flujo.etapas).map(x=>`<div class="kpi"><div class="kl">${x.n}</div><div class="kv">${n0(x.v)}</div><div class="ks">${x.etapas.length>1?x.etapas.map(e=>e.n+': '+n0(e.v)).join('<br>'):'oportunidades'}</div></div>`).join('');
+  sec(A,'Flujo de oportunidades — etapas de Odoo');
+  const grupos=agruparEtapasCRM(flujo.etapas).concat([{n:'Perdidas',v:flujo.perdidas,etapas:[]}]);
+  const tarjetas=grupos.map(x=>`<div class="kpi"><div class="kl">${x.n}</div><div class="kv">${n0(x.v)}</div><div class="ks porcentaje-flujo">${flujo.total?(100*x.v/flujo.total).toLocaleString('es-AR',{maximumFractionDigits:1})+'% del total':'Sin oportunidades'}</div><div class="ks">${x.etapas.length>1?x.etapas.map(e=>e.n+': '+n0(e.v)).join('<br>'):x.n==='Perdidas'?'Archivadas sin ganar':'oportunidades'}</div></div>`).join('');
   const nota=flujo.compatibilidad
     ? 'La próxima sincronización completará la identificación de archivadas. Mientras tanto se usa la clasificación disponible.'
-    : n0(flujo.archivadas)+' oportunidades archivadas fuera del flujo visible.';
+    : (flujo.archivadasFuera?n0(flujo.archivadasFuera)+' oportunidades archivadas fuera de estas categorías. ':'')+'Perdidas son las archivadas sin ganar. No avanzará conserva su etapa. Los leads no se incluyen.';
   A.appendChild(el(`<div class="card crm-flujo"><h3>${n0(flujo.total)} oportunidades en el flujo</h3>
-    <div class="pmsg" style="margin-bottom:12px">Fuente: CRM de Odoo. Oportunidades creadas en el período seleccionado, agrupadas por su etapa actual. Cada oportunidad se cuenta una sola vez.</div>
+    <div class="pmsg" style="margin-bottom:12px">Creadas en el período · etapa actual · porcentaje sobre el total mostrado <span tabindex="0" role="img" aria-label="${nota}" title="${nota}" style="cursor:help">ⓘ</span></div>
     <div class="kpis">${tarjetas}</div>
-    ${flujo.total?'':'<div class="pmsg">Sin oportunidades activas creadas en este período.</div>'}
-    <div class="ks" style="margin-top:10px">${nota} Los leads se consultan por separado en Odoo. «NO AVANZARA» es una etapa y se conserva como tal.</div>
+    ${flujo.total?'':'<div class="pmsg">Sin oportunidades creadas en este período.</div>'}
+  </div>`));
+  if(veComparativaEntreVendedoras()&&F.ven==='') renderComparativaCRM(A,D);
+}
+
+function renderComparativaCRM(A,D){
+  const escapar=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ayuda='Por fecha de cierre; si falta, se usa la fecha de alta como referencia. '+notaCalidadCRM(D.crmEstado);
+  const filas=D.convvend.map(x=>`<tr><td>${escapar(x.n)}${x.sinFecha?'<span tabindex="0" role="img" aria-label="'+n0(x.sinFecha)+' cierres con fecha de alta como referencia" title="'+n0(x.sinFecha)+' cierres con fecha de alta como referencia"> ⓘ</span>':''}</td><td>${n0(x.w)}</td><td>${n0(x.t-x.w)}</td><td>${n0(x.t)}</td><td>${porcentajeCierres(x.w,x.t)}</td></tr>`).join('');
+  const ganadas=D.convvend.reduce((sum,x)=>sum+x.w,0), cierres=D.convvend.reduce((sum,x)=>sum+x.t,0);
+  A.appendChild(el(`<div class="card crm-comparativa" style="margin-top:12px"><h3>Comparativa entre vendedoras</h3>
+    <div class="pmsg" style="margin-bottom:12px">Cierres del período · ganadas / (ganadas + perdidas) <span tabindex="0" role="img" aria-label="${ayuda}" title="${ayuda}" style="cursor:help">ⓘ</span></div>
+    ${filas?'<div class="evo"><table><thead><tr><th>Vendedora</th><th>Ganadas</th><th>Perdidas</th><th>Cierres</th><th>% ganadas</th></tr></thead><tbody>'+filas+'<tr class="tot"><td>Total vendedoras</td><td>'+n0(ganadas)+'</td><td>'+n0(cierres-ganadas)+'</td><td>'+n0(cierres)+'</td><td>'+porcentajeCierres(ganadas,cierres)+'</td></tr></tbody></table></div>':'<div class="pmsg">Sin vendedoras para comparar.</div>'}
   </div>`));
 }
 

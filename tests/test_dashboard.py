@@ -73,6 +73,12 @@ class DashboardTests(unittest.TestCase):
     def text(self):
         return self.page.locator('#app').inner_text()
 
+    def rate_card(self):
+        return self.page.locator('.kpi').filter(has=self.page.locator('.kl').filter(has_text='% de oportunidades ganadas'))
+
+    def rate_help(self):
+        return self.rate_card().locator('[title]').get_attribute('title')
+
     def top_labels(self):
         return self.page.locator('#app > div > .kpis').first.locator('.kl').all_text_contents()
 
@@ -80,7 +86,7 @@ class DashboardTests(unittest.TestCase):
         self.load()
         self.assertEqual(['Ventas confirmadas', 'Ticket promedio', 'Órdenes', 'Prendas vendidas'], self.top_labels())
         self.assertIn('Flujo de oportunidades — etapas de Odoo', self.text())
-        self.assertIn('agrupadas por su etapa actual', self.text())
+        self.assertIn('Creadas en el período · etapa actual', self.text())
 
     def test_seller_has_six_cards_and_correct_rate(self):
         self.load()
@@ -111,7 +117,7 @@ class DashboardTests(unittest.TestCase):
         raw['C'] = [[0, 0, 1, 0, 1, 0, -1, -1, 101, 'opportunity', '']]
         self.load(raw)
         self.page.select_option('#fVen', '0')
-        card = self.page.locator('.kpi').filter(has=self.page.get_by_text('% de oportunidades ganadas', exact=True))
+        card = self.rate_card()
         self.assertIn('Sin cierres', card.inner_text())
         self.assertNotIn('0%', card.inner_text())
 
@@ -122,7 +128,9 @@ class DashboardTests(unittest.TestCase):
         self.page.select_option('#fVen', '0')
         self.assertIn('40%', self.text())
         self.assertIn('2 ganadas / (2 ganadas + 3 perdidas)', self.text())
-        self.assertIn('1 oportunidades sin fecha de cierre incluidas por fecha de alta', self.text())
+        self.assertIn('1 oportunidades sin fecha de cierre incluidas por fecha de alta', self.rate_help())
+        self.assertNotIn('sin fecha de cierre incluidas', self.rate_card().inner_text())
+        self.assertEqual('2 ganadas / (2 ganadas + 3 perdidas)', self.rate_card().locator('.ks').inner_text())
         self.assertNotIn('Sin datos completos', self.text())
 
     def test_mixed_legacy_rows_do_not_hide_or_inflate_known_results(self):
@@ -132,7 +140,7 @@ class DashboardTests(unittest.TestCase):
         self.page.select_option('#fVen', '0')
         self.assertIn('50%', self.text())
         self.assertIn('2 ganadas / (2 ganadas + 2 perdidas)', self.text())
-        self.assertIn('1 registros sin estado identificable excluidos', self.text())
+        self.assertIn('1 registros sin estado identificable excluidos', self.rate_help())
         self.assertNotIn('Sin datos completos', self.text())
 
     def test_other_seller_missing_date_does_not_block_selected_seller(self):
@@ -141,7 +149,7 @@ class DashboardTests(unittest.TestCase):
         self.load(raw)
         self.page.select_option('#fVen', '0')
         self.assertIn('40%', self.text())
-        self.assertNotIn('sin fecha de cierre incluidas', self.text())
+        self.assertNotIn('sin fecha de cierre incluidas', self.rate_help())
 
     def test_all_closures_missing_dates_still_count_known_states(self):
         raw = copy.deepcopy(RAW)
@@ -151,7 +159,7 @@ class DashboardTests(unittest.TestCase):
         self.page.select_option('#fVen', '0')
         self.assertIn('40%', self.text())
         self.assertIn('2 ganadas / (2 ganadas + 3 perdidas)', self.text())
-        self.assertIn('5 oportunidades sin fecha de cierre incluidas por fecha de alta', self.text())
+        self.assertIn('5 oportunidades sin fecha de cierre incluidas por fecha de alta', self.rate_help())
 
     def test_date_filter_uses_closure_when_known_and_scopes_missing_date_note(self):
         raw = copy.deepcopy(RAW)
@@ -167,14 +175,14 @@ class DashboardTests(unittest.TestCase):
         # The undated closure referenced to September 2 is outside this range.
         self.assertIn('2 ganadas / (2 ganadas + 3 perdidas)', self.text())
         self.assertIn('40%', self.text())
-        self.assertNotIn('sin fecha de cierre incluidas', self.text())
+        self.assertNotIn('sin fecha de cierre incluidas', self.rate_help())
 
     def test_only_unknown_states_do_not_display_false_zero_rate(self):
         raw = copy.deepcopy(RAW)
         raw['C'] = [[0, 0, 1, 0, 1]]
         self.load(raw)
         self.page.select_option('#fVen', '0')
-        card = self.page.locator('.kpi').filter(has=self.page.get_by_text('% de oportunidades ganadas', exact=True))
+        card = self.rate_card()
         self.assertIn('Sin cierres identificados', card.inner_text())
         self.assertNotIn('0%', card.inner_text())
 
@@ -231,11 +239,11 @@ class DashboardTests(unittest.TestCase):
         self.load(self.flow_fixture())
         self.page.select_option('#fVen', '0')
         self.assertEqual({'Contacto inicial': '2', 'En gestión': '2',
-                          'Pedido confirmado': '1', 'Ganado': '1', 'No avanzará': '1'},
+                          'Pedido confirmado': '1', 'Ganado': '1', 'No avanzará': '1', 'Perdidas': '1'},
                          self.flow_counts())
         flow = self.page.locator('.crm-flujo').inner_text()
-        self.assertIn('7 oportunidades en el flujo', flow)
-        self.assertIn('2 oportunidades archivadas', flow)
+        self.assertIn('8 oportunidades en el flujo', flow)
+        self.assertIn('1 oportunidades archivadas', self.page.locator('.crm-flujo [title]').get_attribute('title'))
         self.assertIn('Cotizacion enviada: 1', flow)
         self.assertIn('Negociación: 1', flow)
         self.assertNotIn('próxima sincronización', flow)
@@ -259,15 +267,81 @@ class DashboardTests(unittest.TestCase):
         self.page.locator('#fTo').dispatch_event('change')
         self.assertEqual('0', self.flow_counts()['Ganado'])
         self.assertEqual('1', self.flow_counts()['Pedido confirmado'])
-        self.assertIn('6 oportunidades en el flujo', self.page.locator('.crm-flujo').inner_text())
+        self.assertIn('7 oportunidades en el flujo', self.page.locator('.crm-flujo').inner_text())
 
-    def test_flow_with_only_archived_opportunities_is_empty(self):
+    def test_flow_with_only_archived_opportunities_keeps_losses(self):
         raw = self.flow_fixture()
         for row in raw['C']:
             row[11] = 0
         self.load(raw)
-        self.assertTrue(all(value == '0' for value in self.flow_counts().values()))
-        self.assertIn('Sin oportunidades activas creadas en este período', self.text())
+        self.assertEqual('1', self.flow_counts()['Perdidas'])
+        self.assertTrue(all(value == '0' for name, value in self.flow_counts().items() if name != 'Perdidas'))
+        self.assertIn('100% del total', self.page.locator('.crm-flujo').inner_text())
+
+    def test_flow_percentages_use_unique_total_and_block_is_near_top(self):
+        self.load(self.flow_fixture())
+        self.page.select_option('#fVen', '0')
+        cards = self.page.locator('.crm-flujo .kpi')
+        percentages = {card.locator('.kl').inner_text(): card.locator('.porcentaje-flujo').inner_text()
+                       for card in cards.all()}
+        self.assertEqual('25% del total', percentages['En gestión'])
+        self.assertEqual('12,5% del total', percentages['Perdidas'])
+        self.assertEqual('12,5% del total', percentages['No avanzará'])
+        self.assertEqual(1, self.page.locator('.crm-flujo').count())
+        self.assertTrue(self.page.locator('.crm-flujo').evaluate(
+            "e => Boolean(e.compareDocumentPosition([...document.querySelectorAll('h3')].find(h => h.textContent.includes('Evolución mensual'))) & Node.DOCUMENT_POSITION_FOLLOWING)"))
+
+    def test_comparison_includes_low_and_zero_closures_without_web(self):
+        raw = copy.deepcopy(RAW)
+        raw['dict']['VEN'] += ['Bea', 'Cecilia', 'Diana', 'Elena', 'Flor', 'Graciela', 'Helena']
+        raw['C'].append([0, 2, 0, 1, 1, 1, 12, -1, 900, 'opportunity', '', 1])
+        self.load(raw)
+        table = self.page.locator('.crm-comparativa')
+        rows = table.locator('tbody tr:not(.tot)')
+        self.assertEqual(8, rows.count())
+        self.assertEqual(['Ana', '2', '3', '5', '40%'], rows.nth(0).locator('td').all_text_contents())
+        self.assertEqual(['Bea', '1', '0', '1', '100%'], rows.nth(1).locator('td').all_text_contents())
+        self.assertIn('Sin cierres', rows.nth(2).inner_text())
+        self.assertNotIn('Web (Tiendanube)', table.inner_text())
+        self.assertEqual(['Total vendedoras', '3', '3', '6', '50%'], table.locator('.tot td').all_text_contents())
+        self.page.select_option('#fVen', '0')
+        self.assertEqual(0, self.page.locator('.crm-comparativa').count())
+        self.page.select_option('#fVen', '')
+        self.page.select_option('#fCan', '1')
+        self.assertEqual(0, self.page.locator('.crm-comparativa').count())
+
+    def test_seller_role_cannot_see_crm_comparison(self):
+        self.load(seller=True)
+        self.assertEqual(0, self.page.locator('.crm-comparativa').count())
+
+    def test_monthly_tables_start_collapsed_but_charts_and_comparison_stay_visible(self):
+        self.load()
+        details = self.page.locator('.evo-detail')
+        self.assertGreaterEqual(details.count(), 5)
+        for detail in details.all():
+            self.assertIsNone(detail.get_attribute('open'))
+            self.assertFalse(detail.locator('table').is_visible())
+        self.assertTrue(self.page.locator('.crm-comparativa table').is_visible())
+        chart = self.page.locator('#app svg').first
+        self.assertTrue(chart.is_visible())
+        self.assertEqual(0, self.page.locator('.evo-detail svg').count())
+        first = details.first
+        first.locator('summary').click()
+        self.assertTrue(first.locator('table').is_visible())
+        first.locator('summary').click()
+        self.assertFalse(first.locator('table').is_visible())
+
+    def test_empty_sections_removed_and_visible_sections_numbered_without_gaps(self):
+        self.load()
+        for seller in ['', '0', '1']:
+            self.page.select_option('#fVen', seller)
+            labels = self.page.locator('.sect').all_text_contents()
+            self.assertNotIn('Ventas por industria', labels)
+            self.assertNotIn('Ventas por tamaño del cliente', labels)
+            self.assertNotIn('Comparación entre años', labels)
+            self.assertNotIn('En construcción', self.text())
+            numbers = self.page.locator('.secn').all_text_contents()
+            self.assertEqual([str(n) for n in range(1, len(numbers)+1)], numbers)
 
 
 if __name__ == '__main__':
