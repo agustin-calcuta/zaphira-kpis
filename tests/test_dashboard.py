@@ -299,7 +299,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual('12,5% del total', percentages['No avanzará'])
         self.assertEqual(1, self.page.locator('.crm-flujo').count())
         self.assertTrue(self.page.locator('.crm-flujo').evaluate(
-            "e => Boolean(e.compareDocumentPosition([...document.querySelectorAll('h3')].find(h => h.textContent.includes('Evolución mensual'))) & Node.DOCUMENT_POSITION_FOLLOWING)"))
+            "e => Boolean(e.compareDocumentPosition([...document.querySelectorAll('h3')].find(h => h.textContent.includes('Evolución mensual'))) & Node.DOCUMENT_POSITION_PRECEDING)"))
 
     def test_comparison_includes_low_and_zero_closures_without_web(self):
         raw = copy.deepcopy(RAW)
