@@ -165,6 +165,12 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 .dlt--flat{background:var(--bg-neutral);color:var(--text-neutral)}
 .kpi .dlt{margin-top:5px}
 .cmpnote{font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5}
+.crm-recon{margin-top:12px;border-top:1px solid var(--border);padding-top:2px}
+.crm-recon>summary{cursor:pointer;color:var(--text-accent);font-size:12.5px;font-weight:600;padding:10px 0;line-height:1.45}
+.crm-recon>summary:focus-visible{outline:2px solid var(--text-accent);outline-offset:3px}
+.crm-recon .kpis{grid-template-columns:repeat(auto-fit,minmax(145px,1fr));margin:8px 0 12px}
+.crm-recon-list{font-size:11.5px;color:var(--text-secondary);line-height:1.55;margin-top:10px}
+.crm-recon-list b{color:var(--text-primary)}
 
 /* ---------- tabla de evolución mes a mes ---------- */
 .evo{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -778,7 +784,8 @@ function agruparEtapasCRM(etapas){
     const nombre=normRoot(etapa.n);
     const grupo=['NUEVA CONSULTA','CONTACTADO'].includes(nombre)?'Contacto inicial'
       :['COTIZACION ENVIADA','NEGOCIACION'].includes(nombre)?'En gestión'
-      :nombre==='NO AVANZARA'?'No avanzará':etapa.n;
+      :nombre==='NO AVANZARA'?'No avanzará'
+      :nombre==='GANADO'?'Ganado (etapa actual)':etapa.n;
     let item=grupos.find(g=>g.n===grupo);
     if(!item){item={n:grupo,v:0,etapas:[]};grupos.push(item);}
     item.v+=etapa.v;
@@ -879,6 +886,7 @@ function compute(rng){
   const converted=C.filter(c=>c.length>8&&Number.isFinite(c[7])&&c[7]>=0&&inR(c[7]));
   const fu={}, cv={}, lostReasons={}; let won=0, crmAb=0, crmPer=0;
   const wonIdsAll={};
+  const wonIdsPeriodo={};
   C.forEach(c=>{ if(estadoDe(c)===1&&c.length>8) wonIdsAll[c[8]]=1; });
   received.forEach(c=>{
     if(estadoDe(c)!==0) return;
@@ -893,7 +901,10 @@ function compute(rng){
     if(!inR(closeDay)) return;
     if(!fechaCierre) sinFechaCierre++;
     const u=d.VEN[c[1]];
-    if(e===1) won++; else { crmPer++; if(c[10]) lostReasons[c[10]]=(lostReasons[c[10]]||0)+1; }
+    if(e===1){
+      won++;
+      if(c.length>8&&c[8]>0) wonIdsPeriodo[c[8]]=1;
+    } else { crmPer++; if(c[10]) lostReasons[c[10]]=(lostReasons[c[10]]||0)+1; }
     (cv[u]=cv[u]||{w:0,t:0,sinFecha:0}); cv[u].t++; if(e===1) cv[u].w++;
     if(!fechaCierre) cv[u].sinFecha++;
   });
@@ -921,8 +932,24 @@ function compute(rng){
     .map(u=>({n:u,...(cv[u]||{w:0,t:0,sinFecha:0})}))
     .sort((a,b)=>b.w-a.w||b.t-a.t||a.n.localeCompare(b.n));
   const linked=O.filter(o=>o.length>9&&o[9]>0);
-  const crmReconciliation={ordenes:O.length,vinculadas:linked.length,
-    vinculadasGanadas:linked.filter(o=>wonIdsAll[o[9]]).length,sinOportunidad:O.length-linked.length};
+  const crmById={}; C.forEach(c=>{if(c.length>8&&c[8]>0)crmById[c[8]]=c;});
+  const linkedByOpp={}; linked.forEach(o=>(linkedByOpp[o[9]]=linkedByOpp[o[9]]||[]).push(o));
+  const linkedWonIds={};
+  linked.forEach(o=>{const c=crmById[o[9]];if(c&&estadoDe(c)===1)linkedWonIds[o[9]]=1;});
+  const orderRef=o=>({id:o.length>10&&o[10]>0?o[10]:null,dia:o[7],oportunidad:o[9]||null});
+  const crmRef=id=>{const c=crmById[id];return {id:Number(id),dia:c?(tieneCierre(c)?c[6]:c[4]):-1,
+    etapa:c?stageLabel(d.STAGE[c[2]]):'(sin registro CRM)',estado:c?estadoDe(c):null};};
+  const sinOportunidad=O.filter(o=>!(o.length>9&&o[9]>0)).map(orderRef);
+  const vinculadasNoGanadas=linked.filter(o=>{const c=crmById[o[9]];return !c||estadoDe(c)!==1;})
+    .map(o=>Object.assign(orderRef(o),{crm:crmRef(o[9])}));
+  const multiples=Object.keys(linkedByOpp).filter(id=>linkedByOpp[id].length>1)
+    .map(id=>({oportunidad:Number(id),ordenes:linkedByOpp[id].map(orderRef)}));
+  const ganadasSinOrden=Object.keys(wonIdsPeriodo).filter(id=>!linkedWonIds[id]).map(crmRef);
+  const ganadasVinculadasFuera=Object.keys(linkedWonIds).filter(id=>!wonIdsPeriodo[id]).map(crmRef);
+  const crmReconciliation={ordenes:O.length,ganadas:won,vinculadas:linked.length,
+    vinculadasGanadas:linked.filter(o=>wonIdsAll[o[9]]).length,sinOportunidad,
+    vinculadasNoGanadas,multiples,ordenesExtra:multiples.reduce((n,x)=>n+x.ordenes.length-1,0),
+    ganadasSinOrden,ganadasVinculadasFuera};
   const motivosPerdida=Object.keys(lostReasons).map(n=>({n,v:lostReasons[n]})).sort((a,b)=>b.v-a.v);
 
   /* Year to Year — sólo si hay 2+ años realmente presentes en O */
@@ -1404,10 +1431,10 @@ function render(A,D,PREV){
    {l:'Prendas vendidas',  v:n0(D.prTot),      s:'unidades',             a:D.prTot,      b:PREV&&PREV.prTot},
   ];
   if(crmVista.principal) SC.push(
-    {l:'% de oportunidades ganadas',v:cerrTop?porcentajeCierres(CEtop.ganadas,cerrTop):CEtop.sinEstado?'Sin cierres identificados':'Sin cierres',
+    {l:'% de cierres ganados',v:cerrTop?porcentajeCierres(CEtop.ganadas,cerrTop):CEtop.sinEstado?'Sin cierres identificados':'Sin cierres',
       s:cerrTop?n0(CEtop.ganadas)+' ganadas / ('+n0(CEtop.ganadas)+' ganadas + '+n0(CEtop.perdidas)+' perdidas)':'Sin oportunidades cerradas identificadas en el período',
       ayuda:'Calculado por fecha de cierre; si falta, se usa la fecha de alta como referencia. '+notaCalidadCRM(CEtop)},
-    {l:'Oportunidades ganadas',v:n0(CEtop.ganadas),s:CEtop.sinFechaCierre?'CRM · cierre o alta como referencia':'CRM · por fecha de cierre'}
+    {l:'Ganadas por cierre',v:n0(CEtop.ganadas),s:CEtop.sinFechaCierre?'CRM · cierre o alta como referencia':'CRM · cierre dentro del período'}
   );
   A.appendChild(el('<div class="kpis">'+SC.map(k=>
    `<div class="kpi"><div class="kl">${k.l}${k.ayuda?'<span tabindex="0" role="img" aria-label="'+k.ayuda+'" title="'+k.ayuda+'" style="margin-left:5px;cursor:help">ⓘ</span>':''}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div>`
@@ -1556,18 +1583,51 @@ function renderCRM(A,D){
     return;
   }
   const flujo=D.flujoCRM;
-  sec(A,'Flujo de oportunidades — etapas de Odoo');
+  sec(A,'Flujo de oportunidades creadas — etapa actual');
   const grupos=agruparEtapasCRM(flujo.etapas).concat([{n:'Perdidas',v:flujo.perdidas,etapas:[]}]);
-  const tarjetas=grupos.map(x=>`<div class="kpi"><div class="kl">${x.n}</div><div class="kv">${n0(x.v)}</div><div class="ks porcentaje-flujo">${flujo.total?(100*x.v/flujo.total).toLocaleString('es-AR',{maximumFractionDigits:1})+'% del total':'Sin oportunidades'}</div><div class="ks">${x.etapas.length>1?x.etapas.map(e=>e.n+': '+n0(e.v)).join('<br>'):x.n==='Perdidas'?'Archivadas sin ganar':'oportunidades'}</div></div>`).join('');
+  const tarjetas=grupos.map(x=>`<div class="kpi"><div class="kl">${x.n}</div><div class="kv">${n0(x.v)}</div><div class="ks porcentaje-flujo">${flujo.total?(100*x.v/flujo.total).toLocaleString('es-AR',{maximumFractionDigits:1})+'% del flujo creado':'Sin oportunidades'}</div><div class="ks">${x.etapas.length>1?x.etapas.map(e=>e.n+': '+n0(e.v)).join('<br>'):x.n==='Perdidas'?'Archivadas sin ganar':'oportunidades'}</div></div>`).join('');
   const nota=flujo.compatibilidad
     ? 'La próxima sincronización completará la identificación de archivadas. Mientras tanto se usa la clasificación disponible.'
     : (flujo.archivadasFuera?n0(flujo.archivadasFuera)+' oportunidades archivadas fuera de estas categorías. ':'')+'Perdidas son las archivadas sin ganar. No avanzará conserva su etapa. Los leads no se incluyen.';
-  A.appendChild(el(`<div class="card crm-flujo"><h3>${n0(flujo.total)} oportunidades en el flujo</h3>
-    <div class="pmsg" style="margin-bottom:12px">Creadas en el período · etapa actual · porcentaje sobre el total mostrado <span tabindex="0" role="img" aria-label="${nota}" title="${nota}" style="cursor:help">ⓘ</span></div>
-    <div class="kpis">${tarjetas}</div>
+  A.appendChild(el(`<div class="card crm-flujo"><h3>${n0(flujo.total)} oportunidades creadas en el período</h3>
+    <div class="pmsg" style="margin-bottom:12px">Cada tarjeta muestra la etapa actual de esas oportunidades. Este porcentaje describe el flujo creado; <b>no es la tasa de cierres ganados</b>. <span tabindex="0" role="img" aria-label="${nota}" title="${nota}" style="cursor:help">ⓘ</span></div>
+    <div class="kpis crm-flow-cards">${tarjetas}</div>
     ${flujo.total?'':'<div class="pmsg">Sin oportunidades creadas en este período.</div>'}
+    ${vista.principal?renderConciliacionCRM(D):''}
   </div>`));
   if(veComparativaEntreVendedoras()&&F.ven==='') renderComparativaCRM(A,D);
+}
+
+function renderConciliacionCRM(D){
+  const R=D.crmReconciliation;
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fecha=dia=>Number.isFinite(dia)&&dia>=0?fmtDay(dia):'sin fecha';
+  const orden=o=>'Orden '+(o.id?'#'+n0(o.id):'(sin ID)')+' · '+fecha(o.dia);
+  const oportunidad=o=>'Oportunidad #'+n0(o.id)+' · '+fecha(o.dia);
+  const bloque=(titulo,items)=>items.length
+    ? `<div class="crm-recon-list"><b>${titulo}:</b><br>${items.join('<br>')}</div>`:'';
+  const sinOportunidad=R.sinOportunidad.map(o=>esc(orden(o)));
+  const noGanadas=R.vinculadasNoGanadas.map(o=>esc(orden(o))+' → oportunidad #'+n0(o.oportunidad)
+    +' · '+esc(o.crm.etapa)+(o.crm.estado===0?' (abierta)':o.crm.estado===2?' (perdida)':' (estado no identificado)'));
+  const multiples=R.multiples.map(x=>'Oportunidad #'+n0(x.oportunidad)+' → '
+    +x.ordenes.map(o=>esc(orden(o))).join(' + '));
+  const sinOrden=R.ganadasSinOrden.map(o=>esc(oportunidad(o)));
+  const fuera=R.ganadasVinculadasFuera.map(o=>esc(oportunidad(o)));
+  return `<details class="crm-recon">
+    <summary>Por qué ${n0(R.ordenes)} órdenes y ${n0(R.ganadas)} ganadas no tienen que coincidir</summary>
+    <div class="pmsg">Las órdenes se cuentan por <b>fecha del pedido</b>; las ganadas, por <b>fecha de cierre de la oportunidad</b>. Además, una oportunidad puede tener varias órdenes o ninguna.</div>
+    <div class="kpis">
+      <div class="kpi"><div class="kl">Órdenes sin oportunidad</div><div class="kv">${n0(R.sinOportunidad.length)}</div><div class="ks">sin vínculo CRM</div></div>
+      <div class="kpi"><div class="kl">Órdenes vinculadas a no ganadas</div><div class="kv">${n0(R.vinculadasNoGanadas.length)}</div><div class="ks">abiertas, perdidas o sin estado</div></div>
+      <div class="kpi"><div class="kl">Órdenes extra por oportunidad</div><div class="kv">${n0(R.ordenesExtra)}</div><div class="ks">una oportunidad con 2+ órdenes</div></div>
+      <div class="kpi"><div class="kl">Ganadas sin orden del período</div><div class="kv">${n0(R.ganadasSinOrden.length)}</div><div class="ks">cierre dentro del rango</div></div>
+    </div>
+    ${bloque('Órdenes sin oportunidad CRM',sinOportunidad)}
+    ${bloque('Órdenes vinculadas a oportunidades no ganadas',noGanadas)}
+    ${bloque('Oportunidades con varias órdenes',multiples)}
+    ${bloque('Ganadas en el período sin una orden fechada en el mismo rango',sinOrden)}
+    ${bloque('Órdenes del período vinculadas a ganadas que cerraron fuera del rango',fuera)}
+  </details>`;
 }
 
 function renderComparativaCRM(A,D){

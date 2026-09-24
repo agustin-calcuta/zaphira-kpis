@@ -20,8 +20,8 @@ RAW = {
              'MON': ['2026-09'], 'STAGE': ['Ganado', 'Calificado']},
     'meta': {'day0': '2026-09-01', 'today': '2026-09-23',
              'maxDate': '2026-09-23', 'dateFrom': '2026-09-01', 'base': 'total'},
-    'O': [[0, 0, 0, 0, 0, 0, 1000, 10, 1, 101],
-          [0, 1, 1, 2, 0, 0, 2000, 11, 0, 0]],
+    'O': [[0, 0, 0, 0, 0, 0, 1000, 10, 1, 101, 501],
+          [0, 1, 1, 2, 0, 0, 2000, 11, 0, 0, 502]],
     'L': [[0, 0, 0, 0, 0, 10, 10, 1000, 10],
           [0, 1, 1, 2, 0, 20, 20, 2000, 11]], 'P': [],
     'C': [[0, 0, 0 if i < 2 else 1, 1 if i < 2 else 0, 1,
@@ -92,7 +92,7 @@ class DashboardTests(unittest.TestCase):
         return self.page.locator('#app').inner_text()
 
     def rate_card(self):
-        return self.page.locator('.kpi').filter(has=self.page.locator('.kl').filter(has_text='% de oportunidades ganadas'))
+        return self.page.locator('.kpi').filter(has=self.page.locator('.kl').filter(has_text='% de cierres ganados'))
 
     def rate_help(self):
         return self.rate_card().locator('[title]').get_attribute('title')
@@ -103,8 +103,8 @@ class DashboardTests(unittest.TestCase):
     def test_general_has_four_commercial_cards_and_explained_crm(self):
         self.load()
         self.assertEqual(['Ventas confirmadas', 'Ticket promedio', 'Órdenes', 'Prendas vendidas'], self.top_labels())
-        self.assertIn('Flujo de oportunidades — etapas de Odoo', self.text())
-        self.assertIn('Creadas en el período · etapa actual', self.text())
+        self.assertIn('Flujo de oportunidades creadas — etapa actual', self.text())
+        self.assertIn('no es la tasa de cierres ganados', self.text())
 
     def test_seller_has_six_cards_and_correct_rate(self):
         self.load()
@@ -127,7 +127,7 @@ class DashboardTests(unittest.TestCase):
     def test_direct_channel_does_not_show_unfiltered_crm(self):
         self.load()
         self.page.select_option('#fCan', '0')
-        self.assertNotIn('% de oportunidades ganadas', self.text())
+        self.assertNotIn('% de cierres ganados', self.text())
         self.assertIn('seleccioná «Todos» en Canal', self.text())
 
     def test_no_closures_is_not_zero_percent(self):
@@ -211,7 +211,7 @@ class DashboardTests(unittest.TestCase):
         self.load(raw)
         self.page.select_option('#fVen', '0')
         self.assertIn('Sin ventas en este período', self.text())
-        self.assertIn('Flujo de oportunidades — etapas de Odoo', self.text())
+        self.assertIn('Flujo de oportunidades creadas — etapa actual', self.text())
 
     def test_legacy_yeni_is_web(self):
         raw = copy.deepcopy(RAW)
@@ -251,16 +251,16 @@ class DashboardTests(unittest.TestCase):
 
     def flow_counts(self):
         return {card.locator('.kl').inner_text(): card.locator('.kv').inner_text()
-                for card in self.page.locator('.crm-flujo .kpi').all()}
+                for card in self.page.locator('.crm-flow-cards > .kpi').all()}
 
     def test_flow_matches_stages_with_explicit_groups_and_archived_excluded(self):
         self.load(self.flow_fixture())
         self.page.select_option('#fVen', '0')
         self.assertEqual({'Contacto inicial': '2', 'En gestión': '2',
-                          'Pedido confirmado': '1', 'Ganado': '1', 'No avanzará': '1', 'Perdidas': '1'},
+                          'Pedido confirmado': '1', 'Ganado (etapa actual)': '1', 'No avanzará': '1', 'Perdidas': '1'},
                          self.flow_counts())
         flow = self.page.locator('.crm-flujo').inner_text()
-        self.assertIn('8 oportunidades en el flujo', flow)
+        self.assertIn('8 oportunidades creadas en el período', flow)
         self.assertIn('1 oportunidades archivadas', self.page.locator('.crm-flujo [title]').get_attribute('title'))
         self.assertIn('Cotizacion enviada: 1', flow)
         self.assertIn('Negociación: 1', flow)
@@ -283,9 +283,9 @@ class DashboardTests(unittest.TestCase):
         self.page.locator('#fFrom').dispatch_event('change')
         self.page.locator('#fTo').fill('2026-09-15')
         self.page.locator('#fTo').dispatch_event('change')
-        self.assertEqual('0', self.flow_counts()['Ganado'])
+        self.assertEqual('0', self.flow_counts()['Ganado (etapa actual)'])
         self.assertEqual('1', self.flow_counts()['Pedido confirmado'])
-        self.assertIn('7 oportunidades en el flujo', self.page.locator('.crm-flujo').inner_text())
+        self.assertIn('7 oportunidades creadas en el período', self.page.locator('.crm-flujo').inner_text())
 
     def test_flow_with_only_archived_opportunities_keeps_losses(self):
         raw = self.flow_fixture()
@@ -294,17 +294,17 @@ class DashboardTests(unittest.TestCase):
         self.load(raw)
         self.assertEqual('1', self.flow_counts()['Perdidas'])
         self.assertTrue(all(value == '0' for name, value in self.flow_counts().items() if name != 'Perdidas'))
-        self.assertIn('100% del total', self.page.locator('.crm-flujo').inner_text())
+        self.assertIn('100% del flujo creado', self.page.locator('.crm-flujo').inner_text())
 
     def test_flow_percentages_use_unique_total_and_block_is_near_top(self):
         self.load(self.flow_fixture())
         self.page.select_option('#fVen', '0')
-        cards = self.page.locator('.crm-flujo .kpi')
+        cards = self.page.locator('.crm-flow-cards > .kpi')
         percentages = {card.locator('.kl').inner_text(): card.locator('.porcentaje-flujo').inner_text()
                        for card in cards.all()}
-        self.assertEqual('25% del total', percentages['En gestión'])
-        self.assertEqual('12,5% del total', percentages['Perdidas'])
-        self.assertEqual('12,5% del total', percentages['No avanzará'])
+        self.assertEqual('25% del flujo creado', percentages['En gestión'])
+        self.assertEqual('12,5% del flujo creado', percentages['Perdidas'])
+        self.assertEqual('12,5% del flujo creado', percentages['No avanzará'])
         self.assertEqual(1, self.page.locator('.crm-flujo').count())
         self.assertTrue(self.page.locator('.crm-flujo').evaluate(
             "e => Boolean(e.compareDocumentPosition([...document.querySelectorAll('h3')].find(h => h.textContent.includes('Evolución mensual'))) & Node.DOCUMENT_POSITION_PRECEDING)"))
@@ -331,6 +331,33 @@ class DashboardTests(unittest.TestCase):
     def test_seller_role_cannot_see_crm_comparison(self):
         self.load(seller=True)
         self.assertEqual(0, self.page.locator('.crm-comparativa').count())
+
+    def test_seller_reconciliation_explains_orders_vs_won_with_traceable_ids(self):
+        raw = copy.deepcopy(RAW)
+        raw['O'] = [
+            [0, 0, 0, 0, 0, 0, 1000, 10, 1, 101, 501],
+            [0, 0, 0, 0, 0, 0, 1000, 11, 1, 0, 502],
+            [0, 0, 0, 0, 0, 0, 1000, 12, 1, 102, 503],
+            [0, 0, 0, 0, 0, 0, 1000, 12, 1, 101, 504],
+        ]
+        raw['C'] = [
+            [0, 0, 0, 1, 1, 1, 12, -1, 101, 'opportunity', '', 1],
+            [0, 0, 1, 0, 2, 0, -1, -1, 102, 'opportunity', '', 1],
+            [0, 0, 0, 1, 3, 1, 13, -1, 103, 'opportunity', '', 1],
+        ]
+        self.load(raw)
+        self.page.select_option('#fVen', '0')
+        details = self.page.locator('.crm-recon')
+        self.assertIn('Por qué 4 órdenes y 2 ganadas no tienen que coincidir', details.locator('summary').inner_text())
+        details.locator('summary').click()
+        text = details.inner_text()
+        self.assertIn('Orden #502', text)
+        self.assertIn('Orden #503', text)
+        self.assertIn('→ oportunidad #102', text)
+        self.assertIn('Oportunidad #101 → Orden #501', text)
+        self.assertIn('Oportunidad #103', text)
+        self.assertIn('fecha del pedido', text)
+        self.assertIn('fecha de cierre de la oportunidad', text)
 
     def test_monthly_tables_start_collapsed_but_charts_and_comparison_stay_visible(self):
         self.load()
@@ -365,7 +392,7 @@ class DashboardTests(unittest.TestCase):
         self.load(self.flow_fixture(), seller=True, objective={'mio': 4000})
         self.assertEqual([
             'Ventas confirmadas — evolución mensual',
-            'Flujo de oportunidades — etapas de Odoo',
+            'Flujo de oportunidades creadas — etapa actual',
             'Prendas vendidas — por tipo de orden',
             'Ticket promedio — evolución',
             'Ventas por provincia',
