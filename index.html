@@ -54,6 +54,7 @@ footer.made b{color:var(--text-secondary);font-weight:600}
 .tbar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
 .tgroup{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;flex:1;min-width:0}
 .fl{display:flex;flex-direction:column;gap:4px;min-width:0}
+.view-filter{min-width:180px;max-width:260px}
 .fl>label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
 .ctl{font-family:inherit;font-size:13px;height:var(--ctl-h);padding:0 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface-2);color:var(--text-primary);min-width:152px;max-width:100%}
 select.ctl{padding-right:30px;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%238a94a1' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:12px}
@@ -222,6 +223,8 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
  .bar2{padding:9px 14px}
  .ftoggle{display:inline-flex}
  .tbar{gap:10px;align-items:center}
+ .view-filter{flex:0 0 100%;max-width:none}
+ .view-filter .ctl{width:100%;min-width:0}
  /* flex:0 0 100% (y no sólo width) para que el panel baje a su propia fila: con el flex:1 de la
     regla base, flex-basis:0% mandaba y el panel se acomodaba al lado del bloque Moneda/Filtros. */
  .tgroup{display:none;flex:0 0 100%;width:100%;flex-direction:column;align-items:stretch;gap:12px;margin-top:4px;padding-top:12px;border-top:1px solid var(--border)}
@@ -623,12 +626,37 @@ const ICO={
   xls:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M6.5 6v7.5"/></svg>',
   x:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>'
 };
-function activeCount(){return (F.ven!==''?1:0)+(F.can!==''?1:0)+(F.per!=='all'?1:0);}
+function activeCount(){return (VISTA==='tienda'?0:(F.ven!==''?1:0)+(F.can!==''?1:0))+(F.per!=='all'?1:0);}
 function syncChrome(){   /* refresca lo que depende del estado del filtro, sin re-armar la toolbar */
   const n=activeCount(), dot=document.getElementById('fDot');
   dot.textContent=n||''; dot.style.display=n?'block':'none';
   document.getElementById('perdates').hidden=(F.per!=='custom');
   document.getElementById('fPer').value=F.per;
+  document.getElementById('fVen').value=VISTA==='tienda'?'tiendanube':F.ven;
+  const canal=document.getElementById('fCan');if(canal)canal.value=F.can;
+  document.getElementById('fFrom').value=offToIso(F.from??MINOFF);
+  document.getElementById('fTo').value=offToIso(F.to??Math.max(MAXOFF,TODAY));
+}
+// Cada fuente conserva sus filtros. La navegación nunca agrega pedidos TN al dataset Odoo.
+let FILTROS_ODOO=null, FILTROS_TN=null;
+function elegirVista(value){
+  if(esVendedora())return;
+  if(value==='tiendanube'){
+    if(!esDireccion())return;
+    if(VISTA!=='tienda'){
+      FILTROS_ODOO={...F};
+      F=FILTROS_TN?{...FILTROS_TN}:{...F,ven:'',can:''};
+      if(!FILTROS_TN)setPeriod('d30');
+    }
+    VISTA='tienda';
+  }else{
+    if(VISTA==='tienda'){
+      FILTROS_TN={...F};
+      if(FILTROS_ODOO)F={...FILTROS_ODOO};
+    }
+    F.ven=value;VISTA='tablero';
+  }
+  syncChrome();go();
 }
 function buildToolbar(){
   const d=RAW.dict;
@@ -644,19 +672,22 @@ function buildToolbar(){
   const verFiltroCan=!esVendedora();
   const venO=esVendedora()
     ? opt(F.ven, d.VEN[Number(F.ven)]!==undefined?d.VEN[Number(F.ven)]:(USER.ven||'—'), 1)
-    : opt('','Todas',1)+d.VEN.map((v,i)=>({i,v})).sort((a,b)=>a.v<b.v?-1:1).map(x=>opt(x.i,x.v)).join('');
+    : opt('','General',1)+d.VEN.map((v,i)=>({i,v}))
+      .filter(x=>!esDireccion()||!/^(web\s*\(tiendanube\)|yeni)$/i.test(String(x.v).trim()))
+      .sort((a,b)=>a.v<b.v?-1:1).map(x=>opt(x.i,x.v)).join('')
+      +(esDireccion()?opt('tiendanube','Tiendanube'): '');
   const canO=opt('','Todos',1)+d.CAN.map((c,i)=>opt(i,canLabel(c))).join('');
   const minIso=offToIso(MINOFF), maxIso=offToIso(Math.max(MAXOFF,TODAY));
   const periodO=[['all','Todo el período']].concat(PRESETS).concat([['custom','Rango a medida…']])
     .map(p=>opt(p[0],p[1],p[0]===F.per)).join('');
   document.getElementById('toolbar').innerHTML=`
    <div class="tbar">
+    ${verFiltroVen?`<div class="fl view-filter"><label for="fVen">${esVendedora()?'Vendedora':'Vista'}</label><select class="ctl" id="fVen"${esVendedora()?' disabled':''}>${venO}</select></div>`:''}
     <div class="fl"><label>Moneda</label><div class="seg" id="segCur" role="group" aria-label="Moneda">
       <button type="button" data-cur="ARS" class="on">ARS</button><button type="button" data-cur="USD">USD</button></div></div>
     <button class="btn ftoggle" id="fToggle" type="button" aria-expanded="false" aria-controls="tgroup">
       ${ICO.filt} Filtros<span class="fdot" id="fDot" style="display:none"></span></button>
     <div class="tgroup" id="tgroup">
-      ${verFiltroVen?`<div class="fl"><label for="fVen">Vendedora</label><select class="ctl" id="fVen"${esVendedora()?' disabled':''}>${venO}</select></div>`:''}
       ${verFiltroCan?`<div class="fl"><label for="fCan">Canal</label><select class="ctl" id="fCan">${canO}</select></div>`:''}
       <div class="fl"><label for="fPer">Período</label><select class="ctl period-select" id="fPer">${periodO}</select></div>
       <div class="perdates" id="perdates" hidden>
@@ -667,7 +698,7 @@ function buildToolbar(){
         <button class="btn btn--quiet" id="reset" type="button">${ICO.x} Limpiar</button>
         <button class="btn" id="btnPdf" type="button">${ICO.pdf} PDF</button>
         <button class="btn" id="btnXlsx" type="button">${ICO.xls} Excel</button>
-        ${esDireccion()?'<button class="btn" id="btnTienda" type="button">Tienda online</button><button class="btn btn--quiet" id="btnCfg" type="button">Configuración</button>':''}
+        ${esDireccion()?'<button class="btn btn--quiet" id="btnCfg" type="button">Configuración</button>':''}
       </div>
     </div>
    </div>`;
@@ -693,16 +724,15 @@ function buildToolbar(){
     F.from=a; F.to=b; go();};
   $('fFrom').addEventListener('change',onDate);
   $('fTo').addEventListener('change',onDate);
-  if(verFiltroVen&&!esVendedora()) $('fVen').addEventListener('change',e=>{F.ven=e.target.value; syncChrome(); go();});
+  if(verFiltroVen&&!esVendedora()) $('fVen').addEventListener('change',e=>elegirVista(e.target.value));
   if(verFiltroCan) $('fCan').addEventListener('change',e=>{F.can=e.target.value; syncChrome(); go();});
   $('reset').addEventListener('click',()=>{
-    setPeriod('all'); F.can='';
+    setPeriod(VISTA==='tienda'?'d30':'all'); F.can='';
     // La vendedora no puede "limpiarse" a sí misma: su recorte es el rol, no un filtro.
     if(verFiltroVen&&!esVendedora()){F.ven=''; $('fVen').value='';}
     if(verFiltroCan) $('fCan').value='';
     syncChrome(); go();});
   $('btnPdf').addEventListener('click',()=>window.print());
-  if(esDireccion()) $('btnTienda').addEventListener('click',()=>{VISTA='tienda';setPeriod('d30');syncChrome();go();});
   if(esDireccion()) $('btnCfg').addEventListener('click',()=>{
     VISTA='config';
     if(!CFG.usuarios) cargarConfig(mesHoy()); else go();
@@ -1213,8 +1243,8 @@ function renderTiendanube(A){
   if(!esDireccion())return;
   syncState(TN.pending?'Consultando Tiendanube…':TN.error?'Tiendanube no disponible':'Tiendanube',TN.pending?'loading':TN.error?'error':'ok');
   const range=tnSelectedRange();
-  A.appendChild(el(`<div class="periodbar"><span><b>Tienda online · Tiendanube</b> · ${fmtFecha(range.from)} a ${fmtFecha(range.to)}</span><button class="btn btn--quiet" id="tnBack" type="button">Volver a ventas</button><button class="btn" id="tnRefresh" type="button" ${TN.pending?'disabled':''}>Actualizar</button></div>`));
-  document.getElementById('tnBack').onclick=()=>{VISTA='tablero';go();};
+  A.appendChild(el(`<div class="periodbar"><span><b>Tiendanube</b> · ${fmtFecha(range.from)} a ${fmtFecha(range.to)}</span><button class="btn btn--quiet" id="tnBack" type="button">Volver a General</button><button class="btn" id="tnRefresh" type="button" ${TN.pending?'disabled':''}>Actualizar</button></div>`));
+  document.getElementById('tnBack').onclick=()=>elegirVista('');
   document.getElementById('tnRefresh').onclick=()=>cargarTiendanube(true);
   A.appendChild(el('<div class="card" style="margin-bottom:14px"><div class="pmsg">Pedidos registrados en Tiendanube, incluidos los creados manualmente. Estos importes se muestran separados del consolidado de Odoo para evitar contar dos veces una misma venta.</div></div>'));
   if(TN.pending){A.appendChild(el('<div class="card loading-card" role="status"><span class="loading-spinner" aria-hidden="true"></span><div><h3>Consultando Tiendanube…</h3><div class="pmsg">Trayendo pedidos y carritos del período. La primera consulta puede demorar.</div></div></div>'));return;}
@@ -1257,7 +1287,8 @@ function renderTiendanube(A){
 function go(){
   const app=document.getElementById('app'); app.innerHTML='';
   const web=VISTA==='tienda';
-  ['fVen','fCan','btnXlsx','btnCfg'].forEach(id=>{const node=document.getElementById(id);if(node){node.disabled=web||(id==='fVen'&&esVendedora());if(id==='fVen'||id==='fCan')node.closest('.fl').hidden=web;}});
+  syncChrome();
+  ['fCan','btnXlsx','btnCfg'].forEach(id=>{const node=document.getElementById(id);if(node){node.disabled=web;if(id==='fCan')node.closest('.fl').hidden=web;}});
   if(web){const r=tnSelectedRange();if(TN.key!==r.from+'|'+r.to){cargarTiendanube();return;}renderTiendanube(app);return;}
   if(VISTA==='config'){ renderConfig(app); return; }
   const pr=prevRange();                       // null en "Todo el período": no hay un antes
@@ -1480,7 +1511,7 @@ function render(A,D,PREV){
 
   /* Barra de contexto: qué período y qué filtros están activos. Va en el contenido (no en la
      toolbar) para que salga también en el PDF, donde la toolbar se oculta. */
-  const chips=[];
+  const chips=['Fuente: <b>Odoo</b>'];
   if(F.ven!=='') chips.push('Vendedora: <b>'+d.VEN[Number(F.ven)]+'</b>');
   if(F.can!=='') chips.push('Canal: <b>'+d.CAN[Number(F.can)]+'</b>');
   A.appendChild(el(`<div class="periodbar">${ICO.cal}<span><b>${rangeLabel()}</b>${chips.length?' · '+chips.join(' · '):''}</span></div>`));
@@ -1781,10 +1812,11 @@ if(BACKGROUND_REFRESH){
   BACKGROUND_REFRESH.then(fresh=>{
     if(!fresh||!fresh.ok) return;
     dataCacheGuardar(USER,fresh);
+    if(VISTA==='tienda')return; // La actualización de Odoo no cambia el estado de la vista TN.
     const newPull=fresh.raw&&fresh.raw.pull;
     if(newPull&&newPull!==RAW.pull) syncState('Hay datos nuevos listos · recargá para verlos','loading');
     else syncState('Odoo · '+RAW.pull,'ok');
-  }).catch(()=>syncState('Odoo · '+RAW.pull+' · última sincronización','ok'));
+  }).catch(()=>{if(VISTA!=='tienda')syncState('Odoo · '+RAW.pull+' · última sincronización','ok');});
 }
 </script>
 <footer class="made">Desarrollado por <b>CALCUTA</b></footer>

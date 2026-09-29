@@ -2,7 +2,7 @@
 
 ## Implementación del 29/09/2026
 
-Tiendanube incorpora una sección **Tienda online**, disponible para Dirección. Odoo continúa como fuente del consolidado comercial y de las ventas de las vendedoras. Las dos fuentes no se suman porque pueden contener el mismo pedido.
+Tiendanube es una opción del selector **Vista**, junto a **General** y cada vendedora, disponible para Dirección. Reemplaza el botón separado y la opción de cuenta técnica Web/`Yeni`, sin quitar sus registros del consolidado Odoo. El selector permanece visible en móvil. Los períodos y filtros de Odoo y Tiendanube se conservan por separado al navegar. Odoo continúa como fuente del consolidado comercial y de las ventas de las vendedoras. Las dos fuentes no se suman porque pueden contener el mismo pedido.
 
 - Tienda: `1301166`, `https://tienda.zaphirauniformes.com/` (alias `https://zaphirauniformes.mitiendanube.com/`). Identidad y permisos de lectura verificados mediante `/store`, `/orders` y `/checkouts`.
 - Backend: Apps Script existente. Módulo [Tiendanube.gs](../backend/Tiendanube.gs), operación POST `tiendanube` con sesión de Dirección y fechas `from`/`to`.
@@ -40,7 +40,7 @@ El backend verifica la firma de la sesión, el rol y que la cuenta de Dirección
 
 Para publicar: incorporar `backend/Tiendanube.gs` al proyecto Apps Script y agregar `case 'tiendanube': return opTiendanube_(d);` al dispatcher de `Usuarios.gs`. Actualizar la versión del deployment existente para conservar la URL de la API. El frontend se publica desde `main` en GitHub Pages.
 
-Validación: 34 pruebas de interfaz, 12 pruebas de cálculos/permisos/paginación de Tiendanube y regresiones de aislamiento del backend. Se verificó diseño móvil y conexión real a la API. Las pruebas no contienen credenciales ni datos personales reales.
+Validación: 37 pruebas de interfaz, 12 pruebas de cálculos/permisos/paginación de Tiendanube y regresiones de aislamiento del backend. Se verificó diseño móvil y conexión real a la API. Las pruebas no contienen credenciales ni datos personales reales.
 
 ### Visitas: panel de Tiendanube, exportación y alternativa GA4
 

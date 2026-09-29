@@ -22,7 +22,7 @@ Verificado en el proyecto Apps Script el 23/09/2026:
 
 - **General:** ventas confirmadas, ticket promedio, órdenes y prendas; el flujo CRM se presenta en una sección separada.
 - **Vendedora comercial:** agrega oportunidades ganadas y porcentaje de oportunidades ganadas.
-- **Web (Tiendanube), como vendedora o canal:** muestra indicadores comerciales y oculta todo el bloque CRM. Se mantiene compatibilidad con la cuenta antigua `Yeni`.
+- **Tiendanube:** es una vista propia dentro del selector **Vista**, junto a General y las vendedoras. Usa la API de TN para sus pedidos, pagos, ticket, productos y abandonos. No agrega esos pedidos al consolidado Odoo. La cuenta técnica Web/`Yeni` ya no aparece como otra opción de vendedora; sus registros de Odoo siguen dentro del consolidado. El filtro de canal Web en Odoo se conserva y oculta el CRM.
 - **Canal seleccionado:** el dataset CRM actual no contiene canal. Sus indicadores se ocultan para no presentar totales sin filtrar; en venta directa se indica cómo volver a consultarlos por vendedora.
 
 El porcentaje del CRM es `ganadas / (ganadas + perdidas)`. Se mantiene el criterio temporal previo: fecha de cierre, o fecha de alta como referencia si falta el cierre. El KPI muestra solamente la fórmula; la ayuda del indicador y de la comparativa informa los registros que usan la alternativa de fecha. Esto no representa una fecha real de cierre y puede alterar la distribución mensual. Las filas sin estado identificable se excluyen y se informan en la ayuda, sin ocultar los resultados conocidos ni contarlas como pérdidas. No es conversión de visitas a compras. Sin cierres se muestra «Sin cierres». Las oportunidades siguen visibles cuando no hay ventas.
@@ -70,6 +70,6 @@ Apps Script limita los registros de órdenes, líneas, entregas y CRM por la ide
 
 ## Tiendanube
 
-Dirección dispone de **Tienda online** con pedidos, importes pagados, estados, productos y checkouts abandonados de Tiendanube, separados del consolidado de Odoo. Consulta al abrir/cambiar el período y reutiliza agregados hasta 5 minutos. Visitas y comportamiento quedan pendientes de integración, con enlace al panel nativo de TN; GA4 es una alternativa de automatización.
+Dirección elige **Tiendanube** en el selector **Vista** (General, vendedoras y Tiendanube), visible también en móvil sin abrir los filtros. Cada fuente conserva su período y filtros al alternar. La vista cuenta con pedidos, importes pagados, estados, productos y checkouts abandonados de Tiendanube, separados del consolidado de Odoo. Consulta al abrir/cambiar el período y reutiliza agregados hasta 5 minutos. Visitas y comportamiento quedan pendientes de integración, con enlace al panel nativo de TN; GA4 es una alternativa de automatización.
 
 El módulo [backend/Tiendanube.gs](backend/Tiendanube.gs) requiere `TN_ACCESS_TOKEN` en Script Properties y la ruta `tiendanube` en el dispatcher. [Definiciones, cobertura y publicación](docs/integracion-tiendanube.md). Pruebas del módulo: `node --test tests/tiendanube.cjs`.
