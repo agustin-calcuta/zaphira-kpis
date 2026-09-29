@@ -487,7 +487,7 @@ class DashboardTests(unittest.TestCase):
     def test_tiendanube_is_separate_scoped_and_escapes_product_names(self):
         self.setup_tn()
         text=self.text()
-        self.assertIn('Google Analytics 4 pendiente de conexión',text)
+        self.assertIn('Visitas pendientes de integración',text)
         self.assertIn('7',text)
         self.assertEqual('synthetic-test-token',self.tn_request['token'])
         self.assertNotIn('rol',self.tn_request)

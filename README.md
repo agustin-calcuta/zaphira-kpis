@@ -70,6 +70,6 @@ Apps Script limita los registros de órdenes, líneas, entregas y CRM por la ide
 
 ## Tiendanube
 
-Dirección dispone de **Tienda online** con pedidos, importes pagados, estados, productos y checkouts abandonados de Tiendanube, separados del consolidado de Odoo. Consulta al abrir/cambiar el período y reutiliza agregados hasta 5 minutos. Visitas y comportamiento quedan identificados como pendientes de GA4.
+Dirección dispone de **Tienda online** con pedidos, importes pagados, estados, productos y checkouts abandonados de Tiendanube, separados del consolidado de Odoo. Consulta al abrir/cambiar el período y reutiliza agregados hasta 5 minutos. Visitas y comportamiento quedan pendientes de integración, con enlace al panel nativo de TN; GA4 es una alternativa de automatización.
 
 El módulo [backend/Tiendanube.gs](backend/Tiendanube.gs) requiere `TN_ACCESS_TOKEN` en Script Properties y la ruta `tiendanube` en el dispatcher. [Definiciones, cobertura y publicación](docs/integracion-tiendanube.md). Pruebas del módulo: `node --test tests/tiendanube.cjs`.

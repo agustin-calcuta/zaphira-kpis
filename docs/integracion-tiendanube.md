@@ -20,7 +20,7 @@ Tiendanube incorpora una sección **Tienda online**, disponible para Dirección.
 | Reembolsados o anulados | `refunded` y `voided`, sin cancelados |
 | Unidades y productos | Cantidades de las líneas de pedidos pagados |
 | Checkouts abandonados | Disponibles al momento de consultar, creados en el período y sin `completed_at`; cobertura explícita |
-| Visitas y comportamiento | Pendientes de conectar y verificar GA4; no se muestran como cero |
+| Visitas y comportamiento | Pendientes de integración; TN ofrece su panel y exportación, GA4 es una alternativa; no se muestran como cero |
 
 Las fechas corresponden a la creación del pedido en Argentina; sus estados son los actuales. ARS es la moneda fuente. La conversión a USD reutiliza las cotizaciones históricas del dashboard; ante importes o cotizaciones faltantes no se presenta un total parcial como completo. El origen `mobile` se conserva según Tiendanube, sin inferir el dispositivo del comprador.
 
@@ -42,11 +42,13 @@ Para publicar: incorporar `backend/Tiendanube.gs` al proyecto Apps Script y agre
 
 Validación: 34 pruebas de interfaz, 12 pruebas de cálculos/permisos/paginación de Tiendanube y regresiones de aislamiento del backend. Se verificó diseño móvil y conexión real a la API. Las pruebas no contienen credenciales ni datos personales reales.
 
-### GA4 y trabajo pendiente
+### Visitas: panel de Tiendanube, exportación y alternativa GA4
+
+Se revisó el administrador autenticado de esta tienda: Estadísticas muestra visitas, comportamiento y conversiones. El menú de cada gráfico permite exportar a CSV o Excel y descargar una imagen. Se confirmó su disponibilidad, sin implementar una importación manual ni usar endpoints privados del panel. La extracción automática sigue pendiente de una vía documentada de TN o, alternativamente, GA4. El dashboard incluye un enlace al panel nativo.
 
 En el HTML público relevado, `LS.store.ga4_measurement_id` estaba vacío y no se detectó un ID `G-…` ni `GTM-…`; sí un píxel de Meta. Eso no descarta una propiedad previa o medición cargada dinámicamente. Falta identificar la propiedad existente y su cuenta administradora.
 
-La API pública de Tiendanube consultada no documenta un recurso de visitas equivalente al panel interno. Para tráfico se utilizará GA4 Data API con el **ID numérico de propiedad** y acceso de lectura. El ID de medición `G-…` y el secreto de Measurement Protocol sirven para enviar eventos y no permiten consultar informes.
+La API pública de Tiendanube consultada no documenta un recurso de visitas equivalente al panel interno. Como alternativa de actualización automática puede utilizarse GA4 Data API con el **ID numérico de propiedad** y acceso de lectura. El ID de medición `G-…` y el secreto de Measurement Protocol sirven para enviar eventos y no permiten consultar informes.
 
 Antes de mostrar visitas, usuarios o conversión, verificar sesiones y eventos `view_item`, `add_to_cart`, `begin_checkout` y `purchase`, su cobertura y ausencia de duplicados. No es posible reconstruir visitas anteriores a la medición ni prometer igualdad con estadísticas internas de TN.
 
