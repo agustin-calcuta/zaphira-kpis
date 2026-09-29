@@ -7,6 +7,7 @@ import copy
 import json
 import unittest
 from pathlib import Path
+from datetime import datetime, timezone
 
 from playwright.sync_api import sync_playwright
 
@@ -43,6 +44,7 @@ class DashboardTests(unittest.TestCase):
     def setUp(self):
         self.context = self.browser.new_context(viewport={'width': 1440, 'height': 1000})
         self.page = self.context.new_page()
+        self.page.clock.set_fixed_time(datetime(2026, 9, 23, 15, tzinfo=timezone.utc))
         self.errors = []
         self.page.on('pageerror', lambda error: self.errors.append(str(error)))
 
@@ -72,7 +74,7 @@ class DashboardTests(unittest.TestCase):
                 if payload['op'] == 'usuarios':
                     result = {'ok': True, 'usuarios': [{'rol': 'vendedora', 'activo': True, 'vendedora': 'Ana', 'nombre': 'Ana', 'usuario': 'ana'}]}
                 elif payload['op'] == 'objetivos':
-                    result = {'ok': True, 'mes': '2026-09', 'objetivos': objective}
+                    result = {'ok': True, 'mes': '2026-09', 'objetivos': objective or {}}
                 elif payload['op'] == 'guardarObjetivos':
                     self.saved_goals = payload['filas']
                     result = {'ok': True, 'objetivos': {'empresa': payload['filas'][0]['objetivo'], 'vendedoras': {'Ana': payload['filas'][1]['objetivo']}}}
@@ -111,6 +113,27 @@ class DashboardTests(unittest.TestCase):
         self.page.select_option('#fVen', '0')
         self.assertEqual(6, len(self.top_labels()))
         self.assertIn('2 ganadas / (2 ganadas + 3 perdidas)', self.text())
+
+    def test_default_month_and_reset_use_current_argentina_date_despite_stale_odoo(self):
+        self.page.clock.set_fixed_time(datetime(2026, 10, 1, 15, tzinfo=timezone.utc))
+        self.load()
+        self.assertEqual('mtd',self.page.locator('#fPer').input_value())
+        self.assertEqual('2026-10-01',self.page.locator('#fFrom').input_value())
+        self.assertEqual('2026-10-01',self.page.locator('#fTo').input_value())
+        self.assertIn('Sin ventas en este período',self.text())
+        self.page.select_option('#fPer','all')
+        self.assertEqual('2',self.page.locator('#app > div > .kpis').first.locator('.kv').nth(2).inner_text())
+        self.page.click('#reset')
+        self.assertEqual('mtd',self.page.locator('#fPer').input_value())
+        self.page.reload()
+        self.assertEqual('mtd',self.page.locator('#fPer').input_value())
+
+    def test_default_month_changes_at_argentina_midnight_and_applies_to_sellers(self):
+        self.page.clock.set_fixed_time(datetime(2026, 10, 1, 1, tzinfo=timezone.utc))
+        self.load(seller=True)
+        self.assertEqual('mtd',self.page.locator('#fPer').input_value())
+        self.assertEqual('2026-09-01',self.page.locator('#fFrom').input_value())
+        self.assertEqual('2026-09-30',self.page.locator('#fTo').input_value())
 
     def test_tiendanube_only_appears_in_channel_and_general_includes_odoo_web_sales(self):
         self.load()
@@ -478,7 +501,12 @@ class DashboardTests(unittest.TestCase):
                 'daily': [{'date': '2026-09-15', 'orders': 3, 'paid': 1, 'paidTotalArs': 5000, 'missingAmounts': 0}],
                 'abandoned': {'count': 7, 'from': '2026-09-01', 'to': '2026-09-23', 'partialCoverage': False, 'noCoverage': False},
                 'products': [{'name': '<img src=x onerror=alert(1)>', 'units': 2}],
-                'origins': [{'name': 'mobile', 'orders': 3}]}
+                'origins': [{'name': 'mobile', 'orders': 3}],
+                'commerce': {'discountOrders':1,'discountKnown':1,'couponOrders':0,'couponKnown':1,
+                             'awaitingDispatch':1,'awaitingDispatch7Days':1,'shippingKnown':1,
+                             'discountDaily':[{'date':'2026-09-15','paid':1,'paidTotalArs':1000,'missingAmounts':0}],
+                             'providers':[{'name':'Transferencia','orders':1}],
+                             'shipping':[{'name':'unpacked','orders':1}]}}
         if tn_data:
             data.update(tn_data)
         if stale:
@@ -522,6 +550,27 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('US$ 5',self.text())
         self.page.locator('.tn-evolution summary').click()
         self.assertIn('US$ 5', self.page.locator('.tn-evolution table').inner_text())
+        self.assertIn('US$ 1', self.page.locator('.tn-commerce').inner_text())
+
+    def test_tiendanube_month_default_sends_current_range_and_commerce_does_not_double_discount(self):
+        self.setup_tn()
+        self.assertEqual('mtd',self.page.locator('#fPer').input_value())
+        self.assertEqual('2026-09-01',self.tn_request['from'])
+        self.assertEqual('2026-09-23',self.tn_request['to'])
+        self.assertIn('$ 1.000',self.page.locator('.tn-commerce').inner_text())
+        self.assertIn('1 creados hace 7 días o más',self.page.locator('.tn-commerce').inner_text())
+        self.assertIn('Transferencia',self.page.locator('.tn-commerce-charts').inner_text())
+        self.assertIn('Sin empaquetar',self.page.locator('.tn-commerce-charts').inner_text())
+        self.assertEqual('$ 5.000',self.page.locator('#app > div > .kpis .kv').first.inner_text())
+
+    def test_tiendanube_commerce_missing_data_and_names_are_safe(self):
+        self.setup_tn(tn_data={'commerce':{'discountOrders':0,'discountKnown':0,'couponOrders':0,'couponKnown':0,
+            'awaitingDispatch':0,'awaitingDispatch7Days':0,'shippingKnown':0,
+            'discountDaily':[{'date':'2026-09-15','paid':1,'paidTotalArs':0,'missingAmounts':1}],
+            'providers':[{'name':'<img src=x onerror=alert(1)>','orders':1}], 'shipping':[{'name':'unknown','orders':1}]}})
+        self.assertEqual(['Sin dato completo','Sin dato','Sin dato','Sin dato'],self.page.locator('.tn-commerce .kv').all_text_contents())
+        self.assertEqual(0,self.page.locator('#app img').count())
+        self.assertIn('Sin estado informado',self.page.locator('.tn-commerce-charts').inner_text())
 
     def test_tiendanube_hides_existing_objectives_and_restores_them_in_general(self):
         self.setup_tn(objective={'empresa': 6000, 'vendedoras': {'Ana': 4000}})
@@ -564,7 +613,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('1 u. · 50%',self.page.locator('.tn-products').inner_text())
 
     def test_tiendanube_empty_period_has_no_nan_or_fake_ticket(self):
-        self.setup_tn(tn_data={'daily':[], 'summary':{'orders':0,'paid':0,'pending':0,'cancelled':0,'refunded':0,'partial':0,'other':0,'paidUnits':0}, 'products':[], 'origins':[]})
+        self.setup_tn(tn_data={'daily':[], 'summary':{'orders':0,'paid':0,'pending':0,'cancelled':0,'refunded':0,'partial':0,'other':0,'paidUnits':0}, 'products':[], 'origins':[],
+            'commerce':{'discountOrders':0,'discountKnown':0,'couponOrders':0,'couponKnown':0,'awaitingDispatch':0,'awaitingDispatch7Days':0,'shippingKnown':0,'discountDaily':[],'providers':[],'shipping':[]}})
         self.assertIn('Sin pedidos pagados',self.text())
         self.assertIn('Sin datos para este período.',self.text())
         self.assertNotIn('NaN',self.text())
@@ -592,7 +642,7 @@ class DashboardTests(unittest.TestCase):
 
     def test_tiendanube_and_odoo_preserve_independent_filters(self):
         self.setup_tn(start_view='0', start_channel='0', period='mtd')
-        self.assertEqual('d30', self.page.locator('#fPer').input_value())
+        self.assertEqual('mtd', self.page.locator('#fPer').input_value())
         self.page.select_option('#fPer', 'd90')
         self.page.get_by_text('Importe de pedidos pagados', exact=True).wait_for()
         self.page.select_option('#fCan', '0')
@@ -626,7 +676,7 @@ class DashboardTests(unittest.TestCase):
         self.page.click('#reset')
         self.page.get_by_text('Importe de pedidos pagados', exact=True).wait_for()
         self.assertEqual('tiendanube', self.page.locator('#fCan').input_value())
-        self.assertEqual('d30', self.page.locator('#fPer').input_value())
+        self.assertEqual('mtd', self.page.locator('#fPer').input_value())
         self.page.select_option('#fCan', '')
         self.assertEqual('mtd', self.page.locator('#fPer').input_value())
         self.assertEqual(self.odoo_summary, self.page.locator('#app > div > .kpis').first.locator('.kv').all_text_contents())

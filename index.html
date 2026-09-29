@@ -549,8 +549,8 @@ RAW.rateDay = RAW.rateDay || [];
 
 /* ===== fechas =====
    Cada fila trae su día como offset entero desde meta.day0. Trabajamos siempre en UTC para que
-   el filtro no se corra un día según el huso del navegador, y "hoy" sale de meta.today (TZ del
-   negocio, no del dispositivo) para que "mes actual"/"YTD" coincidan con los datos. */
+   el filtro no se corra un día según el huso del navegador. "Hoy" usa la fecha actual de
+   Argentina: una sincronización atrasada no debe dejar "Mes actual" en el mes anterior. */
 const DAY_MS=86400000;
 const isoToDayN=iso=>{const p=String(iso).slice(0,10).split('-');return Date.UTC(+p[0],+p[1]-1,+p[2])/DAY_MS;};
 const DAY0=isoToDayN(RAW.meta.day0||'2000-01-01');
@@ -558,7 +558,7 @@ const offToDate=off=>new Date((DAY0+off)*DAY_MS);
 const offToIso=off=>offToDate(off).toISOString().slice(0,10);
 const isoToOff=iso=>isoToDayN(iso)-DAY0;
 const BUSINESS_TODAY=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const TODAY=isoToOff(RAW.meta.today||BUSINESS_TODAY);
+const TODAY=isoToOff(BUSINESS_TODAY);
 const MAXOFF=isoToOff(RAW.meta.maxDate||RAW.meta.today||BUSINESS_TODAY);
 const MINOFF=Math.max(0,isoToOff(RAW.meta.dateFrom||'2026-03-01'));
 const fmtDay=off=>{const t=offToDate(off);return t.getUTCDate()+' '+MESL[t.getUTCMonth()]+' '+t.getUTCFullYear();};
@@ -578,8 +578,9 @@ function rangeOf(key){
   if(key==='ytd') return [mk(Y,0,1),TODAY];
   return [MINOFF,null];   // 'all' y cualquier clave desconocida
 }
-let F={per:'all',from:MINOFF,to:null,ven:'',can:''};
+let F={per:'mtd',from:MINOFF,to:null,ven:'',can:''};
 function setPeriod(key){F.per=key;const r=rangeOf(key);F.from=r[0]===null?MINOFF:Math.max(MINOFF,r[0]);F.to=r[1];}
+setPeriod('mtd');
 function rangeLabel(){
   if(F.per==='all') return 'Todo el período · '+fmtDay(MINOFF)+' a '+fmtDay(MAXOFF);
   if(F.from===null&&F.to===null) return 'Todo el período · '+fmtDay(0)+' a '+fmtDay(MAXOFF);
@@ -656,7 +657,7 @@ function elegirCanal(value, general=false){
     if(VISTA!=='tienda'){
       FILTROS_ODOO={...F};
       F=FILTROS_TN?{...FILTROS_TN}:{...F,ven:'',can:''};
-      if(!FILTROS_TN)setPeriod('d30');
+      if(!FILTROS_TN)setPeriod('mtd');
     }
     VISTA='tienda';
   }else{
@@ -738,7 +739,7 @@ function buildToolbar(){
   if(verFiltroVen&&!esVendedora()) $('fVen').addEventListener('change',e=>{F.ven=e.target.value;syncChrome();go();});
   if(verFiltroCan) $('fCan').addEventListener('change',e=>elegirCanal(e.target.value));
   $('reset').addEventListener('click',()=>{
-    setPeriod(VISTA==='tienda'?'d30':'all'); F.can='';
+    setPeriod('mtd'); F.can='';
     // La vendedora no puede "limpiarse" a sí misma: su recorte es el rol, no un filtro.
     if(verFiltroVen&&!esVendedora()){F.ven=''; $('fVen').value='';}
     if(verFiltroCan) $('fCan').value='';
@@ -1265,6 +1266,25 @@ function renderTnEvolution(A,data,amounts,range){
   const detail='<details class="evo-detail"><summary>Ver detalle de importes, pedidos y ticket</summary><div class="tn-detail"><table><thead><tr><th>Período</th><th>Creados</th><th>Pagados</th><th>Importe ('+CUR+')</th><th>Ticket ('+CUR+')</th></tr></thead><tbody>'+groups.map(g=>`<tr><td>${fmtFecha(g.from)}${g.to!==g.from?' a '+fmtFecha(g.to):''}</td><td>${n0(g.orders)}</td><td>${n0(g.paid)}</td><td>${g.amount===null?'Sin dato completo':moneyFull(g.amount)}</td><td>${!g.paid?'Sin pedidos pagados':g.amount===null?'Sin dato completo':moneyFull(g.amount/g.paid)}</td></tr>`).join('')+'</tbody></table></div></details>';
   A.appendChild(el('<div class="card tn-evolution"><div class="pmsg">Por '+evolution.mode+' · fecha de creación del pedido. Incluye los días sin pedidos; los extremos del período pueden ser parciales.</div>'+chartSVG(points,{fmt:moneyComplete?money:n0,line:moneyComplete,integerCounts:true,integerValues:!moneyComplete,values:false,aria:'Evolución de pedidos pagados de Tiendanube'})+legendHTML(moneyComplete?[{t:'Importe de pedidos pagados ('+CUR+')',c:'var(--fill-primary)'},{t:'Pedidos pagados',c:SERIE2,line:true}]:[{t:'Pedidos pagados · importe sin datos completos',c:'var(--fill-primary)'}])+detail+'</div>'));
 }
+function renderTnCommerce(A,data){
+  if(!data.commerce)return; // Compatible durante el despliegue gradual del backend.
+  const c=data.commerce,paid=data.summary.paid,discounts=tnAmounts({daily:c.discountDaily});
+  const coverage=known=>known===paid?'Sobre '+n0(paid)+' pedidos pagados':'Con dato en '+n0(known)+' de '+n0(paid)+' pedidos pagados';
+  const count=(value,known)=>known===paid?n0(value):known?n0(value)+' con dato':'Sin dato';
+  const share=(value,known)=>known?' · '+(value/known*100).toLocaleString('es-AR',{maximumFractionDigits:1})+'%':'';
+  const cards=[
+    ['Descuentos aplicados',discounts.total===null?'Sin dato completo':moneyFull(discounts.total),'Ya descontados del importe de pedidos pagados'],
+    ['Pedidos con descuento',count(c.discountOrders,c.discountKnown),coverage(c.discountKnown)+share(c.discountOrders,c.discountKnown)],
+    ['Pedidos con cupón',count(c.couponOrders,c.couponKnown),coverage(c.couponKnown)+share(c.couponOrders,c.couponKnown)],
+    ['Pagados sin despacho completo',count(c.awaitingDispatch,c.shippingKnown),n0(c.awaitingDispatch7Days)+' creados hace 7 días o más · '+coverage(c.shippingKnown)],
+  ];
+  sec(A,'Pagos, descuentos y envíos');
+  A.appendChild(el('<div class="card tn-commerce"><div class="pmsg" style="margin-bottom:12px">Pedidos creados en el período con pago completo y no cancelados. Los descuentos ya están incluidos en el total de ventas; no se restan otra vez.</div><div class="kpis">'+cards.map(([l,v,n])=>`<div class="kpi"><div class="kl">${tnEscape(l)}</div><div class="kv">${tnEscape(v)}</div><div class="ks">${tnEscape(n)}</div></div>`).join('')+'</div>'+(discounts.missing?'<div class="cmpnote">Falta el importe de descuento o la cotización de '+n0(discounts.missing)+' pedidos. No se muestra una suma parcial como completa.</div>':'')+'</div>'));
+  const labels={unpacked:'Sin empaquetar',unshipped:'Sin enviar',partially_packed:'Empaquetado parcial',partially_fulfilled:'Despacho parcial',shipped:'Despachados',delivered:'Entregados',not_required:'Sin envío físico',unknown:'Sin estado informado'};
+  const box=el('<div class="tn-commerce-charts" style="margin-top:12px"></div>');A.appendChild(box);
+  row2(box.firstElementChild,'Medios / proveedores de pago','<div class="pmsg">Cantidad y participación de pedidos pagados por el medio registrado en Tiendanube.</div>'+tnRanking(c.providers.map(p=>({label:p.name,value:p.orders})),paid,'ped.'),
+    'Estado de envío de pedidos pagados','<div class="pmsg">Estado actual de los pedidos del período. La antigüedad se cuenta desde su creación; no implica que estén fuera del plazo de entrega.</div>'+tnRanking(c.shipping.map(s=>({label:labels[s.name]||s.name,value:s.orders})),paid,'ped.'));
+}
 async function cargarTiendanube(force=false){
   if(!esDireccion()) return;
   const range=tnSelectedRange(),key=range.from+'|'+range.to;
@@ -1321,6 +1341,7 @@ function renderTiendanube(A){
   const originLabels={store:'Tienda',mobile:'Mobile (según Tiendanube)',form:'Creación manual',api:'Integración',pos:'Punto de venta',meli:'Mercado Libre'};
   const origins=(data.origins||[]).map(o=>({label:originLabels[o.name]||o.name,value:o.orders})).sort((a,b)=>b.value-a.value);
   row2(A,'Estado actual', '<div class="pmsg">Cantidad y porcentaje sobre todos los pedidos creados. Cada pedido cuenta una sola vez.</div>'+tnRanking(states,s.orders,'ped.'), 'Origen registrado', '<div class="pmsg">Origen de creación de los pedidos; no representa fuentes de tráfico ni dispositivos de los visitantes.</div>'+tnRanking(origins,s.orders,'ped.'));
+  renderTnCommerce(A,data);
   sec(A,'Productos en pedidos pagados');
   const list=data.products||[];
   A.appendChild(el('<div class="card tn-products"><h3>Los 10 productos con más unidades</h3><div class="pmsg">Unidades de pedidos con pago completo, agrupadas por producto. El porcentaje se calcula sobre todas las unidades pagadas del período.</div>'+tnRanking(list.map(p=>({label:p.name,value:p.units})),s.paidUnits,'u.')+'</div>'));
@@ -1572,7 +1593,7 @@ function render(A,D,PREV){
   if(barra) A.appendChild(el(barra));
 
   if(D.nord===0){
-    A.appendChild(el('<div class="card"><h3>Sin ventas en este período</h3><div class="pmsg">No hay órdenes confirmadas para el filtro elegido. Probá ampliar el rango de fechas o tocar <b>Limpiar</b>.</div></div>'));
+    A.appendChild(el('<div class="card"><h3>Sin ventas en este período</h3><div class="pmsg">No hay órdenes confirmadas para el filtro elegido. Probá elegir <b>Mes anterior</b> o ampliar el rango de fechas.</div></div>'));
     renderCRM(A,D);
     return;
   }

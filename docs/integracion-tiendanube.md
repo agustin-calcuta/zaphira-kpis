@@ -11,6 +11,8 @@ Tiendanube es una opción del selector **Canal**, disponible para Dirección; no
 
 ### Qué muestra y cómo se calcula
 
+**Mes actual** es el período predeterminado de Odoo y Tiendanube, desde el primer día del mes hasta hoy en `America/Argentina/Buenos_Aires`, también al limpiar. La fecha actual no depende de `meta.today`: una sincronización atrasada no retiene el mes anterior. Al cambiar manualmente el período se conserva por fuente durante la sesión; al recargar vuelve a Mes actual. El orden de filtros permanece Moneda → Canal → Vendedora → Período.
+
 | Métrica | Definición |
 | --- | --- |
 | Pedidos creados | Todos los pedidos creados en el período, incluidos manuales; origen informado por Tiendanube visible por separado |
@@ -23,10 +25,18 @@ Tiendanube es una opción del selector **Canal**, disponible para Dirección; no
 | Evolución de ventas | Importe y pedidos pagados por día, bloques de 7 días o mes, según la extensión del filtro; tabla desplegable con pedidos creados y ticket |
 | Estados y orígenes | Cantidad y participación sobre todos los pedidos del período; cada pedido pertenece a un solo estado y origen |
 | Ranking de productos | Hasta 10 productos por unidades; porcentaje sobre todas las unidades pagadas, no sólo el top 10 |
+| Descuentos aplicados | Suma del campo `discount` de pedidos con pago completo no cancelados; ya están descontados del total del pedido, no se restan nuevamente |
+| Pedidos con descuento | Pedidos pagados con `discount > 0`; porcentaje sobre pedidos con ese campo válido, con cobertura explícita |
+| Pedidos con cupón | Pedidos pagados con `coupon_id` válido; `null` significa sin cupón, campo ausente significa sin dato |
+| Medios / proveedores de pago | Cantidad y participación de pedidos pagados por `gateway_name` o `gateway`; `internal` se presenta como marcado manualmente |
+| Estado de envío | Estado actual de los pedidos pagados del período; se separan los no físicos y los estados desconocidos |
+| Pagados sin despacho completo | Estados `unpacked`, `unshipped`, `partially_packed` o `partially_fulfilled`, excluyendo pedidos sin productos físicos; se destaca cuántos tienen al menos 7 × 24 horas desde su creación |
 | Checkouts abandonados | Disponibles al momento de consultar, creados en el período y sin `completed_at`; cobertura explícita |
 | Visitas y comportamiento | Pendientes de integración; TN ofrece su panel y exportación, GA4 es una alternativa; no se muestran como cero |
 
 Las fechas corresponden a la creación del pedido en Argentina; sus estados son los actuales. ARS es la moneda fuente. La conversión a USD reutiliza las cotizaciones históricas del dashboard; ante importes o cotizaciones faltantes no se presenta un total parcial como completo. En ese caso el gráfico muestra sólo cantidades y la tabla identifica los importes incompletos. Se incluyen días sin pedidos; los bloques de 7 días parten del inicio del filtro y el último puede ser parcial. El origen `mobile` se conserva según Tiendanube, sin inferir el dispositivo del comprador. En esta vista no se muestran objetivos de empresa/vendedoras ni CRM; se conservan en Odoo.
+
+Los descuentos también se convierten con la cotización del día de creación y alternativa mensual, sin mostrar sumas parciales como completas. Descuentos y cupones pueden coincidir en un pedido: no son categorías excluyentes. El estado de envío no representa todos los pendientes históricos de la tienda, sólo los pedidos creados en el rango seleccionado. La antigüedad desde creación no es una medición de retraso respecto de una fecha de entrega prometida.
 
 ### Actualización y cobertura
 
@@ -44,17 +54,19 @@ El backend verifica la firma de la sesión, el rol y que la cuenta de Dirección
 
 Para publicar: incorporar `backend/Tiendanube.gs` al proyecto Apps Script y agregar `case 'tiendanube': return opTiendanube_(d);` al dispatcher de `Usuarios.gs`. Actualizar la versión del deployment existente para conservar la URL de la API. El frontend se publica desde `main` en GitHub Pages.
 
-Validación: 42 pruebas de interfaz, 12 pruebas de cálculos/permisos/paginación de Tiendanube y regresiones de aislamiento del backend. Se verificó diseño móvil y conexión real a la API. Las pruebas no contienen credenciales ni datos personales reales.
+Validación: 46 pruebas de interfaz, 17 pruebas de cálculos/permisos/paginación de Tiendanube, 3 de transporte y regresiones de aislamiento del backend. Se verificó diseño móvil, fechas al cambiar el mes y la conexión real a la API. Las pruebas no contienen credenciales ni datos personales reales.
 
 ### Visitas: panel de Tiendanube, exportación y alternativa GA4
 
 Se revisó el administrador autenticado de esta tienda: Estadísticas muestra visitas, comportamiento y conversiones. El menú de cada gráfico permite exportar a CSV o Excel y descargar una imagen. Se confirmó su disponibilidad, sin implementar una importación manual ni usar endpoints privados del panel. La extracción automática sigue pendiente de una vía documentada de TN o, alternativamente, GA4. El dashboard incluye un enlace al panel nativo.
 
-Revisión del 29/09: se abrieron Visión general, Productos, Ventas y clientes, Visitas, Tiempo real y Reporte de cupones. General y Productos mostraron datos; las otras secciones mostraron gráficos de ejemplo con candado en esta cuenta. No se modificó el plan ni sus permisos. Del panel se incorporaron las ideas de evolución, productos por pedido, ranking y distribución de estados/orígenes usando datos de la API autorizada. Vistas por producto, conversión, embudo, campañas UTM y tiempo real necesitan una fuente de analítica; no se infieren a partir de pedidos o checkouts abandonados. Cupones, medios de pago e inventario quedan como posibles ampliaciones, no implementadas en esta versión.
+Revisión del 29/09: se abrieron Visión general, Productos, Ventas y clientes, Visitas, Tiempo real y Reporte de cupones. General y Productos mostraron datos; las otras secciones mostraron gráficos de ejemplo con candado en esta cuenta. No se modificó el plan ni sus permisos. Del panel se incorporaron las ideas de evolución, productos por pedido, ranking y distribución de estados/orígenes usando datos de la API autorizada. Luego se agregaron indicadores de descuentos/cupones, medios de pago y envíos. Vistas por producto, conversión, embudo, campañas UTM y tiempo real necesitan una fuente de analítica; no se infieren a partir de pedidos o checkouts abandonados. Inventario y ranking por código de cupón quedan como posibles ampliaciones.
 
 El panel nativo define sus ventas incluyendo pagos y reembolsos parciales y calcula facturación con importes efectivamente pagados. Este dashboard identifica explícitamente **pedidos con pago completo** y su total actual. Por esa diferencia de definición, no se promete igualdad con los KPIs nativos de TN aun usando las mismas fechas.
 
 En el HTML público relevado, `LS.store.ga4_measurement_id` estaba vacío y no se detectó un ID `G-…` ni `GTM-…`; sí un píxel de Meta. Eso no descarta una propiedad previa o medición cargada dinámicamente. Falta identificar la propiedad existente y su cuenta administradora.
+
+También se verificó en Configuración → Códigos externos que los campos de GA4 y Tag Manager estaban vacíos, sin modificar su configuración.
 
 La API pública de Tiendanube consultada no documenta un recurso de visitas equivalente al panel interno. Como alternativa de actualización automática puede utilizarse GA4 Data API con el **ID numérico de propiedad** y acceso de lectura. El ID de medición `G-…` y el secreto de Measurement Protocol sirven para enviar eventos y no permiten consultar informes.
 

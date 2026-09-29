@@ -90,10 +90,44 @@ function tnAmount_(value) {
   var n = Number(value);
   return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
 }
+// Sólo pedidos pagados no cancelados. Nunca devolver datos del comprador ni del pago individual.
+function tnCommerce_(orders, now) {
+  var providers = Object.create(null), shipping = Object.create(null), daily = Object.create(null);
+  var out = {discountOrders: 0, discountKnown: 0, couponOrders: 0, couponKnown: 0,
+    awaitingDispatch: 0, awaitingDispatch7Days: 0, shippingKnown: 0};
+  var shippingStates = ['unpacked', 'unshipped', 'partially_packed', 'partially_fulfilled', 'shipped', 'delivered'];
+  orders.forEach(function(o) {
+    var day = tnDay_(o.created_at);
+    if (!daily[day]) daily[day] = {date: day, paid: 0, paidTotalArs: 0, missingAmounts: 0};
+    daily[day].paid++;
+    var discount = tnAmount_(o.discount);
+    if (discount != null) { out.discountKnown++; if (discount > 0) out.discountOrders++; }
+    if (discount == null || o.currency !== 'ARS') daily[day].missingAmounts++;
+    else daily[day].paidTotalArs += discount;
+    // coupon_id=null significa que no hubo cupón; un campo ausente no se interpreta como cero.
+    if (o.coupon_id === null || (/^\d+$/.test(String(o.coupon_id)) && Number(o.coupon_id) > 0)) {
+      out.couponKnown++; if (o.coupon_id !== null) out.couponOrders++;
+    }
+    var provider = o.gateway === 'internal' ? 'Marcado manualmente' : String(o.gateway_name || o.gateway || 'Sin identificar').slice(0, 100);
+    providers[provider] = (providers[provider] || 0) + 1;
+    var state = o.has_shippable_products === false ? 'not_required'
+      : shippingStates.indexOf(o.shipping_status) >= 0 ? o.shipping_status : 'unknown';
+    shipping[state] = (shipping[state] || 0) + 1;
+    if (state !== 'unknown') out.shippingKnown++;
+    if (['unpacked', 'unshipped', 'partially_packed', 'partially_fulfilled'].indexOf(state) >= 0) {
+      out.awaitingDispatch++;
+      if (now.getTime() - Date.parse(o.created_at) >= 7 * 86400000) out.awaitingDispatch7Days++;
+    }
+  });
+  out.discountDaily = Object.keys(daily).sort().map(function(k) { return daily[k]; });
+  out.providers = Object.keys(providers).map(function(k) { return {name: k, orders: providers[k]}; }).sort(function(a,b) { return b.orders-a.orders; });
+  out.shipping = Object.keys(shipping).map(function(k) { return {name: k, orders: shipping[k]}; }).sort(function(a,b) { return b.orders-a.orders; });
+  return out;
+}
 function tnAggregate_(orders, checkouts, range, now) {
   var summary = {orders: 0, paid: 0, pending: 0, cancelled: 0, refunded: 0, partial: 0, other: 0,
     paidTotalArs: 0, paidUnits: 0, missingAmounts: 0, nonArs: 0};
-  var daily = {}, products = {}, origins = {};
+  var daily = {}, products = {}, origins = {}, paidOrders = [];
   orders.forEach(function(o) {
     var day = tnDay_(o.created_at);
     if (day < range.from || day > range.to) return;
@@ -108,6 +142,7 @@ function tnAggregate_(orders, checkouts, range, now) {
     if (!daily[day]) daily[day] = {date: day, orders: 0, paid: 0, paidTotalArs: 0, missingAmounts: 0};
     daily[day].orders++;
     if (kind !== 'paid') return;
+    paidOrders.push(o);
     daily[day].paid++;
     var amount = tnAmount_(o.total);
     if (o.currency !== 'ARS' || amount == null) {
@@ -136,7 +171,7 @@ function tnAggregate_(orders, checkouts, range, now) {
     range: range, summary: summary, daily: Object.keys(daily).sort().map(function(k) { return daily[k]; }),
     origins: Object.keys(origins).map(function(k) { return {name: k, orders: origins[k]}; }),
     products: Object.keys(products).map(function(k) { return products[k]; }).sort(function(a,b) { return b.units-a.units; }).slice(0,10),
-    abandoned: abandoned, analytics: {available: false, reason: 'Google Analytics 4 todavía no está conectado.'}};
+    abandoned: abandoned, commerce: tnCommerce_(paidOrders, now), analytics: {available: false, reason: 'Google Analytics 4 todavía no está conectado.'}};
 }
 function opTiendanube_(d) {
   var denied = tnAuth_(d);
@@ -146,14 +181,14 @@ function opTiendanube_(d) {
   var range;
   try { range = tnRange_(d); } catch (e) { return {ok: false, error: e.message}; }
   var fingerprint = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token).map(function(b) { return ('0'+((b+256)%256).toString(16)).slice(-2); }).join('').slice(0,20);
-  var key = 'tn-v1-' + fingerprint + '-' + range.from + '-' + range.to;
+  var key = 'tn-v2-' + fingerprint + '-' + range.from + '-' + range.to;
   var cache = CacheService.getScriptCache(), previous = null;
   try { previous = JSON.parse(cache.get(key) || 'null'); } catch (e) {}
   if (previous && Date.now() - Date.parse(previous.updatedAt) < 300000) return previous;
   try {
     var deadline = Date.now() + 150000;
     var orders = tnList_('orders', {created_at_min: range.from+'T00:00:00-03:00', created_at_max: range.to+'T23:59:59-03:00',
-      fields: 'id,store_id,created_at,status,payment_status,currency,total,storefront,products'}, token, deadline);
+      fields: 'id,store_id,created_at,status,payment_status,currency,total,storefront,products,discount,coupon_id,gateway,gateway_name,shipping_status,has_shippable_products'}, token, deadline);
     Utilities.sleep(600);
     var availableFrom = tnDay_(new Date(Date.now() - 29*86400000));
     var checkouts = range.to < availableFrom ? [] : tnList_('checkouts', {fields: 'id,store_id,created_at,completed_at'}, token, deadline);

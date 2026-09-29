@@ -85,3 +85,43 @@ test('successful reports cache aggregates only and reuse cache after authorizati
 test('malformed quantities do not produce fabricated unit totals',()=>{
   const {c}=setup();assert.throws(()=>c.tnAggregate_([order(1,'paid',{products:[{quantity:'bad'}]})],[],range,now));
 });
+test('commercial metrics use only fully paid noncancelled orders within the creation range',()=>{
+  const {c}=setup();
+  const extra={discount:'12.50',coupon_id:19,gateway_name:'Transferencia',shipping_status:'unpacked',has_shippable_products:true};
+  const out=c.tnAggregate_([order(1,'paid',extra),order(2,'pending',extra),order(3,'paid',{...extra,status:'cancelled'}),order(4,'partially_paid',extra),order(5,'paid',{...extra,created_at:'2026-08-15T12:00:00Z'})],[],range,now);
+  assert.equal(out.summary.paidTotalArs,100.5,'Discounts must not be subtracted twice');
+  assert.equal(out.commerce.discountOrders,1);assert.equal(out.commerce.couponOrders,1);
+  assert.equal(out.commerce.discountDaily[0].paidTotalArs,12.5);
+  assert.equal(out.commerce.providers[0].orders,1);assert.equal(out.commerce.awaitingDispatch,1);
+});
+test('unknown discount and coupon fields stay distinct from an explicit zero or no coupon',()=>{
+  const {c}=setup();const out=c.tnAggregate_([order(1,'paid',{discount:'0.00',coupon_id:null}),order(2,'paid',{discount:null}),order(3,'paid',{discount:'-20',coupon_id:'invalid'})],[],range,now).commerce;
+  assert.equal(out.discountKnown,1);assert.equal(out.discountOrders,0);assert.equal(out.couponKnown,1);assert.equal(out.couponOrders,0);
+  assert.equal(out.discountDaily[0].missingAmounts,2);
+});
+test('discount totals keep their business date and reject foreign-currency sums',()=>{
+  const {c}=setup();const out=c.tnAggregate_([order(1,'paid',{discount:'10',currency:'USD'}),order(2,'paid',{discount:'20',created_at:'2026-09-16T02:00:00Z'})],[],range,now).commerce;
+  assert.equal(out.discountKnown,2);assert.equal(out.discountOrders,2);
+  assert.equal(out.discountDaily.length,1);assert.equal(out.discountDaily[0].date,'2026-09-15');
+  assert.equal(out.discountDaily[0].paidTotalArs,20);assert.equal(out.discountDaily[0].missingAmounts,1);
+});
+test('dispatch counts exclude delivered, dispatched and nonphysical orders; age uses elapsed days',()=>{
+  const {c}=setup();const out=c.tnAggregate_([
+    order(1,'paid',{shipping_status:'unpacked',created_at:'2026-09-22T15:00:00Z'}),
+    order(2,'paid',{shipping_status:'partially_fulfilled',created_at:'2026-09-22T15:00:01Z'}),
+    order(3,'paid',{shipping_status:'shipped'}),order(4,'paid',{shipping_status:'delivered'}),
+    order(5,'paid',{shipping_status:'unpacked',has_shippable_products:false}),order(6,'paid',{shipping_status:null})
+  ],[],range,now).commerce;
+  assert.equal(out.awaitingDispatch,2);assert.equal(out.awaitingDispatch7Days,1);assert.equal(out.shippingKnown,5);
+  assert.equal(out.shipping.find(x=>x.name==='unknown').orders,1);
+  assert.equal(out.shipping.reduce((s,x)=>s+x.orders,0),6);
+});
+test('provider names cannot corrupt aggregate keys and no buyer or payment identifiers are returned',()=>{
+  const {c}=setup();const out=c.tnAggregate_([
+    order(1,'paid',{gateway_name:'__proto__',contact_email:'PRIVATE',gateway_id:'PRIVATE',payment_details:{credit_card_number:'PRIVATE'}}),
+    order(2,'paid',{gateway:'internal',gateway_name:'PRIVATE'})
+  ],[],range,now).commerce;
+  assert.equal(out.providers.find(x=>x.name==='__proto__').orders,1);
+  assert.equal(out.providers.find(x=>x.name==='Marcado manualmente').orders,1);
+  assert.doesNotMatch(JSON.stringify(out),/PRIVATE|credit_card_number|gateway_id/);
+});
