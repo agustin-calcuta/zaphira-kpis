@@ -3,10 +3,14 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const crypto=require('node:crypto');
+class FixedDate extends Date {
+  constructor(...args){ super(...(args.length?args:['2026-09-29T15:00:00Z'])); }
+  static now(){ return Date.parse('2026-09-29T15:00:00Z'); }
+}
 const source=fs.readFileSync(require('node:path').join(__dirname,'../backend/Tiendanube.gs'),'utf8');
 function setup({role='direccion',active=true,responses=[]}={}){
   const calls=[],cache=new Map();
-  const context={Date,Number,JSON,Math,Object,Array,String,isFinite,encodeURIComponent,Error,
+  const context={Date:FixedDate,Number,JSON,Math,Object,Array,String,isFinite,encodeURIComponent,Error,
     verificarToken_:token=>token==='session'?{usuario:'admin',rol:role}:null,
     esDireccion_:s=>s?.rol==='direccion',filas_:()=>[{usuario:'admin',rol:role,activo:active}],tabUsr_:()=>({}),
     PropertiesService:{getScriptProperties:()=>({getProperty:()=> 'PROVIDER_SECRET'})},

@@ -464,6 +464,8 @@ class DashboardTests(unittest.TestCase):
 
     def setup_tn(self, stale=False):
         self.load()
+        self.page.select_option('#fPer', 'd30')
+        self.odoo_summary = self.page.locator('#app > div > .kpis').first.locator('.kv').all_text_contents()
         data = {'ok': True, 'configured': True, 'storeId': '1301166', 'updatedAt': '2026-09-29T15:00:00Z',
                 'summary': {'orders': 3, 'paid': 1, 'pending': 1, 'cancelled': 1, 'refunded': 0, 'partial': 0,
                             'other': 0, 'paidUnits': 2},
@@ -500,6 +502,7 @@ class DashboardTests(unittest.TestCase):
         self.assertTrue(self.page.locator('#fVen').is_visible())
         self.assertFalse(self.page.locator('#btnXlsx').is_disabled())
         self.assertIn('Ventas confirmadas',self.text())
+        self.assertEqual(self.odoo_summary, self.page.locator('#app > div > .kpis').first.locator('.kv').all_text_contents(), 'Consultar Tiendanube no debe sumar ventas, órdenes ni unidades al consolidado Odoo')
 
     def test_tiendanube_currency_conversion_uses_existing_historical_rate(self):
         self.setup_tn()
@@ -519,7 +522,6 @@ class DashboardTests(unittest.TestCase):
         self.setup_tn()
         self.page.set_viewport_size({'width':390,'height':844})
         self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'))
-        self.page.screenshot(path='/tmp/zaphira-tiendanube-20260929/tiendanube-mobile.png',full_page=True)
 
 
 if __name__ == '__main__':
