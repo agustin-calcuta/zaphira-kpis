@@ -535,8 +535,9 @@ const DAY0=isoToDayN(RAW.meta.day0||'2000-01-01');
 const offToDate=off=>new Date((DAY0+off)*DAY_MS);
 const offToIso=off=>offToDate(off).toISOString().slice(0,10);
 const isoToOff=iso=>isoToDayN(iso)-DAY0;
-const TODAY=isoToOff(RAW.meta.today||RAW.meta.maxDate||RAW.meta.day0||'2000-01-01');
-const MAXOFF=isoToOff(RAW.meta.maxDate||RAW.meta.today||RAW.meta.day0||'2000-01-01');
+const BUSINESS_TODAY=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const TODAY=isoToOff(RAW.meta.today||BUSINESS_TODAY);
+const MAXOFF=isoToOff(RAW.meta.maxDate||RAW.meta.today||BUSINESS_TODAY);
 const MINOFF=Math.max(0,isoToOff(RAW.meta.dateFrom||'2026-03-01'));
 const fmtDay=off=>{const t=offToDate(off);return t.getUTCDate()+' '+MESL[t.getUTCMonth()]+' '+t.getUTCFullYear();};
 const fmtFecha=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s||''));return m?(m[3]+'/'+m[2]+'/'+m[1]):(s||'');};
@@ -657,13 +658,13 @@ function buildToolbar(){
         <button class="btn btn--quiet" id="reset" type="button">${ICO.x} Limpiar</button>
         <button class="btn" id="btnPdf" type="button">${ICO.pdf} PDF</button>
         <button class="btn" id="btnXlsx" type="button">${ICO.xls} Excel</button>
-        ${esDireccion()?'<button class="btn btn--quiet" id="btnCfg" type="button">Configuración</button>':''}
+        ${esDireccion()?'<button class="btn" id="btnTienda" type="button">Tienda online</button><button class="btn btn--quiet" id="btnCfg" type="button">Configuración</button>':''}
       </div>
     </div>
    </div>`;
 
   const $=id=>document.getElementById(id);
-  if(!HASDAY){   // dataset previo al día por fila: el período no puede filtrar todavía
+  if(!HASDAY&&!esDireccion()){   // dataset previo al día por fila: el período no puede filtrar todavía
     $('fPer').disabled=true;
     $('fPer').title='El filtro por fechas se habilita en la próxima sincronización (cada 30 min).';
   }
@@ -692,6 +693,7 @@ function buildToolbar(){
     if(verFiltroCan) $('fCan').value='';
     syncChrome(); go();});
   $('btnPdf').addEventListener('click',()=>window.print());
+  if(esDireccion()) $('btnTienda').addEventListener('click',()=>{VISTA='tienda';setPeriod('d30');syncChrome();go();});
   if(esDireccion()) $('btnCfg').addEventListener('click',()=>{
     VISTA='config';
     if(!CFG.usuarios) cargarConfig(mesHoy()); else go();
@@ -1164,9 +1166,90 @@ const legendHTML=items=>'<div class="legend">'+items.map(x=>
   `<span><i class="sw${x.line?' sw--line':''}" style="background:${x.c}"></i>${x.t}</span>`).join('')+'</div>';
 function row2(A,h1,c1,h2,c2,flex1){A.appendChild(el(`<div class="duo"><div class="card" style="flex:${flex1||1};min-width:min(300px,100%)"><h3>${h1}</h3>${c1}</div><div class="card" style="flex:1;min-width:min(260px,100%)"><h3>${h2}</h3>${c2}</div></div>`));}
 
+/* Se inserta en el módulo principal al publicar; no contiene credenciales. */
+const TN = {data:null, key:'', pending:false, error:'', sequence:0};
+const tnEscape = value => String(value??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function tnSelectedRange(){
+  return {from:offToIso(F.from??MINOFF),to:offToIso(F.to??TODAY)};
+}
+function tnAmounts(data){
+  let total=0,missing=0;
+  for(const day of data.daily){
+    if(day.missingAmounts){missing+=day.missingAmounts;continue;}
+    if(!day.paid) continue;
+    const r=CUR==='USD'?(RAW.rateDay[isoToOff(day.date)]||RAW.rateMon[day.date.slice(0,7)]||0):1;
+    if(!r){missing+=day.paid;continue;}
+    total+=day.paidTotalArs/r;
+  }
+  return {total:missing?null:total,missing};
+}
+async function cargarTiendanube(force=false){
+  if(!esDireccion()) return;
+  const range=tnSelectedRange(),key=range.from+'|'+range.to;
+  if(TN.pending&&TN.key===key) return;
+  if(!force&&TN.key===key&&(TN.data||TN.error)) return;
+  const sequence=++TN.sequence;
+  TN.key=key;TN.pending=true;TN.data=null;TN.error='';
+  go();
+  try{
+    const r=await api('tiendanube',{token:USER.token,...range},180000);
+    if(sequence!==TN.sequence) return;
+    if(!r?.ok) throw new Error(r?.error||'No se pudo consultar Tiendanube.');
+    if(r.configured&&(!r.summary||!Array.isArray(r.daily)||!r.abandoned)) throw new Error('El backend todavía no tiene habilitada esta sección.');
+    TN.data=r;
+  }catch(e){if(sequence===TN.sequence) TN.error=e?.name==='AbortError'?'La consulta demoró demasiado. Probá un período más corto.':e.message;}
+  finally{if(sequence===TN.sequence){TN.pending=false;if(VISTA==='tienda')go();}}
+}
+function renderTiendanube(A){
+  if(!esDireccion())return;
+  syncState(TN.pending?'Consultando Tiendanube…':TN.error?'Tiendanube no disponible':'Tiendanube',TN.pending?'loading':TN.error?'error':'ok');
+  const range=tnSelectedRange();
+  A.appendChild(el(`<div class="periodbar"><span><b>Tienda online · Tiendanube</b> · ${fmtFecha(range.from)} a ${fmtFecha(range.to)}</span><button class="btn btn--quiet" id="tnBack" type="button">Volver a ventas</button><button class="btn" id="tnRefresh" type="button" ${TN.pending?'disabled':''}>Actualizar</button></div>`));
+  document.getElementById('tnBack').onclick=()=>{VISTA='tablero';go();};
+  document.getElementById('tnRefresh').onclick=()=>cargarTiendanube(true);
+  A.appendChild(el('<div class="card" style="margin-bottom:14px"><div class="pmsg">Pedidos registrados en Tiendanube, incluidos los creados manualmente. Estos importes se muestran separados del consolidado de Odoo para evitar contar dos veces una misma venta.</div></div>'));
+  if(TN.pending){A.appendChild(el('<div class="card loading-card" role="status"><span class="loading-spinner" aria-hidden="true"></span><div><h3>Consultando Tiendanube…</h3><div class="pmsg">Trayendo pedidos y carritos del período. La primera consulta puede demorar.</div></div></div>'));return;}
+  if(TN.error){const box=el('<div class="card"><h3>No se pudo actualizar Tiendanube</h3><div class="pmsg" role="alert"></div></div>');box.querySelector('.pmsg').textContent=TN.error;A.appendChild(box);return;}
+  const data=TN.data;
+  if(!data){return;}
+  if(!data.configured){A.appendChild(el('<div class="card"><h3>Conexión pendiente</h3><div class="pmsg">Todavía falta habilitar la conexión de Tiendanube en el servidor.</div></div>'));return;}
+  const s=data.summary, amounts=tnAmounts(data), moneyTN=value=>value===null?'Sin dato completo':moneyFull(value);
+  const stamp=new Date(data.updatedAt).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires'});
+  const status=el('<div class="cmpnote" style="margin-bottom:12px" role="status"></div>');
+  status.firstElementChild.textContent=(data.stale?'Última consulta válida: ':'Actualizado: ')+stamp+(data.stale?' · '+data.warning:' · Las consultas se reutilizan hasta 5 minutos.');A.appendChild(status);
+  const cards=[
+    ['Importe de pedidos pagados',moneyTN(amounts.total),CUR+' · incluye envío y descuentos'],
+    ['Pedidos pagados',n0(s.paid),'Sin cancelados ni reembolsados'],
+    ['Ticket de pedidos pagados',s.paid?moneyTN(amounts.total===null?null:amounts.total/s.paid):'Sin pedidos pagados','Importe / pedidos pagados'],
+    ['Pedidos creados',n0(s.orders),'Todos los estados'],
+    ['Pendientes de pago',n0(s.pending),'Incluye pagos autorizados'],
+    ['Cancelados',n0(s.cancelled),'Estado actual del pedido'],
+    ['Reembolsados o anulados',n0(s.refunded),'Sin pedidos cancelados'],
+    ['Pagos o reembolsos parciales',n0(s.partial),'Fuera del importe pagado'],
+    ['Unidades en pedidos pagados',n0(s.paidUnits),'Cantidad de productos'],
+  ];
+  if(s.other)cards.push(['Otros estados',n0(s.other),'Fuera del importe pagado']);
+  A.appendChild(el('<div class="kpis">'+cards.map(([l,v,n])=>`<div class="kpi"><div class="kl">${tnEscape(l)}</div><div class="kv">${tnEscape(v)}</div><div class="ks">${tnEscape(n)}</div></div>`).join('')+'</div>'));
+  A.appendChild(el('<div class="cmpnote">El período corresponde a la creación del pedido; los estados son los actuales. El importe suma el total de los pedidos con pago completo. No representa facturación fiscal ni cobros por fecha de acreditación.</div>'));
+  if(amounts.missing)A.appendChild(el(`<div class="card" style="margin-top:12px"><div class="pmsg">No se muestra un importe parcial: ${n0(amounts.missing)} pedidos pagados no tienen importe en ARS o cotización suficiente para la moneda elegida.</div></div>`));
+  sec(A,'Carritos abandonados');
+  const c=data.abandoned;
+  A.appendChild(el(`<div class="card"><div class="kl">Checkouts abandonados disponibles</div><div class="kv">${c.count===null?'Sin cobertura':n0(c.count)}</div><div class="pmsg">${c.noCoverage?'El período elegido es anterior a la ventana que permite consultar Tiendanube.':`Creados del ${fmtFecha(c.from)} al ${fmtFecha(c.to)} y todavía disponibles al momento de la consulta.`} ${c.partialCoverage&&!c.noCoverage?'El período tiene cobertura parcial.':''} Tiendanube permite consultar los últimos 30 días; se omite el día del borde para evitar mostrarlo incompleto. Sólo incluye compras que llegaron al segundo paso del checkout y pueden demorar hasta 6 horas en aparecer. No equivale a todos los carritos creados ni a un histórico de abandonos.</div></div>`));
+  sec(A,'Visitas y comportamiento');
+  A.appendChild(el('<div class="card"><h3>Google Analytics 4 pendiente de conexión</h3><div class="pmsg">Las visitas, los usuarios, los productos vistos y los inicios de compra se mostrarán cuando esté habilitada y verificada la medición. Todavía no hay datos disponibles de esta fuente.</div></div>'));
+  sec(A,'Productos en pedidos pagados');
+  const list=data.products||[];
+  A.appendChild(el('<div class="card">'+(list.length?'<table style="width:100%;font-size:13px"><thead><tr><th style="text-align:left">Producto</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+list.map(p=>`<tr><td>${tnEscape(p.name)}</td><td style="text-align:right">${n0(p.units)}</td></tr>`).join('')+'</tbody></table>':'<div class="pmsg">No hay productos de pedidos pagados en el período.</div>')+'</div>'));
+  const originLabels={store:'Tienda',mobile:'Mobile (según Tiendanube)',form:'Creación manual',api:'Integración',pos:'Punto de venta',meli:'Mercado Libre'};
+  A.appendChild(el('<div class="card" style="margin-top:12px"><h3>Origen de los pedidos</h3><div class="pmsg">'+(data.origins||[]).map(o=>tnEscape(originLabels[o.name]||o.name)+': <b>'+n0(o.orders)+'</b>').join(' · ')+'</div></div>'));
+}
+
 /* ===== render ===== */
 function go(){
   const app=document.getElementById('app'); app.innerHTML='';
+  const web=VISTA==='tienda';
+  ['fVen','fCan','btnXlsx','btnCfg'].forEach(id=>{const node=document.getElementById(id);if(node){node.disabled=web||(id==='fVen'&&esVendedora());if(id==='fVen'||id==='fCan')node.closest('.fl').hidden=web;}});
+  if(web){const r=tnSelectedRange();if(TN.key!==r.from+'|'+r.to){cargarTiendanube();return;}renderTiendanube(app);return;}
   if(VISTA==='config'){ renderConfig(app); return; }
   const pr=prevRange();                       // null en "Todo el período": no hay un antes
   render(app,compute(),pr?compute(pr):null);
@@ -1672,7 +1755,7 @@ function arrancar(){
       +'nombre exacto entre las vendedoras de Odoo. Avisale a Calcuta para corregirlo.');
   }
   if(FATAL) return pantalla('No se pudieron cargar los datos',FATAL);
-  if((!RAW.O||!RAW.O.length)&&(!RAW.C||!RAW.C.length)){
+  if(!esDireccion()&&(!RAW.O||!RAW.O.length)&&(!RAW.C||!RAW.C.length)){
     return pantalla('Todavía no hay datos',
       esVendedora()?'Todavía no figuran ventas tuyas en el período sincronizado.'
                    :'El servidor todavía no sincronizó con Odoo. Probá recargar en unos minutos.');

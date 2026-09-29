@@ -462,5 +462,65 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('de US$ 9', self.page.locator('.objbar').first.inner_text())
 
 
+    def setup_tn(self, stale=False):
+        self.load()
+        data = {'ok': True, 'configured': True, 'storeId': '1301166', 'updatedAt': '2026-09-29T15:00:00Z',
+                'summary': {'orders': 3, 'paid': 1, 'pending': 1, 'cancelled': 1, 'refunded': 0, 'partial': 0,
+                            'other': 0, 'paidUnits': 2},
+                'daily': [{'date': '2026-09-15', 'orders': 3, 'paid': 1, 'paidTotalArs': 5000, 'missingAmounts': 0}],
+                'abandoned': {'count': 7, 'from': '2026-09-01', 'to': '2026-09-23', 'partialCoverage': False, 'noCoverage': False},
+                'products': [{'name': '<img src=x onerror=alert(1)>', 'units': 2}],
+                'origins': [{'name': 'mobile', 'orders': 3}]}
+        if stale:
+            data.update(stale=True, warning='Error temporal de Tiendanube.')
+        def handler(route):
+            payload=route.request.post_data_json
+            if payload.get('op') != 'tiendanube':
+                route.fallback()
+                return
+            self.tn_request=payload
+            route.fulfill(status=200, content_type='application/json', headers={'Access-Control-Allow-Origin': '*'}, body=json.dumps(data))
+        self.page.route('https://script.google.com/**',handler)
+        self.page.click('#btnTienda')
+        self.page.get_by_text('Importe de pedidos pagados',exact=True).wait_for()
+
+    def test_tiendanube_is_separate_scoped_and_escapes_product_names(self):
+        self.setup_tn()
+        text=self.text()
+        self.assertIn('Google Analytics 4 pendiente de conexión',text)
+        self.assertIn('7',text)
+        self.assertEqual('synthetic-test-token',self.tn_request['token'])
+        self.assertNotIn('rol',self.tn_request)
+        self.assertFalse(self.page.locator('#fVen').is_visible())
+        self.assertTrue(self.page.locator('#btnXlsx').is_disabled())
+        self.assertEqual(0,self.page.locator('#app img').count())
+        self.assertIn('<img src=x onerror=alert(1)>',text)
+        self.assertNotIn('Flujo de oportunidades',text)
+        self.page.click('#tnBack')
+        self.assertTrue(self.page.locator('#fVen').is_visible())
+        self.assertFalse(self.page.locator('#btnXlsx').is_disabled())
+        self.assertIn('Ventas confirmadas',self.text())
+
+    def test_tiendanube_currency_conversion_uses_existing_historical_rate(self):
+        self.setup_tn()
+        self.page.click('[data-cur="USD"]')
+        self.assertIn('US$ 5',self.text())
+
+    def test_tiendanube_stale_data_is_explicit(self):
+        self.setup_tn(stale=True)
+        self.assertIn('Última consulta válida',self.text())
+        self.assertIn('Error temporal de Tiendanube',self.text())
+
+    def test_tiendanube_hidden_for_sellers(self):
+        self.load(seller=True)
+        self.assertEqual(0,self.page.locator('#btnTienda').count())
+
+    def test_tiendanube_mobile_has_no_horizontal_overflow(self):
+        self.setup_tn()
+        self.page.set_viewport_size({'width':390,'height':844})
+        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'))
+        self.page.screenshot(path='/tmp/zaphira-tiendanube-20260929/tiendanube-mobile.png',full_page=True)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

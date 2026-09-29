@@ -1,4 +1,67 @@
-# Integración de métricas web — pendiente de accesos
+# Integración Tiendanube y métricas web
+
+## Implementación del 29/09/2026
+
+Tiendanube incorpora una sección **Tienda online**, disponible para Dirección. Odoo continúa como fuente del consolidado comercial y de las ventas de las vendedoras. Las dos fuentes no se suman porque pueden contener el mismo pedido.
+
+- Tienda: `1301166`, `https://tienda.zaphirauniformes.com/` (alias `https://zaphirauniformes.mitiendanube.com/`). Identidad y permisos de lectura verificados mediante `/store`, `/orders` y `/checkouts`.
+- Backend: Apps Script existente. Módulo [Tiendanube.gs](../backend/Tiendanube.gs), operación POST `tiendanube` con sesión de Dirección y fechas `from`/`to`.
+- Secreto: propiedad privada `TN_ACCESS_TOKEN`. No debe incluirse en código, repositorio, URL, logs ni respuestas del dashboard. Se utiliza la aplicación a medida existente de la tienda.
+- Fuente API: `https://api.tiendanube.com/2025-03/1301166`; sólo lecturas.
+
+### Qué muestra y cómo se calcula
+
+| Métrica | Definición |
+| --- | --- |
+| Pedidos creados | Todos los pedidos creados en el período, incluidos manuales; origen informado por Tiendanube visible por separado |
+| Pedidos pagados e importe | Pago completo (`paid`), excluyendo pedidos cancelados; importe `total`, con envío y descuentos; no representa facturación fiscal ni cobros por fecha de acreditación |
+| Pendientes | `pending` y `authorized`, sin cancelados |
+| Pagos o reembolsos parciales | `partially_paid` y `partially_refunded`, fuera del importe pagado |
+| Reembolsados o anulados | `refunded` y `voided`, sin cancelados |
+| Unidades y productos | Cantidades de las líneas de pedidos pagados |
+| Checkouts abandonados | Disponibles al momento de consultar, creados en el período y sin `completed_at`; cobertura explícita |
+| Visitas y comportamiento | Pendientes de conectar y verificar GA4; no se muestran como cero |
+
+Las fechas corresponden a la creación del pedido en Argentina; sus estados son los actuales. ARS es la moneda fuente. La conversión a USD reutiliza las cotizaciones históricas del dashboard; ante importes o cotizaciones faltantes no se presenta un total parcial como completo. El origen `mobile` se conserva según Tiendanube, sin inferir el dispositivo del comprador.
+
+### Actualización y cobertura
+
+Esta primera versión **consulta al abrir la sección o cambiar el período**, con reutilización de resultados por hasta 5 minutos. El botón Actualizar vuelve a consultar el backend, sujeto a esa misma caché. No se instaló una sincronización programada ni un histórico persistente de Tiendanube. El proceso de Odoo cada 30 minutos sigue siendo independiente.
+
+La caché guarda únicamente agregados, por rango de fechas y credencial; puede conservar el último resultado hasta 6 horas. Si falla una consulta y aún existe ese resultado, la pantalla lo identifica como desactualizado con su fecha y motivo. La caché puede ser desalojada antes por Apps Script: no equivale a una base histórica.
+
+La consulta sigue todos los enlaces de paginación del mismo recurso/tienda, deduplica IDs y verifica conteos. Tiene límites de 366 días, 10.000 registros y duración; una consulta incompleta devuelve un error, no un total parcial. Los errores 429 y 5xx tienen reintentos acotados.
+
+Los checkouts están disponibles durante los últimos 30 días y pueden tardar hasta 6 horas en aparecer. Sólo incluyen compras que llegaron al segundo paso del checkout; no equivalen a todos los carritos creados. Se omite el día de borde para no informar un día incompleto. Un período anterior se marca sin cobertura; uno parcialmente cubierto muestra el rango efectivo. No se reconstruye un histórico de abandonos ni se infiere recuperación por la desaparición de un checkout.
+
+### Permisos y publicación
+
+El backend verifica la firma de la sesión, el rol y que la cuenta de Dirección siga activa antes de leer credenciales o caché. Devuelve agregados sin correos, domicilios ni otros datos de compradores. Las vendedoras no reciben las métricas globales. No se agregó exportación Excel de Tiendanube.
+
+Para publicar: incorporar `backend/Tiendanube.gs` al proyecto Apps Script y agregar `case 'tiendanube': return opTiendanube_(d);` al dispatcher de `Usuarios.gs`. Actualizar la versión del deployment existente para conservar la URL de la API. El frontend se publica desde `main` en GitHub Pages.
+
+Validación: 34 pruebas de interfaz, 12 pruebas de cálculos/permisos/paginación de Tiendanube y regresiones de aislamiento del backend. Se verificó diseño móvil y conexión real a la API. Las pruebas no contienen credenciales ni datos personales reales.
+
+### GA4 y trabajo pendiente
+
+En el HTML público relevado, `LS.store.ga4_measurement_id` estaba vacío y no se detectó un ID `G-…` ni `GTM-…`; sí un píxel de Meta. Eso no descarta una propiedad previa o medición cargada dinámicamente. Falta identificar la propiedad existente y su cuenta administradora.
+
+La API pública de Tiendanube consultada no documenta un recurso de visitas equivalente al panel interno. Para tráfico se utilizará GA4 Data API con el **ID numérico de propiedad** y acceso de lectura. El ID de medición `G-…` y el secreto de Measurement Protocol sirven para enviar eventos y no permiten consultar informes.
+
+Antes de mostrar visitas, usuarios o conversión, verificar sesiones y eventos `view_item`, `add_to_cart`, `begin_checkout` y `purchase`, su cobertura y ausencia de duplicados. No es posible reconstruir visitas anteriores a la medición ni prometer igualdad con estadísticas internas de TN.
+
+Como pasos posteriores: persistir observaciones de checkouts si se necesita histórico, añadir sincronización programada/webhooks si hace falta menor demora, y conciliar IDs con Odoo antes de cualquier total combinado. La propuesta inicial de sincronizar cada 30 minutos se pospuso: **no forma parte de esta versión**.
+
+### Fuentes oficiales consultadas
+
+- [API: autenticación, versión, paginación y límites](https://tiendanube.dev/api/getting-started).
+- [Aplicaciones a medida y token](https://ayuda.tiendanube.com/es_AR/aplicaciones-a-medida/como-crear-una-aplicacion-a-medida-y-acceder-al-token-en-mi-tiendanube).
+- [Pedidos](https://tiendanube.dev/api/resources/2025-03/order).
+- [Checkouts abandonados](https://tiendanube.dev/api/resources/2025-03/abandoned-checkout).
+- [Integración nativa GA4](https://ayuda.tiendanube.com/es_ES/123490-google-analytics/como-vincular-google-analytics-4-con-mi-tiendanube).
+- [Google Analytics Data API](https://developers.google.com/analytics/devguides/reporting/data/v1/quickstart).
+
+## Antecedentes del 23/09/2026
 
 Estado al 23/09/2026: cambios del frontend implementados y probados con datos sintéticos. El backend incorpora el flag activo/archivado de cada oportunidad para reflejar el flujo de etapas. No se integraron todavía Tiendanube ni GA4 y no se muestran visitas inventadas o ceros para una fuente desconectada.
 

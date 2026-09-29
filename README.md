@@ -67,3 +67,9 @@ Configuración muestra y permite editar objetivos en la moneda seleccionada. Los
 Muestra sus KPI y objetivo, evolución mensual de ventas con detalle colapsado, flujo de oportunidades, prendas vendidas, ticket promedio, provincias y tipos de producto. Conserva fecha, ARS/USD, PDF y Excel. No muestra configuración, rankings, comparativas entre personas, canales ni comparativo interanual.
 
 Apps Script limita los registros de órdenes, líneas, entregas y CRM por la identidad del token, y entrega únicamente el objetivo propio. Excel aplica el mismo recorte antes de exportar. El selector del navegador no determina los permisos. Las pruebas `node tests/backend_permissions.cjs <directorio-backend>` usan datos sintéticos sobre las funciones del backend descargado; incluyen intentos de cambiar vendedora/rol desde la petición y operaciones administrativas denegadas.
+
+## Tiendanube
+
+Dirección dispone de **Tienda online** con pedidos, importes pagados, estados, productos y checkouts abandonados de Tiendanube, separados del consolidado de Odoo. Consulta al abrir/cambiar el período y reutiliza agregados hasta 5 minutos. Visitas y comportamiento quedan identificados como pendientes de GA4.
+
+El módulo [backend/Tiendanube.gs](backend/Tiendanube.gs) requiere `TN_ACCESS_TOKEN` en Script Properties y la ruta `tiendanube` en el dispatcher. [Definiciones, cobertura y publicación](docs/integracion-tiendanube.md). Pruebas del módulo: `node --test tests/tiendanube.cjs`.

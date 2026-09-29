@@ -1,0 +1,10 @@
+--- a/Usuarios.gs
++++ b/Usuarios.gs
+@@ -440,6 +440,7 @@ function despacharApi_(d) {
+     case 'login':     return opLogin_(d);
+     case 'password':  return opPassword_(d);
+     case 'data':      return opData_(d);
++    case 'tiendanube': return opTiendanube_(d);
+     case 'xlsx':      return opXlsx_(d);
+     case 'usuarios':  return opUsuarios_(d);
+     case 'reset':     return opReset_(d);

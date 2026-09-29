@@ -1,0 +1,83 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const crypto=require('node:crypto');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../backend/Tiendanube.gs'),'utf8');
+function setup({role='direccion',active=true,responses=[]}={}){
+  const calls=[],cache=new Map();
+  const context={Date,Number,JSON,Math,Object,Array,String,isFinite,encodeURIComponent,Error,
+    verificarToken_:token=>token==='session'?{usuario:'admin',rol:role}:null,
+    esDireccion_:s=>s?.rol==='direccion',filas_:()=>[{usuario:'admin',rol:role,activo:active}],tabUsr_:()=>({}),
+    PropertiesService:{getScriptProperties:()=>({getProperty:()=> 'PROVIDER_SECRET'})},
+    Utilities:{DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(alg,v)=>[...crypto.createHash(alg).update(v).digest()],
+      formatDate:date=>new Date(date.getTime()-3*3600000).toISOString().slice(0,10),sleep:()=>{}},
+    CacheService:{getScriptCache:()=>({get:key=>cache.get(key),put:(key,v)=>cache.set(key,v)})},
+    UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});const response=responses.shift();if(!response)throw Error('Unexpected fetch');return {
+      getResponseCode:()=>response.code||200,getAllHeaders:()=>response.headers||{},getContentText:()=>JSON.stringify(response.body)
+    };}}
+  };vm.createContext(context);vm.runInContext(source,context);
+  return {c:context,calls,cache};
+}
+const range={from:'2026-09-01',to:'2026-09-29'};
+const now=new Date('2026-09-29T15:00:00Z');
+const order=(id,payment='paid',extra={})=>({id,store_id:1301166,created_at:'2026-09-15T12:00:00Z',status:'open',payment_status:payment,currency:'ARS',total:'100.50',storefront:'store',products:[{product_id:1,name:'Producto',quantity:2}],...extra});
+const plain=value=>JSON.parse(JSON.stringify(value));
+test('authentication and current role are checked before reading credentials or API',()=>{
+  for(const options of [{role:'vendedora'},{active:false},{}]){
+    const {c,calls}=setup(options);const out=c.opTiendanube_({token:options.role||options.active===false?'session':'bad',rol:'direccion',...range});
+    assert.equal(out.ok,false);assert.equal(calls.length,0);
+  }
+});
+test('date validation rejects overflow, reverse range, excessive range and injection',()=>{
+  const {c}=setup();for(const r of [{from:'2026-02-30',to:'2026-03-02'},{from:'2026-09-02',to:'2026-09-01'},{from:'2024-01-01',to:'2026-01-01'},{from:'2026-01-01&fields=token',to:'2026-01-02'}])assert.throws(()=>c.tnRange_(r));
+});
+test('aggregates mutually exclusive states, includes mobile/manual and never mixes Odoo',()=>{
+  const {c}=setup();const data=c.tnAggregate_([order(1),order(2,'pending'),order(3,'paid',{status:'cancelled'}),order(4,'partially_paid'),order(5,'refunded'),order(6,'paid',{storefront:'mobile'}),order(7,'paid',{storefront:'form'})],[],range,now);
+  assert.equal(data.summary.orders,7);assert.equal(data.summary.paid,3);assert.equal(data.summary.paidTotalArs,301.5);assert.equal(data.summary.paidUnits,6);
+  assert.equal(data.summary.pending,1);assert.equal(data.summary.cancelled,1);assert.equal(data.summary.partial,1);assert.equal(data.summary.refunded,1);
+  assert.equal(data.origins.length,3);
+});
+test('amounts missing or foreign currency are flagged instead of silently summed',()=>{
+  const {c}=setup();const data=c.tnAggregate_([order(1,'paid',{currency:'USD'}),order(2,'paid',{total:null}),order(3)],[],range,now);
+  assert.equal(data.summary.missingAmounts,2);assert.equal(data.summary.paidTotalArs,100.5);
+});
+test('business dates use Argentina timezone, not UTC substring',()=>{
+  const {c}=setup();const data=c.tnAggregate_([order(1,'paid',{created_at:'2026-09-01T02:00:00Z'})],[],range,now);assert.equal(data.summary.orders,0);
+});
+test('checkouts exclude completed records and mark partial and absent coverage',()=>{
+  const {c}=setup(),checkout={id:1,created_at:'2026-09-10T12:00:00Z',completed_at:null};
+  let data=c.tnAggregate_([], [checkout,{...checkout,id:2,completed_at:'2026-09-11T12:00:00Z'}],{from:'2026-08-01',to:'2026-09-29'},now);
+  assert.equal(data.abandoned.count,1);assert.equal(data.abandoned.partialCoverage,true);
+  data=c.tnAggregate_([],[],{from:'2026-08-01',to:'2026-08-20'},now);assert.equal(data.abandoned.count,null);
+});
+test('follows safe pagination and does not return customer fields',()=>{
+  const url='https://api.tiendanube.com/2025-03/1301166/orders?page=2';
+  const {c,calls}=setup({responses:[{body:[order(1)],headers:{'X-Total-Count':'2',Link:`<${url}>; rel="next"`}},{body:[order(2)]}]});
+  const rows=c.tnList_('orders',{},'secret',Date.now()+10000);assert.equal(rows.length,2);assert.equal(calls[1].url,url);assert.equal(calls[0].options.followRedirects,false);
+  const data=c.tnAggregate_([{...order(1),contact_email:'PRIVATE_EMAIL',token:'PRIVATE_TOKEN'}],[],range,now);
+  assert.doesNotMatch(JSON.stringify(data),/PRIVATE_EMAIL|PRIVATE_TOKEN|contact_email/);
+});
+test('rejects pagination to another store or host without sending its token',()=>{
+  for(const url of ['https://evil.example/orders?page=2','https://api.tiendanube.com/2025-03/99/orders?page=2']){
+    const {c,calls}=setup({responses:[{body:[order(1)],headers:{Link:`<${url}>; rel="next"`}}]});
+    assert.throws(()=>c.tnList_('orders',{},'secret',Date.now()+10000));assert.equal(calls.length,1);
+  }
+});
+test('incomplete and duplicate pagination cannot become an apparently complete report',()=>{
+  for(const response of [{body:[order(1)],headers:{'x-total-count':'2'}},{body:[order(1),order(1)],headers:{'x-total-count':'2'}}]){
+    const {c}=setup({responses:[response]});assert.throws(()=>c.tnList_('orders',{},'secret',Date.now()+10000));
+  }
+});
+test('provider error bodies are never exposed and 404 is not zero records',()=>{
+  const {c}=setup({responses:[{code:404,body:{description:'PRIVATE_TOKEN'}}]});
+  assert.throws(()=>c.tnList_('orders',{},'secret',Date.now()+10000),error=>!error.message.includes('PRIVATE_TOKEN')&&error.message.includes('no se interpreta'));
+});
+test('successful reports cache aggregates only and reuse cache after authorization',()=>{
+  const {c,calls,cache}=setup({responses:[{body:[order(1)],headers:{'x-total-count':'1'}},{body:[],headers:{'x-total-count':'0'}}]});
+  const d={token:'session',...range};let out=c.opTiendanube_(d);assert.equal(out.ok,true);assert.equal(out.summary.paid,1);assert.equal(calls.length,2);
+  out=c.opTiendanube_(d);assert.equal(out.ok,true);assert.equal(calls.length,2);assert.doesNotMatch([...cache.values()].join(''),/PROVIDER_SECRET|contact_email/);
+});
+test('malformed quantities do not produce fabricated unit totals',()=>{
+  const {c}=setup();assert.throws(()=>c.tnAggregate_([order(1,'paid',{products:[{quantity:'bad'}]})],[],range,now));
+});
