@@ -54,7 +54,7 @@ footer.made b{color:var(--text-secondary);font-weight:600}
 .tbar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
 .tgroup{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;flex:1;min-width:0}
 .fl{display:flex;flex-direction:column;gap:4px;min-width:0}
-.view-filter{min-width:180px;max-width:260px}
+.channel-filter{min-width:180px;max-width:260px}
 .fl>label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
 .ctl{font-family:inherit;font-size:13px;height:var(--ctl-h);padding:0 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface-2);color:var(--text-primary);min-width:152px;max-width:100%}
 select.ctl{padding-right:30px;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%238a94a1' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:12px}
@@ -110,6 +110,16 @@ h3{font-size:15px;font-weight:600;margin:0 0 10px}
 .htrack{background:var(--surface-1);border-radius:4px;height:12px;width:100%}
 .hbar{height:12px;border-radius:4px;background:var(--fill-primary);opacity:.8;min-width:2px}
 .hval{white-space:nowrap;color:var(--text-secondary);font-size:11.5px;text-align:right}
+.tn-ranks{display:grid;gap:15px;margin-top:16px}
+.tn-rank-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;font-size:12.5px;margin-bottom:6px}
+.tn-rank-head span:first-child{min-width:0;overflow-wrap:anywhere}
+.tn-rank-head strong{white-space:nowrap;font-size:12px}
+.tn-rank-head small{font-weight:400;color:var(--text-muted)}
+.tn-ranks .hbar{min-width:0}
+.tn-detail{overflow-x:auto}
+.tn-detail table{width:100%;border-collapse:collapse;font-size:12px}
+.tn-detail th,.tn-detail td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+.tn-detail th:first-child,.tn-detail td:first-child{text-align:left}
 .pend{background:repeating-linear-gradient(135deg,var(--surface-2),var(--surface-2) 10px,var(--surface-1) 10px,var(--surface-1) 20px)}
 .pmsg{font-size:12.5px;color:var(--text-secondary);line-height:1.55}
 code{background:var(--surface-1);border:1px solid var(--border);border-radius:4px;padding:0 4px;font-size:11.5px}
@@ -223,8 +233,8 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
  .bar2{padding:9px 14px}
  .ftoggle{display:inline-flex}
  .tbar{gap:10px;align-items:center}
- .view-filter{flex:0 0 100%;max-width:none}
- .view-filter .ctl{width:100%;min-width:0}
+ .channel-filter{flex:0 0 100%;max-width:none}
+ .channel-filter .ctl{width:100%;min-width:0}
  /* flex:0 0 100% (y no sólo width) para que el panel baje a su propia fila: con el flex:1 de la
     regla base, flex-basis:0% mandaba y el panel se acomodaba al lado del bloque Moneda/Filtros. */
  .tgroup{display:none;flex:0 0 100%;width:100%;flex-direction:column;align-items:stretch;gap:12px;margin-top:4px;padding-top:12px;border-top:1px solid var(--border)}
@@ -632,14 +642,14 @@ function syncChrome(){   /* refresca lo que depende del estado del filtro, sin r
   dot.textContent=n||''; dot.style.display=n?'block':'none';
   document.getElementById('perdates').hidden=(F.per!=='custom');
   document.getElementById('fPer').value=F.per;
-  document.getElementById('fVen').value=VISTA==='tienda'?'tiendanube':F.ven;
-  const canal=document.getElementById('fCan');if(canal)canal.value=F.can;
+  document.getElementById('fVen').value=F.ven;
+  const canal=document.getElementById('fCan');if(canal)canal.value=VISTA==='tienda'?'tiendanube':F.can;
   document.getElementById('fFrom').value=offToIso(F.from??MINOFF);
   document.getElementById('fTo').value=offToIso(F.to??Math.max(MAXOFF,TODAY));
 }
 // Cada fuente conserva sus filtros. La navegación nunca agrega pedidos TN al dataset Odoo.
 let FILTROS_ODOO=null, FILTROS_TN=null;
-function elegirVista(value){
+function elegirCanal(value, general=false){
   if(esVendedora())return;
   if(value==='tiendanube'){
     if(!esDireccion())return;
@@ -654,7 +664,7 @@ function elegirVista(value){
       FILTROS_TN={...F};
       if(FILTROS_ODOO)F={...FILTROS_ODOO};
     }
-    F.ven=value;VISTA='tablero';
+    F.can=value;if(general)F.ven='';VISTA='tablero';
   }
   syncChrome();go();
 }
@@ -672,23 +682,24 @@ function buildToolbar(){
   const verFiltroCan=!esVendedora();
   const venO=esVendedora()
     ? opt(F.ven, d.VEN[Number(F.ven)]!==undefined?d.VEN[Number(F.ven)]:(USER.ven||'—'), 1)
-    : opt('','General',1)+d.VEN.map((v,i)=>({i,v}))
-      .filter(x=>!esDireccion()||!/^(web\s*\(tiendanube\)|yeni)$/i.test(String(x.v).trim()))
-      .sort((a,b)=>a.v<b.v?-1:1).map(x=>opt(x.i,x.v)).join('')
-      +(esDireccion()?opt('tiendanube','Tiendanube'): '');
-  const canO=opt('','Todos',1)+d.CAN.map((c,i)=>opt(i,canLabel(c))).join('');
+    : opt('','Todas',1)+d.VEN.map((v,i)=>({i,v}))
+      .filter(x=>!esDireccion()||!/^(web\s*\(tiendanube\)|tienda\s*nube|yeni)$/i.test(String(x.v).trim()))
+      .sort((a,b)=>a.v<b.v?-1:1).map(x=>opt(x.i,x.v)).join('');
+  const canO=opt('','Todos',1)+d.CAN.map((c,i)=>({i,c}))
+    .filter(x=>!esDireccion()||!/^(web\s*\(tiendanube\)|tienda\s*nube|yeni)$/i.test(String(x.c).trim()))
+    .map(x=>opt(x.i,canLabel(x.c))).join('')+(esDireccion()?opt('tiendanube','Tiendanube'):'');
   const minIso=offToIso(MINOFF), maxIso=offToIso(Math.max(MAXOFF,TODAY));
   const periodO=[['all','Todo el período']].concat(PRESETS).concat([['custom','Rango a medida…']])
     .map(p=>opt(p[0],p[1],p[0]===F.per)).join('');
   document.getElementById('toolbar').innerHTML=`
    <div class="tbar">
-    ${verFiltroVen?`<div class="fl view-filter"><label for="fVen">${esVendedora()?'Vendedora':'Vista'}</label><select class="ctl" id="fVen"${esVendedora()?' disabled':''}>${venO}</select></div>`:''}
     <div class="fl"><label>Moneda</label><div class="seg" id="segCur" role="group" aria-label="Moneda">
       <button type="button" data-cur="ARS" class="on">ARS</button><button type="button" data-cur="USD">USD</button></div></div>
+    ${verFiltroCan?`<div class="fl channel-filter"><label for="fCan">Canal</label><select class="ctl" id="fCan">${canO}</select></div>`:''}
     <button class="btn ftoggle" id="fToggle" type="button" aria-expanded="false" aria-controls="tgroup">
       ${ICO.filt} Filtros<span class="fdot" id="fDot" style="display:none"></span></button>
     <div class="tgroup" id="tgroup">
-      ${verFiltroCan?`<div class="fl"><label for="fCan">Canal</label><select class="ctl" id="fCan">${canO}</select></div>`:''}
+      ${verFiltroVen?`<div class="fl"><label for="fVen">Vendedora</label><select class="ctl" id="fVen"${esVendedora()?' disabled':''}>${venO}</select></div>`:''}
       <div class="fl"><label for="fPer">Período</label><select class="ctl period-select" id="fPer">${periodO}</select></div>
       <div class="perdates" id="perdates" hidden>
         <div class="fl"><label for="fFrom">Desde</label><input class="ctl" type="date" id="fFrom" min="${minIso}" max="${maxIso}" value="${F.from!==null?offToIso(F.from):minIso}"></div>
@@ -724,8 +735,8 @@ function buildToolbar(){
     F.from=a; F.to=b; go();};
   $('fFrom').addEventListener('change',onDate);
   $('fTo').addEventListener('change',onDate);
-  if(verFiltroVen&&!esVendedora()) $('fVen').addEventListener('change',e=>elegirVista(e.target.value));
-  if(verFiltroCan) $('fCan').addEventListener('change',e=>{F.can=e.target.value; syncChrome(); go();});
+  if(verFiltroVen&&!esVendedora()) $('fVen').addEventListener('change',e=>{F.ven=e.target.value;syncChrome();go();});
+  if(verFiltroCan) $('fCan').addEventListener('change',e=>elegirCanal(e.target.value));
   $('reset').addEventListener('click',()=>{
     setPeriod(VISTA==='tienda'?'d30':'all'); F.can='';
     // La vendedora no puede "limpiarse" a sí misma: su recorte es el rol, no un filtro.
@@ -802,8 +813,8 @@ function prevLabel(){
 
 /* rng = [desde,hasta] en offsets; si no viene, se usa el filtro activo. Los filtros de vendedora y
    canal NO se parametrizan: el comparativo tiene que mirar el mismo recorte, sólo otra fecha. */
+const esWeb=nombre=>/^(web\s*\(tiendanube\)|tienda\s*nube|yeni)$/i.test(String(nombre||'').trim());
 function contextoCRM(){
-  const esWeb=nombre=>/^(web\s*\(tiendanube\)|yeni)$/i.test(String(nombre||'').trim());
   const web=(F.ven!==''&&esWeb(RAW.dict.VEN[Number(F.ven)]))
     ||(F.can!==''&&esWeb(RAW.dict.CAN[Number(F.can)]));
   // Las filas CRM actuales no traen canal. No presentar el total como si estuviera filtrado.
@@ -877,7 +888,7 @@ function compute(rng){
   O.forEach(o=>{ if(o[3]<nTipos) oT[o[3]]++; });
   const prTot=prT.reduce((a,b)=>a+b,0);
   const vm={}; O.forEach(o=>{(vm[o[1]]=vm[o[1]]||{m:0,n:0}); vm[o[1]].m+=toCur(o[0],o[7],o[6]); vm[o[1]].n++;});
-  const vend=Object.keys(vm).map(i=>({n:d.VEN[i],monto:vm[i].m,ops:vm[i].n})).sort((a,b)=>b.monto-a.monto).slice(0,10);
+  const vend=Object.keys(vm).map(i=>({n:d.VEN[i],monto:vm[i].m,ops:vm[i].n})).filter(x=>!esWeb(x.n)).sort((a,b)=>b.monto-a.monto).slice(0,10);
   const webI=d.CAN.indexOf('Web (Tiendanube)'), presI=d.CAN.indexOf('Venta directa');
   const cm={}; O.forEach(o=>{(cm[o[2]]=cm[o[2]]||{m:0,n:0}); cm[o[2]].m+=toCur(o[0],o[7],o[6]); cm[o[2]].n++;});
   const web=cm[webI]||{m:0,n:0}, pres=cm[presI]||{m:0,n:0};
@@ -1147,8 +1158,10 @@ function chartSVG(pts,opt){
   /* Con opt.delta se reserva una segunda línea abajo para la variación mes contra mes. */
   const W=1000,H=opt.h||230,pl=74,pr=line?64:24,tp=14,bt=opt.delta?44:28;
   const iw=W-pl-pr, ih=H-tp-bt;
-  const maxV=niceMax(Math.max.apply(null,pts.map(p=>p.v).concat([0])));
-  const maxN=niceMax(Math.max.apply(null,pts.map(p=>p.n||0).concat([0])));
+  const rawMaxV=niceMax(Math.max.apply(null,pts.map(p=>p.v).concat([0])));
+  const rawMaxN=niceMax(Math.max.apply(null,pts.map(p=>p.n||0).concat([0])));
+  const maxV=opt.integerValues?Math.max(4,Math.ceil(rawMaxV/4)*4):rawMaxV;
+  const maxN=opt.integerCounts?Math.max(4,Math.ceil(rawMaxN/4)*4):rawMaxN;
   const band=iw/Math.max(pts.length,1), bw=Math.min(72,band*0.55);
   const cx=i=>pl+band*i+band/2;
   const yV=v=>tp+ih-(v/maxV)*ih, yN=n=>tp+ih-(n/maxN)*ih;
@@ -1170,7 +1183,7 @@ function chartSVG(pts,opt){
     const txt=p.noRate?'🚧':fmt(p.v);
     const inside=line&&!p.noRate&&h>30&&txt.length*6.4<=bw-8;
     lblY[i]=inside?y+17:y-7;
-    lbl+=inside
+    if(opt.values!==false)lbl+=inside
       ? `<text x="${x.toFixed(1)}" y="${lblY[i].toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">${txt}</text>`
       : `<text x="${x.toFixed(1)}" y="${lblY[i].toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-secondary)" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${txt}</text>`;
     lbl+=`<text x="${x.toFixed(1)}" y="${((opt.delta?H-24:H-8)).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--text-muted)">${p.lbl}</text>`;
@@ -1196,7 +1209,7 @@ function chartSVG(pts,opt){
       let ly=q[1]-14;                                   // separación suficiente para que la propia
       if(Math.abs(ly-lblY[i])<16) ly=q[1]+20;           // línea no cruce el texto al venir en pendiente
       ly=Math.max(tp+10,Math.min(tp+ih-4,ly));
-      ln+=`<text x="${q[0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${SERIE2}" stroke="#fff" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
+      if(opt.values!==false)ln+=`<text x="${q[0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${SERIE2}" stroke="#fff" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
     });
   }
   return `<div class="chartbox"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opt.aria||'Gráfico por mes'}">${g}${bars}${ln}${lbl}</svg></div>`;
@@ -1222,6 +1235,36 @@ function tnAmounts(data){
   }
   return {total:missing?null:total,missing};
 }
+// Completar días sin pedidos antes de agrupar evita ocultar períodos sin actividad.
+// Los bloques semanales parten del inicio del filtro; el último puede ser parcial.
+function tnEvolution(data,range){
+  const start=Date.parse(range.from+'T00:00:00Z'),end=Date.parse(range.to+'T00:00:00Z');
+  const days=Math.round((end-start)/86400000)+1, mode=days<=14?'día':days<=98?'bloque de 7 días':'mes';
+  const daily=new Map(data.daily.map(d=>[d.date,d])),groups=new Map();
+  for(let t=start,i=0;t<=end;t+=86400000,i++){
+    const date=new Date(t).toISOString().slice(0,10),key=days<=14?date:days<=98?Math.floor(i/7):date.slice(0,7);
+    if(!groups.has(key))groups.set(key,{from:date,to:date,orders:0,paid:0,amount:0,missing:0});
+    const group=groups.get(key);group.to=date;
+    const day=daily.get(date);if(!day)continue;
+    const amount=tnAmounts({daily:[day]});
+    group.orders+=day.orders;group.paid+=day.paid;group.missing+=amount.missing;group.amount+=amount.total??0;
+  }
+  const short=date=>date.slice(8,10)+'/'+date.slice(5,7);
+  return {mode,groups:[...groups.values()].map(g=>({...g,amount:g.missing?null:g.amount,
+    label:days>98?MES[+g.from.slice(5,7)-1]+' '+g.from.slice(2,4):short(g.from)+(g.to!==g.from?'–'+short(g.to):'')}))};
+}
+function tnRanking(rows,total,unit){
+  if(!rows.length||!total)return '<div class="pmsg">Sin datos para este período.</div>';
+  const peak=Math.max(...rows.map(r=>r.value),1);
+  return '<div class="tn-ranks">'+rows.map(r=>`<div class="tn-rank"><div class="tn-rank-head"><span>${tnEscape(r.label)}</span><strong>${n0(r.value)} ${unit} <small>· ${(r.value/total*100).toLocaleString('es-AR',{maximumFractionDigits:1})}%</small></strong></div><div class="htrack" aria-hidden="true"><div class="hbar" style="width:${r.value/peak*100}%;${r.color?'background:'+r.color:''}"></div></div></div>`).join('')+'</div>';
+}
+function renderTnEvolution(A,data,amounts,range){
+  const evolution=tnEvolution(data,range),groups=evolution.groups,moneyComplete=amounts.total!==null;
+  const points=groups.map(g=>({lbl:g.label,v:moneyComplete?g.amount:g.paid,n:g.paid}));
+  sec(A,'Evolución de pedidos pagados');
+  const detail='<details class="evo-detail"><summary>Ver detalle de importes, pedidos y ticket</summary><div class="tn-detail"><table><thead><tr><th>Período</th><th>Creados</th><th>Pagados</th><th>Importe ('+CUR+')</th><th>Ticket ('+CUR+')</th></tr></thead><tbody>'+groups.map(g=>`<tr><td>${fmtFecha(g.from)}${g.to!==g.from?' a '+fmtFecha(g.to):''}</td><td>${n0(g.orders)}</td><td>${n0(g.paid)}</td><td>${g.amount===null?'Sin dato completo':moneyFull(g.amount)}</td><td>${!g.paid?'Sin pedidos pagados':g.amount===null?'Sin dato completo':moneyFull(g.amount/g.paid)}</td></tr>`).join('')+'</tbody></table></div></details>';
+  A.appendChild(el('<div class="card tn-evolution"><div class="pmsg">Por '+evolution.mode+' · fecha de creación del pedido. Incluye los días sin pedidos; los extremos del período pueden ser parciales.</div>'+chartSVG(points,{fmt:moneyComplete?money:n0,line:moneyComplete,integerCounts:true,integerValues:!moneyComplete,values:false,aria:'Evolución de pedidos pagados de Tiendanube'})+legendHTML(moneyComplete?[{t:'Importe de pedidos pagados ('+CUR+')',c:'var(--fill-primary)'},{t:'Pedidos pagados',c:SERIE2,line:true}]:[{t:'Pedidos pagados · importe sin datos completos',c:'var(--fill-primary)'}])+detail+'</div>'));
+}
 async function cargarTiendanube(force=false){
   if(!esDireccion()) return;
   const range=tnSelectedRange(),key=range.from+'|'+range.to;
@@ -1244,7 +1287,7 @@ function renderTiendanube(A){
   syncState(TN.pending?'Consultando Tiendanube…':TN.error?'Tiendanube no disponible':'Tiendanube',TN.pending?'loading':TN.error?'error':'ok');
   const range=tnSelectedRange();
   A.appendChild(el(`<div class="periodbar"><span><b>Tiendanube</b> · ${fmtFecha(range.from)} a ${fmtFecha(range.to)}</span><button class="btn btn--quiet" id="tnBack" type="button">Volver a General</button><button class="btn" id="tnRefresh" type="button" ${TN.pending?'disabled':''}>Actualizar</button></div>`));
-  document.getElementById('tnBack').onclick=()=>elegirVista('');
+  document.getElementById('tnBack').onclick=()=>elegirCanal('',true);
   document.getElementById('tnRefresh').onclick=()=>cargarTiendanube(true);
   A.appendChild(el('<div class="card" style="margin-bottom:14px"><div class="pmsg">Pedidos registrados en Tiendanube, incluidos los creados manualmente. Estos importes se muestran separados del consolidado de Odoo para evitar contar dos veces una misma venta.</div></div>'));
   if(TN.pending){A.appendChild(el('<div class="card loading-card" role="status"><span class="loading-spinner" aria-hidden="true"></span><div><h3>Consultando Tiendanube…</h3><div class="pmsg">Trayendo pedidos y carritos del período. La primera consulta puede demorar.</div></div></div>'));return;}
@@ -1266,21 +1309,26 @@ function renderTiendanube(A){
     ['Reembolsados o anulados',n0(s.refunded),'Sin pedidos cancelados'],
     ['Pagos o reembolsos parciales',n0(s.partial),'Fuera del importe pagado'],
     ['Unidades en pedidos pagados',n0(s.paidUnits),'Cantidad de productos'],
+    ['Unidades por pedido pagado',s.paid?(s.paidUnits/s.paid).toLocaleString('es-AR',{maximumFractionDigits:2}):'Sin pedidos pagados','Unidades / pedidos pagados'],
   ];
   if(s.other)cards.push(['Otros estados',n0(s.other),'Fuera del importe pagado']);
   A.appendChild(el('<div class="kpis">'+cards.map(([l,v,n])=>`<div class="kpi"><div class="kl">${tnEscape(l)}</div><div class="kv">${tnEscape(v)}</div><div class="ks">${tnEscape(n)}</div></div>`).join('')+'</div>'));
   A.appendChild(el('<div class="cmpnote">El período corresponde a la creación del pedido; los estados son los actuales. El importe suma el total de los pedidos con pago completo. No representa facturación fiscal ni cobros por fecha de acreditación.</div>'));
   if(amounts.missing)A.appendChild(el(`<div class="card" style="margin-top:12px"><div class="pmsg">No se muestra un importe parcial: ${n0(amounts.missing)} pedidos pagados no tienen importe en ARS o cotización suficiente para la moneda elegida.</div></div>`));
+  renderTnEvolution(A,data,amounts,range);
+  sec(A,'Estados y origen de los pedidos');
+  const states=[['Pagados',s.paid,'var(--fill-primary)'],['Pendientes de pago',s.pending,'#b7791f'],['Cancelados',s.cancelled,'#b54747'],['Pagos o reembolsos parciales',s.partial,'#7865a4'],['Reembolsados o anulados',s.refunded,'#64748b'],['Otros estados',s.other,'#94a3b8']].filter(x=>x[1]).map(([label,value,color])=>({label,value,color}));
+  const originLabels={store:'Tienda',mobile:'Mobile (según Tiendanube)',form:'Creación manual',api:'Integración',pos:'Punto de venta',meli:'Mercado Libre'};
+  const origins=(data.origins||[]).map(o=>({label:originLabels[o.name]||o.name,value:o.orders})).sort((a,b)=>b.value-a.value);
+  row2(A,'Estado actual', '<div class="pmsg">Cantidad y porcentaje sobre todos los pedidos creados. Cada pedido cuenta una sola vez.</div>'+tnRanking(states,s.orders,'ped.'), 'Origen registrado', '<div class="pmsg">Origen de creación de los pedidos; no representa fuentes de tráfico ni dispositivos de los visitantes.</div>'+tnRanking(origins,s.orders,'ped.'));
+  sec(A,'Productos en pedidos pagados');
+  const list=data.products||[];
+  A.appendChild(el('<div class="card tn-products"><h3>Los 10 productos con más unidades</h3><div class="pmsg">Unidades de pedidos con pago completo, agrupadas por producto. El porcentaje se calcula sobre todas las unidades pagadas del período.</div>'+tnRanking(list.map(p=>({label:p.name,value:p.units})),s.paidUnits,'u.')+'</div>'));
   sec(A,'Carritos abandonados');
   const c=data.abandoned;
   A.appendChild(el(`<div class="card"><div class="kl">Checkouts abandonados disponibles</div><div class="kv">${c.count===null?'Sin cobertura':n0(c.count)}</div><div class="pmsg">${c.noCoverage?'El período elegido es anterior a la ventana que permite consultar Tiendanube.':`Creados del ${fmtFecha(c.from)} al ${fmtFecha(c.to)} y todavía disponibles al momento de la consulta.`} ${c.partialCoverage&&!c.noCoverage?'El período tiene cobertura parcial.':''} Tiendanube permite consultar los últimos 30 días; se omite el día del borde para evitar mostrarlo incompleto. Sólo incluye compras que llegaron al segundo paso del checkout y pueden demorar hasta 6 horas en aparecer. No equivale a todos los carritos creados ni a un histórico de abandonos.</div></div>`));
   sec(A,'Visitas y comportamiento');
-  A.appendChild(el('<div class="card"><h3>Visitas pendientes de integración</h3><div class="pmsg">Tiendanube ya muestra visitas y comportamiento en su panel y permite exportarlos. Esas métricas todavía no llegan a este dashboard. Falta definir su importación o conectar Google Analytics 4 para consultarlas automáticamente.</div><a class="btn" style="margin-top:12px" href="https://zaphirauniformes.mitiendanube.com/admin/stats/v2/general" target="_blank" rel="noopener noreferrer">Ver estadísticas en Tiendanube</a></div>'));
-  sec(A,'Productos en pedidos pagados');
-  const list=data.products||[];
-  A.appendChild(el('<div class="card">'+(list.length?'<table style="width:100%;font-size:13px"><thead><tr><th style="text-align:left">Producto</th><th style="text-align:right">Unidades</th></tr></thead><tbody>'+list.map(p=>`<tr><td>${tnEscape(p.name)}</td><td style="text-align:right">${n0(p.units)}</td></tr>`).join('')+'</tbody></table>':'<div class="pmsg">No hay productos de pedidos pagados en el período.</div>')+'</div>'));
-  const originLabels={store:'Tienda',mobile:'Mobile (según Tiendanube)',form:'Creación manual',api:'Integración',pos:'Punto de venta',meli:'Mercado Libre'};
-  A.appendChild(el('<div class="card" style="margin-top:12px"><h3>Origen de los pedidos</h3><div class="pmsg">'+(data.origins||[]).map(o=>tnEscape(originLabels[o.name]||o.name)+': <b>'+n0(o.orders)+'</b>').join(' · ')+'</div></div>'));
+  A.appendChild(el('<div class="card"><h3>Visitas pendientes de integración</h3><div class="pmsg">Tiendanube muestra visitas y comportamiento en su panel, pero esas métricas todavía no llegan a este dashboard. Quedan pendientes las visitas, las vistas de productos, el embudo de compra, la conversión, las campañas y los visitantes en tiempo real. Para consultarlas automáticamente falta una fuente de analítica compatible, como Google Analytics 4; también se pueden evaluar las exportaciones de Tiendanube.</div><a class="btn" style="margin-top:12px" href="https://zaphirauniformes.mitiendanube.com/admin/stats/v2/general" target="_blank" rel="noopener noreferrer">Ver estadísticas en Tiendanube</a></div>'));
 }
 
 /* ===== render ===== */
@@ -1288,7 +1336,7 @@ function go(){
   const app=document.getElementById('app'); app.innerHTML='';
   const web=VISTA==='tienda';
   syncChrome();
-  ['fCan','btnXlsx','btnCfg'].forEach(id=>{const node=document.getElementById(id);if(node){node.disabled=web;if(id==='fCan')node.closest('.fl').hidden=web;}});
+  ['fVen','btnXlsx','btnCfg'].forEach(id=>{const node=document.getElementById(id);if(node)node.disabled=web||(id==='fVen'&&esVendedora());});
   if(web){const r=tnSelectedRange();if(TN.key!==r.from+'|'+r.to){cargarTiendanube();return;}renderTiendanube(app);return;}
   if(VISTA==='config'){ renderConfig(app); return; }
   const pr=prevRange();                       // null en "Todo el período": no hay un antes
@@ -1624,7 +1672,7 @@ function render(A,D,PREV){
     sec(A,'Ventas por vendedora');
     const mxv=D.vend[0]?D.vend[0].monto:1;
     const vh=D.vend.map(x=>hb(x.n,x.monto/mxv*100,M(x.monto)+' · '+n0(x.ops)+' órd.')).join('');
-    A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">"Web (Tiendanube)" = órdenes automáticas del canal online.</div></div>`));
+    A.appendChild(el(`<div class="card"><h3>Ranking por vendedora</h3>${vh}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Sólo vendedoras. Las ventas web registradas en Odoo están incluidas en el total general y en Ventas por canal.</div></div>`));
     A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por vendedora</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M)}</div>`));
   }
 

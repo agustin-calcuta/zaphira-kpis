@@ -112,16 +112,20 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(6, len(self.top_labels()))
         self.assertIn('2 ganadas / (2 ganadas + 3 perdidas)', self.text())
 
-    def test_selector_has_general_sellers_and_a_single_tiendanube_view(self):
+    def test_tiendanube_only_appears_in_channel_and_general_includes_odoo_web_sales(self):
         self.load()
-        self.assertEqual(['General', 'Ana', 'Tiendanube'], self.page.locator('#fVen option').all_text_contents())
+        self.assertEqual(['Todas', 'Ana'], self.page.locator('#fVen option').all_text_contents())
+        self.assertEqual(['Todos', 'Venta directa', 'Tiendanube'], self.page.locator('#fCan option').all_text_contents())
         self.assertEqual(0, self.page.locator('#btnTienda').count())
         self.assertIn('Fuente: Odoo', self.text())
+        self.assertEqual('2', self.page.locator('#app > div > .kpis').first.locator('.kv').nth(2).inner_text())
+        ranking=self.page.locator('.card').filter(has=self.page.get_by_role('heading',name='Ranking por vendedora',exact=True))
+        self.assertEqual(['Ana'], ranking.locator('.hlbl').all_text_contents())
+        evolution=self.page.locator('.card').filter(has=self.page.get_by_role('heading',name='Evolución mes a mes por vendedora',exact=True))
+        self.assertNotIn('Web (Tiendanube)',evolution.text_content())
 
     def test_web_channel_hides_all_crm(self):
-        self.load()
-        self.page.select_option('#fCan', '1')
-        self.assertEqual(4, len(self.top_labels()))
+        self.setup_tn()
         self.assertNotIn('oportunidades', self.text().lower())
 
     def test_direct_channel_does_not_show_unfiltered_crm(self):
@@ -217,9 +221,9 @@ class DashboardTests(unittest.TestCase):
         raw = copy.deepcopy(RAW)
         raw['dict']['VEN'][1] = 'Yeni'
         self.load(raw)
-        self.assertEqual(['General', 'Ana', 'Tiendanube'], self.page.locator('#fVen option').all_text_contents())
-        self.page.select_option('#fCan', '1')
-        self.assertNotIn('oportunidades', self.text().lower())
+        self.assertEqual(['Todas', 'Ana'], self.page.locator('#fVen option').all_text_contents())
+        self.assertEqual(['Todos', 'Venta directa', 'Tiendanube'], self.page.locator('#fCan option').all_text_contents())
+        self.assertEqual('2', self.page.locator('#app > div > .kpis').first.locator('.kv').nth(2).inner_text())
 
     def test_seller_role_keeps_own_filter_locked(self):
         raw = copy.deepcopy(RAW)
@@ -267,11 +271,9 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('Negociación: 1', flow)
         self.assertNotIn('próxima sincronización', flow)
 
-    def test_flow_general_adds_sellers_and_web_channel_still_hides_it(self):
+    def test_flow_general_includes_web_records_from_odoo(self):
         self.load(self.flow_fixture())
         self.assertEqual('3', self.flow_counts()['En gestión'])
-        self.page.select_option('#fCan', '1')
-        self.assertEqual(0, self.page.locator('.crm-flujo').count())
 
     def test_flow_dates_use_creation_and_keep_empty_stages_visible(self):
         raw = self.flow_fixture()
@@ -326,7 +328,7 @@ class DashboardTests(unittest.TestCase):
         self.page.select_option('#fVen', '0')
         self.assertEqual(0, self.page.locator('.crm-comparativa').count())
         self.page.select_option('#fVen', '')
-        self.page.select_option('#fCan', '1')
+        self.page.select_option('#fCan', '0')
         self.assertEqual(0, self.page.locator('.crm-comparativa').count())
 
     def test_seller_role_cannot_see_crm_comparison(self):
@@ -379,7 +381,7 @@ class DashboardTests(unittest.TestCase):
 
     def test_empty_sections_removed_and_visible_sections_numbered_without_gaps(self):
         self.load()
-        for seller, channel in [('', ''), ('0', ''), ('', '1')]:
+        for seller, channel in [('', ''), ('0', ''), ('', '0')]:
             self.page.select_option('#fVen', seller)
             self.page.select_option('#fCan', channel)
             labels = self.page.locator('.sect').all_text_contents()
@@ -464,8 +466,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('de US$ 9', self.page.locator('.objbar').first.inner_text())
 
 
-    def setup_tn(self, stale=False, raw=None, start_view='', start_channel='', period='d30'):
-        self.load(raw=raw)
+    def setup_tn(self, stale=False, raw=None, start_view='', start_channel='', period='d30', objective=None, tn_data=None):
+        self.load(raw=raw, objective=objective)
         self.page.select_option('#fPer', period)
         self.page.select_option('#fVen', start_view)
         self.page.select_option('#fCan', start_channel)
@@ -477,6 +479,8 @@ class DashboardTests(unittest.TestCase):
                 'abandoned': {'count': 7, 'from': '2026-09-01', 'to': '2026-09-23', 'partialCoverage': False, 'noCoverage': False},
                 'products': [{'name': '<img src=x onerror=alert(1)>', 'units': 2}],
                 'origins': [{'name': 'mobile', 'orders': 3}]}
+        if tn_data:
+            data.update(tn_data)
         if stale:
             data.update(stale=True, warning='Error temporal de Tiendanube.')
         def handler(route):
@@ -487,7 +491,7 @@ class DashboardTests(unittest.TestCase):
             self.tn_request=payload
             route.fulfill(status=200, content_type='application/json', headers={'Access-Control-Allow-Origin': '*'}, body=json.dumps(data))
         self.page.route('https://script.google.com/**',handler)
-        self.page.select_option('#fVen', 'tiendanube')
+        self.page.select_option('#fCan', 'tiendanube')
         self.page.get_by_text('Importe de pedidos pagados',exact=True).wait_for()
 
     def test_tiendanube_is_separate_scoped_and_escapes_product_names(self):
@@ -498,9 +502,10 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual('synthetic-test-token',self.tn_request['token'])
         self.assertNotIn('rol',self.tn_request)
         self.assertTrue(self.page.locator('#fVen').is_visible())
-        self.assertFalse(self.page.locator('#fVen').is_disabled())
-        self.assertEqual('tiendanube', self.page.locator('#fVen').input_value())
-        self.assertFalse(self.page.locator('#fCan').is_visible())
+        self.assertTrue(self.page.locator('#fVen').is_disabled())
+        self.assertEqual('tiendanube', self.page.locator('#fCan').input_value())
+        self.assertTrue(self.page.locator('#fCan').is_visible())
+        self.assertFalse(self.page.locator('#fCan').is_disabled())
         self.assertTrue(self.page.locator('#btnXlsx').is_disabled())
         self.assertEqual(0,self.page.locator('#app img').count())
         self.assertIn('<img src=x onerror=alert(1)>',text)
@@ -515,6 +520,55 @@ class DashboardTests(unittest.TestCase):
         self.setup_tn()
         self.page.click('[data-cur="USD"]')
         self.assertIn('US$ 5',self.text())
+        self.page.locator('.tn-evolution summary').click()
+        self.assertIn('US$ 5', self.page.locator('.tn-evolution table').inner_text())
+
+    def test_tiendanube_hides_existing_objectives_and_restores_them_in_general(self):
+        self.setup_tn(objective={'empresa': 6000, 'vendedoras': {'Ana': 4000}})
+        self.assertEqual(0, self.page.locator('.objbar').count())
+        self.assertNotIn('Objetivo de', self.text())
+        self.page.click('#tnBack')
+        self.assertGreater(self.page.locator('.objbar').count(), 0)
+        self.assertIn('de $ 6.000', self.page.locator('.objbar').first.inner_text())
+
+    def test_tiendanube_evolution_fills_empty_days_and_keeps_correct_ticket(self):
+        self.setup_tn()
+        self.page.select_option('#fPer', 'custom')
+        for field, value in [('fFrom', '2026-09-14'), ('fTo', '2026-09-16')]:
+            self.page.locator('#'+field).fill(value)
+            self.page.locator('#'+field).dispatch_event('change')
+        self.page.get_by_text('Importe de pedidos pagados', exact=True).wait_for()
+        self.page.locator('.tn-evolution summary').click()
+        rows=self.page.locator('.tn-evolution tbody tr')
+        self.assertEqual(3, rows.count())
+        self.assertEqual(['0', '0', '$ 0', 'Sin pedidos pagados'], rows.nth(0).locator('td').all_text_contents()[1:])
+        self.assertEqual(['3', '1', '$ 5.000', '$ 5.000'], rows.nth(1).locator('td').all_text_contents()[1:])
+        self.assertEqual(['0', '0', '$ 0', 'Sin pedidos pagados'], rows.nth(2).locator('td').all_text_contents()[1:])
+        self.assertIn('2 u. · 100%', self.page.locator('.tn-products').inner_text())
+
+    def test_tiendanube_missing_currency_rate_hides_incomplete_amount_chart(self):
+        raw=copy.deepcopy(RAW)
+        raw['rateMon']={}
+        raw['rateDay']={}
+        self.setup_tn(raw=raw)
+        self.page.click('[data-cur="USD"]')
+        self.assertIn('Sin dato completo',self.text())
+        self.assertIn('Pedidos pagados · importe sin datos completos', self.page.locator('.tn-evolution').inner_text())
+        self.page.locator('.tn-evolution summary').click()
+        rows=self.page.locator('.tn-evolution tbody tr').filter(has_text='Sin dato completo')
+        self.assertEqual(1,rows.count())
+        self.assertNotIn('US$ 0', rows.inner_text())
+
+    def test_tiendanube_product_share_uses_all_units_not_only_top_ten(self):
+        self.setup_tn(tn_data={'products':[{'name':'Producto de prueba','units':1}]})
+        self.assertIn('1 u. · 50%',self.page.locator('.tn-products').inner_text())
+
+    def test_tiendanube_empty_period_has_no_nan_or_fake_ticket(self):
+        self.setup_tn(tn_data={'daily':[], 'summary':{'orders':0,'paid':0,'pending':0,'cancelled':0,'refunded':0,'partial':0,'other':0,'paidUnits':0}, 'products':[], 'origins':[]})
+        self.assertIn('Sin pedidos pagados',self.text())
+        self.assertIn('Sin datos para este período.',self.text())
+        self.assertNotIn('NaN',self.text())
+        self.assertNotIn('Infinity',self.text())
 
     def test_tiendanube_stale_data_is_explicit(self):
         self.setup_tn(stale=True)
@@ -524,15 +578,16 @@ class DashboardTests(unittest.TestCase):
     def test_tiendanube_hidden_for_sellers(self):
         self.load(seller=True)
         self.assertEqual(0,self.page.locator('#fVen option[value=tiendanube]').count())
+        self.assertEqual(0,self.page.locator('#fCan').count())
         self.assertTrue(self.page.locator('#fVen').is_disabled())
 
     def test_tiendanube_mobile_has_no_horizontal_overflow(self):
         self.setup_tn()
         self.page.set_viewport_size({'width':390,'height':844})
         self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'))
-        self.assertTrue(self.page.locator('#fVen').is_visible())
+        self.assertTrue(self.page.locator('#fCan').is_visible())
         self.assertFalse(self.page.locator('#fPer').is_visible())
-        self.page.select_option('#fVen', '0')
+        self.page.select_option('#fCan', '0')
         self.assertIn('Ventas confirmadas', self.text())
 
     def test_tiendanube_and_odoo_preserve_independent_filters(self):
@@ -540,15 +595,20 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual('d30', self.page.locator('#fPer').input_value())
         self.page.select_option('#fPer', 'd90')
         self.page.get_by_text('Importe de pedidos pagados', exact=True).wait_for()
-        self.page.select_option('#fVen', '0')
+        self.page.select_option('#fCan', '0')
+        self.assertEqual('0', self.page.locator('#fVen').input_value())
         self.assertEqual('mtd', self.page.locator('#fPer').input_value())
         self.assertEqual('0', self.page.locator('#fCan').input_value())
         self.assertEqual(self.odoo_summary, self.page.locator('#app > div > .kpis').first.locator('.kv').all_text_contents())
-        self.page.select_option('#fVen', 'tiendanube')
+        self.page.select_option('#fCan', 'tiendanube')
         self.page.get_by_text('Importe de pedidos pagados', exact=True).wait_for()
         self.assertEqual('d90', self.page.locator('#fPer').input_value())
         self.assertNotIn('ven', self.tn_request)
         self.assertNotIn('can', self.tn_request)
+        self.page.click('#tnBack')
+        self.assertEqual('', self.page.locator('#fVen').input_value())
+        self.assertEqual('', self.page.locator('#fCan').input_value())
+        self.assertEqual('2', self.page.locator('#app > div > .kpis').first.locator('.kv').nth(2).inner_text())
 
     def test_tiendanube_available_without_web_seller_in_odoo(self):
         raw=copy.deepcopy(RAW)
@@ -557,16 +617,17 @@ class DashboardTests(unittest.TestCase):
             raw[key]=[row for row in raw[key] if row[1]==0]
         self.setup_tn(raw=raw)
         self.assertIn('Importe de pedidos pagados', self.text())
-        self.assertEqual(['General', 'Ana', 'Tiendanube'], self.page.locator('#fVen option').all_text_contents())
+        self.assertEqual(['Todas', 'Ana'], self.page.locator('#fVen option').all_text_contents())
+        self.assertEqual(['Todos', 'Venta directa', 'Tiendanube'], self.page.locator('#fCan option').all_text_contents())
 
     def test_tiendanube_reset_keeps_view_and_restores_odoo_afterwards(self):
         self.setup_tn(period='mtd')
         self.page.select_option('#fPer', 'd90')
         self.page.click('#reset')
         self.page.get_by_text('Importe de pedidos pagados', exact=True).wait_for()
-        self.assertEqual('tiendanube', self.page.locator('#fVen').input_value())
+        self.assertEqual('tiendanube', self.page.locator('#fCan').input_value())
         self.assertEqual('d30', self.page.locator('#fPer').input_value())
-        self.page.select_option('#fVen', '')
+        self.page.select_option('#fCan', '')
         self.assertEqual('mtd', self.page.locator('#fPer').input_value())
         self.assertEqual(self.odoo_summary, self.page.locator('#app > div > .kpis').first.locator('.kv').all_text_contents())
 
