@@ -11,7 +11,8 @@ from datetime import datetime, timezone
 
 from playwright.sync_api import sync_playwright
 
-HTML = (Path(__file__).resolve().parents[1] / 'index.html').read_text(encoding='utf-8')
+HTML = (Path(__file__).resolve().parents[1] / 'index.html').read_text(encoding='utf-8').replace(
+    '</script>', 'window.__chartSVG=chartSVG;window.__chartMoney=money;</script>')
 RAW = {
     'pull': '2026-09-23 10:00', 'rate': 1000, 'rateMon': {'2026-09': 1000},
     'dict': {'VEN': ['Ana', 'Web (Tiendanube)'],
@@ -552,17 +553,73 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('US$ 5', self.page.locator('.tn-evolution table').inner_text())
         self.assertIn('US$ 1', self.page.locator('.tn-commerce').inner_text())
 
-    def test_tiendanube_labels_and_exact_period_values_are_visible_without_hover(self):
+    def test_tiendanube_labels_and_period_values_are_visible_on_chart(self):
         self.setup_tn(tn_data={'daily':[{'date':'2026-09-15','orders':3,'paid':1,
                                          'paidTotalArs':5000.75,'missingAmounts':0}]})
         self.assertIn('Ticket promedio de pedidos pagados',self.text())
         self.assertIn('Unidades promedio por pedido pagado',self.text())
-        self.assertIn('1 pedido pagado',self.page.locator('.tn-period-values').inner_text())
-        self.assertIn('$ 5.000,75 de importe',self.page.locator('.tn-period-values').inner_text())
-        self.assertEqual(self.page.locator('.tn-period-value').count(),
-                         self.page.locator('.tn-evolution svg text[text-anchor="middle"]').count(),
-                         'El gráfico debe mostrar sólo períodos; los valores exactos quedan en los cuadros')
+        chart=self.page.locator('.tn-evolution svg')
+        self.assertIn('$ 5,0 K',chart.text_content())
+        self.assertEqual(13,chart.locator('text[text-anchor="middle"]').count(),
+                         'Cada período muestra importe, pedidos y fecha; el último compara con el anterior')
+        self.assertIn('-100%',chart.text_content())
+        self.assertEqual(0,self.page.locator('.tn-period-values').count())
+        self.page.locator('.tn-evolution summary').click()
+        self.assertIn('$ 5.000,75',self.page.locator('.tn-evolution table').inner_text())
         self.assertIn('panel de administración',self.text())
+
+    def test_tiendanube_monthly_chart_shows_month_over_month_change(self):
+        raw=copy.deepcopy(RAW)
+        raw['meta']['day0']='2026-03-01'
+        raw['meta']['dateFrom']='2026-03-01'
+        self.setup_tn(raw=raw,period='all',tn_data={
+            'daily':[{'date':'2026-03-15','orders':1,'paid':1,'paidTotalArs':100,'missingAmounts':0},
+                     {'date':'2026-04-15','orders':1,'paid':1,'paidTotalArs':150,'missingAmounts':0}],
+            'summary':{'orders':2,'paid':2,'pending':0,'cancelled':0,'refunded':0,'partial':0,
+                       'other':0,'paidUnits':2}})
+        self.page.select_option('#fPer','all')
+        chart=self.page.locator('.tn-evolution svg')
+        self.assertIn('Mar 26',chart.text_content())
+        self.assertIn('Abr 26',chart.text_content())
+        self.assertIn('+50%',chart.text_content())
+        self.assertEqual(0,self.page.locator('.tn-period-values').count())
+
+    def test_monthly_chart_labels_do_not_overlap_each_other_or_the_line(self):
+        self.load()
+        result=self.page.evaluate('''() => {
+          const amounts=[43.1,39.8,28.4,25.9,17.1,24.3,36.9];
+          const counts=[136,112,91,74,73,93,115];
+          const points=amounts.map((v,i)=>({lbl:['Mar','Abr','May','Jun','Jul','Ago','Sep'][i],v:v*1e6,n:counts[i]}));
+          const holder=document.createElement('div');
+          holder.innerHTML=window.__chartSVG(points,{line:true,delta:true,h:265,fmt:window.__chartMoney});
+          document.body.appendChild(holder);
+          const svg=holder.querySelector('svg');
+          const values=[...svg.querySelectorAll('.chart-value-label')];
+          const orders=[...svg.querySelectorAll('.chart-count-label')];
+          const overlap=(a,b)=>a.x<b.x+b.width&&b.x<a.x+a.width&&a.y<b.y+b.height&&b.y<a.y+a.height;
+          const labels=[...values,...orders];
+          const conflicts=[];
+          labels.forEach((a,i)=>labels.slice(i+1).forEach(b=>{
+            if(overlap(a.getBBox(),b.getBBox()))conflicts.push([a.textContent,b.textContent]);
+          }));
+          const path=svg.querySelector('path');
+          const crossings=[];
+          for(let d=0;d<=path.getTotalLength();d+=1){
+            const p=path.getPointAtLength(d);
+            labels.forEach(label=>{
+              const b=label.getBBox();
+              if(p.x>=b.x&&p.x<=b.x+b.width&&p.y>=b.y&&p.y<=b.y+b.height)
+                crossings.push(label.textContent);
+            });
+          }
+          return {values:values.length,orders:orders.length,conflicts,crossings,
+            titles:svg.querySelectorAll('title').length};
+        }''')
+        self.assertEqual(7,result['values'])
+        self.assertEqual(7,result['orders'])
+        self.assertEqual([],result['conflicts'])
+        self.assertEqual([],result['crossings'])
+        self.assertEqual(0,result['titles'])
 
     def test_tiendanube_discount_detail_traces_coupon_and_escapes_code(self):
         self.setup_tn(tn_data={'commerce':{'discountOrders':2,'discountKnown':2,'couponOrders':1,'couponKnown':2,

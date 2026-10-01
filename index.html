@@ -120,10 +120,6 @@ h3{font-size:15px;font-weight:600;margin:0 0 10px}
 .tn-detail table{width:100%;border-collapse:collapse;font-size:12px}
 .tn-detail th,.tn-detail td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
 .tn-detail th:first-child,.tn-detail td:first-child{text-align:left}
-.tn-period-values{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin-top:12px}
-.tn-period-value{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 11px;min-width:0}
-.tn-period-value b{display:block;font-size:12px;margin-bottom:4px}
-.tn-period-value span{display:block;font-size:12px;color:var(--text-secondary);overflow-wrap:anywhere}
 .pend{background:repeating-linear-gradient(135deg,var(--surface-2),var(--surface-2) 10px,var(--surface-1) 10px,var(--surface-1) 20px)}
 .pmsg{font-size:12.5px;color:var(--text-secondary);line-height:1.55}
 code{background:var(--surface-1);border:1px solid var(--border);border-radius:4px;padding:0 4px;font-size:11.5px}
@@ -1162,7 +1158,7 @@ function chartSVG(pts,opt){
   /* W ≈ ancho real de la tarjeta: si el viewBox fuera más angosto, el SVG se escalaría hacia
      arriba y tanto la altura como las tipografías crecerían de más. */
   /* Con opt.delta se reserva una segunda línea abajo para la variación mes contra mes. */
-  const W=1000,H=opt.h||230,pl=74,pr=line?64:24,tp=14,bt=opt.delta?44:28;
+  const W=Math.max(1000,74+(line?64:24)+pts.length*94),H=opt.h||230,pl=74,pr=line?64:24,tp=14,bt=opt.delta?44:28;
   const iw=W-pl-pr, ih=H-tp-bt;
   const rawMaxV=niceMax(Math.max.apply(null,pts.map(p=>p.v).concat([0])));
   const rawMaxN=niceMax(Math.max.apply(null,pts.map(p=>p.n||0).concat([0])));
@@ -1179,19 +1175,47 @@ function chartSVG(pts,opt){
     if(line) g+=`<text x="${pl+iw+9}" y="${(y+4).toFixed(1)}" text-anchor="start" font-size="11.5" fill="${SERIE2}">${n0(maxN*t/4)}</text>`;
   }
   let bars='',lbl='';
-  const lblY=[];   // baseline de cada etiqueta de importe, para que la de órdenes la esquive
+  const countY=[]; // baselines elegidas junto al importe para evitar choques entre las series
   pts.forEach((p,i)=>{
     const h=p.noRate?3:Math.max(2,ih-(yV(p.v)-tp)), y=tp+ih-h, x=cx(i);
-    bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${p.noRate?'#c3ccd6':(opt.barColor||'var(--fill-primary)')}" opacity=".9"><title>${p.lbl}: ${p.noRate?'sin cotización oficial':fmt(p.v)}${line?' · '+n0(p.n)+' órdenes':''}</title></rect>`;
+    bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${p.noRate?'#c3ccd6':(opt.barColor||'var(--fill-primary)')}" opacity=".9"/>`;
     /* Con línea, el importe se mete DENTRO de la columna (blanco) para dejarle la franja de arriba
        al nº de órdenes. Sólo si entra: alto suficiente y el texto más angosto que la columna
        (~6,4px por carácter a 12px), si no se desborda por los costados. */
     const txt=p.noRate?'🚧':fmt(p.v);
-    const inside=line&&!p.noRate&&h>30&&txt.length*6.4<=bw-8;
-    lblY[i]=inside?y+17:y-7;
+    let inside=line&&!p.noRate&&h>30&&txt.length*6.4<=bw-8;
+    let labelY=inside?y+17:y-7;
+    if(line){
+      const pointY=yN(p.n||0);
+      /* La curva puede cruzar el importe aun si las dos etiquetas de este mes no se tocan.
+         Reservar su pendiente a ambos lados de la barra, además del punto central. */
+      const slope=Math.max(Math.abs(pointY-yN((pts[i-1]||p).n||0)),
+        Math.abs(pointY-yN((pts[i+1]||p).n||0)))*Math.max(48,txt.length*3.7)/band;
+      const values=[
+        {y:y+17,inside:true},
+        {y:pointY+slope+22,inside:true},
+        {y:pointY+slope+34,inside:true},
+        {y:pointY+slope+50,inside:true},
+        {y:pointY+slope+68,inside:true},
+        {y:pointY-slope-10,inside:true},
+        {y:y-8,inside:false},
+        {y:Math.min(y-8,pointY-slope-12),inside:false},
+        {y:Math.min(y-8,pointY-slope-28),inside:false}
+      ];
+      const counts=[pointY-slope-14,pointY-slope-31,pointY+slope+23,pointY+slope+40];
+      const validValue=c=>{
+        if(c.inside&&(!inside||c.y<y+15||c.y>tp+ih-5))return false;
+        if(!c.inside&&(c.y>y-7||c.y<tp+10))return false;
+        return c.y<=pointY-slope-8||c.y>=pointY+slope+20;
+      };
+      const pair=values.flatMap(v=>counts.map(c=>({v,c}))).find(({v,c})=>
+        validValue(v)&&c>=tp+11&&c<=tp+ih-4&&Math.abs(v.y-c)>=22);
+      if(pair){inside=pair.v.inside;labelY=pair.v.y;countY[i]=pair.c;}
+      else countY[i]=Math.max(tp+11,Math.min(tp+ih-4,counts[0]>=tp+11?counts[0]:counts[2]));
+    }
     if(opt.values!==false)lbl+=inside
-      ? `<text x="${x.toFixed(1)}" y="${lblY[i].toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">${txt}</text>`
-      : `<text x="${x.toFixed(1)}" y="${lblY[i].toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-secondary)" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${txt}</text>`;
+      ? `<text class="chart-value-label" x="${x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="#fff" stroke="${opt.barColor||'var(--fill-primary)'}" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${txt}</text>`
+      : `<text class="chart-value-label" x="${x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-secondary)" stroke="#fff" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${txt}</text>`;
     lbl+=`<text x="${x.toFixed(1)}" y="${((opt.delta?H-24:H-8)).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--text-muted)">${p.lbl}</text>`;
     /* Variación contra el mes anterior, debajo del nombre del mes. Se omite en el primer mes (no
        tiene con qué comparar) y en los meses sin cotización, donde el valor es 0 por falta de dato
@@ -1209,16 +1233,11 @@ function chartSVG(pts,opt){
     const lp=pts.map((p,i)=>[cx(i),yN(p.n||0)]);
     if(lp.length>1) ln+=`<path d="${smoothPath(lp)}" fill="none" stroke="${SERIE2}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
     lp.forEach((q,i)=>{
-      ln+=`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="3.8" fill="${SERIE2}" stroke="#fff" stroke-width="1.8"><title>${pts[i].lbl}: ${n0(pts[i].n)} órdenes</title></circle>`;
-      /* Arriba del punto por defecto; si ahí se superpondría con la etiqueta de importe, se pasa
-         abajo. Halo blanco para leerse igual sobre una columna oscura. */
-      let ly=q[1]-14;                                   // separación suficiente para que la propia
-      if(Math.abs(ly-lblY[i])<16) ly=q[1]+20;           // línea no cruce el texto al venir en pendiente
-      ly=Math.max(tp+10,Math.min(tp+ih-4,ly));
-      if(opt.values!==false)ln+=`<text x="${q[0].toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${SERIE2}" stroke="#fff" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
+      ln+=`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="3.8" fill="${SERIE2}" stroke="#fff" stroke-width="1.8"/>`;
+      if(opt.values!==false)ln+=`<text class="chart-count-label" x="${q[0].toFixed(1)}" y="${countY[i].toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${SERIE2}" stroke="#fff" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
     });
   }
-  return `<div class="chartbox"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opt.aria||'Gráfico por mes'}">${g}${bars}${ln}${lbl}</svg></div>`;
+  return `<div class="chartbox"><svg viewBox="0 0 ${W} ${H}" style="min-width:${Math.max(760,W)}px" role="img" aria-label="${opt.aria||'Gráfico por mes'}">${g}${bars}${ln}${lbl}</svg></div>`;
 }
 const legendHTML=items=>'<div class="legend">'+items.map(x=>
   `<span><i class="sw${x.line?' sw--line':''}" style="background:${x.c}"></i>${x.t}</span>`).join('')+'</div>';
@@ -1268,9 +1287,9 @@ function renderTnEvolution(A,data,amounts,range){
   const evolution=tnEvolution(data,range),groups=evolution.groups,moneyComplete=amounts.total!==null;
   const points=groups.map(g=>({lbl:g.label,v:moneyComplete?g.amount:g.paid,n:g.paid}));
   sec(A,'Evolución de pedidos pagados');
-  const visible='<div class="tn-period-values" aria-label="Valores exactos por período">'+groups.map(g=>`<div class="tn-period-value"><b>${tnEscape(g.label)}</b><span>${n0(g.paid)} ${g.paid===1?'pedido pagado':'pedidos pagados'}</span><span>${g.amount===null?'Importe sin dato completo':tnMoneyExact(g.amount)} de importe</span></div>`).join('')+'</div>';
   const detail='<details class="evo-detail"><summary>Ver detalle de importes, pedidos y ticket promedio</summary><div class="tn-detail"><table><thead><tr><th>Período</th><th>Creados</th><th>Pagados</th><th>Importe ('+CUR+')</th><th>Ticket promedio ('+CUR+')</th></tr></thead><tbody>'+groups.map(g=>`<tr><td>${fmtFecha(g.from)}${g.to!==g.from?' a '+fmtFecha(g.to):''}</td><td>${n0(g.orders)}</td><td>${n0(g.paid)}</td><td>${g.amount===null?'Sin dato completo':tnMoneyExact(g.amount)}</td><td>${!g.paid?'Sin pedidos pagados':g.amount===null?'Sin dato completo':tnMoneyExact(g.amount/g.paid)}</td></tr>`).join('')+'</tbody></table></div></details>';
-  A.appendChild(el('<div class="card tn-evolution"><div class="pmsg">Por '+evolution.mode+' · fecha de creación del pedido. Incluye los días sin pedidos; los extremos del período pueden ser parciales.</div>'+chartSVG(points,{fmt:moneyComplete?money:n0,line:moneyComplete,integerCounts:true,integerValues:!moneyComplete,values:false,aria:'Evolución de pedidos pagados de Tiendanube'})+legendHTML(moneyComplete?[{t:'Importe de pedidos pagados ('+CUR+')',c:'var(--fill-primary)'},{t:'Pedidos pagados',c:SERIE2,line:true}]:[{t:'Pedidos pagados · importe sin datos completos',c:'var(--fill-primary)'}])+visible+detail+'</div>'));
+  const comparison='<div class="cmpnote">Debajo de cada período, variación '+(moneyComplete?'del importe':'de los pedidos pagados')+' respecto del anterior. Los extremos del rango pueden ser parciales.</div>';
+  A.appendChild(el('<div class="card tn-evolution"><div class="pmsg">Por '+evolution.mode+' · fecha de creación del pedido. Incluye los días sin pedidos; los extremos del período pueden ser parciales.</div>'+chartSVG(points,{fmt:moneyComplete?money:n0,line:moneyComplete,delta:true,h:265,integerCounts:true,integerValues:!moneyComplete,values:true,aria:'Evolución de pedidos pagados de Tiendanube'})+legendHTML(moneyComplete?[{t:'Importe de pedidos pagados ('+CUR+')',c:'var(--fill-primary)'},{t:'Pedidos pagados',c:SERIE2,line:true}]:[{t:'Pedidos pagados · importe sin datos completos',c:'var(--fill-primary)'}])+comparison+detail+'</div>'));
 }
 function tnCaseAmount(value,date){
   if(value===null||value===undefined)return 'Sin dato';
