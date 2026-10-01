@@ -1413,34 +1413,62 @@ function montoObjetivo(ars,mes=mesHoy()){
   const r=tasaObjetivo(mes);
   return r?moneyFull(ars/r):'Sin cotización';
 }
-function notaObjetivo(){
-  if(CUR==='USD'&&!tasaObjetivo()) return 'Sin cotización disponible para mostrar objetivos en USD.';
-  return CUR==='USD'?`Montos con IVA en USD · referencia: ARS ${n0(tasaObjetivo())} por USD. Cumplimiento calculado en ARS.`:'Montos con IVA en ARS.';
+function notaObjetivo(mes){
+  if(CUR==='USD'&&!tasaObjetivo(mes)) return 'Sin cotización disponible para mostrar objetivos en USD.';
+  const moneda=CUR==='USD'?`Montos con IVA en USD · referencia: ARS ${n0(tasaObjetivo(mes))} por USD. Cumplimiento calculado en ARS.`:'Montos con IVA en ARS.';
+  return moneda+' Ventas del período seleccionado contra el objetivo mensual completo.';
 }
-function ventasDelMes(venIdx){
-  const d=RAW.dict||{}, mi=(d.MON||[]).indexOf(mesHoy());
+function ventasDelMes(venIdx,mes){
+  const d=RAW.dict||{}, mi=(d.MON||[]).indexOf(mes);
   if(mi<0) return 0;
   let t=0;
-  (RAW.O||[]).forEach(o=>{ if(o[0]===mi&&(venIdx==null||o[1]===venIdx)) t+=o[6]; });
+  (RAW.O||[]).forEach(o=>{
+    if(o[0]===mi&&(venIdx==null||o[1]===venIdx)&&(F.can===''||o[2]==F.can)
+      &&(!HASDAY||((F.from===null||o[7]>=F.from)&&(F.to===null||o[7]<=F.to)))) t+=o[6];
+  });
   return t;
 }
-function barraCumpl(rot,vendido,objetivo){
+function barraCumpl(rot,vendido,objetivo,mes){
   const p=objetivo?Math.round(100*vendido/objetivo):0;
   const color=p>=100?'#2f7d4f':p>=70?'#4a6da8':'#8a6a1f';
   const falta=Math.max(0,objetivo-vendido);
   return `<div class="objbar">
     <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;margin-bottom:4px">
-      <span>${rot}</span><b>${p}% <span style="color:var(--text-muted);font-weight:400">de ${montoObjetivo(objetivo)}</span></b></div>
+      <span>${rot}</span><b>${p}% <span style="color:var(--text-muted);font-weight:400">de ${montoObjetivo(objetivo,mes)}</span></b></div>
     <div class="objtrack"><div class="objfill" style="width:${Math.min(100,p)}%;background:${color}"></div></div>
-    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Vendido ${montoObjetivo(vendido)}${
-      falta>0?' · faltan '+montoObjetivo(falta):' · objetivo cumplido'}</div></div>`;
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Vendido ${montoObjetivo(vendido,mes)}${
+      falta>0?' · faltan '+montoObjetivo(falta,mes):' · objetivo cumplido'}</div></div>`;
+}
+const OBJETIVOS_MES=new Map([[OBJETIVO.mes||(RAW.meta.today||BUSINESS_TODAY).slice(0,7),{datos:OBJETIVO}]]);
+function mesesObjetivoPeriodo(){
+  const inicio=offToDate(F.from===null?MINOFF:F.from), fin=offToDate(F.to===null?MAXOFF:F.to), meses=[];
+  if(inicio>fin) return meses;
+  for(let i=inicio.getUTCFullYear()*12+inicio.getUTCMonth();i<=fin.getUTCFullYear()*12+fin.getUTCMonth();i++){
+    meses.push(new Date(Date.UTC(Math.floor(i/12),i%12,1)).toISOString().slice(0,7));
+  }
+  return meses;
 }
 function barraObjetivo(){
-  const mes=mesLegible(mesHoy());
+  return mesesObjetivoPeriodo().map(mes=>{
+    if(!OBJETIVOS_MES.has(mes)){
+      const estado={cargando:true}; OBJETIVOS_MES.set(mes,estado);
+      api('objetivos',{token:USER.token,mes}).then(r=>{
+        if(!r||!r.ok||r.mes!==mes) throw new Error('objetivos');
+        estado.datos=esVendedora()?{mio:r.mio}:{empresa:0,vendedoras:{},...r.objetivos};
+      }).catch(()=>{estado.error=true;}).finally(()=>{estado.cargando=false;if(VISTA==='tablero')go();});
+    }
+    const estado=OBJETIVOS_MES.get(mes);
+    if(estado.cargando||estado.error) return `<div class="card" style="margin-bottom:12px"><h3>Objetivo de ${mesLegible(mes)}</h3><div class="pmsg">${estado.error?'No pudimos cargar los objetivos de este mes. Recargá para reintentar.':'Cargando objetivos…'}</div></div>`;
+    return barraObjetivoMes(mes,estado.datos);
+  }).join('');
+}
+function barraObjetivoMes(mesKey,OBJETIVO){
+  const mes=mesLegible(mesKey);
+  const ventas=i=>ventasDelMes(i,mesKey), barra=(rot,v,o)=>barraCumpl(rot,v,o,mesKey), nota=()=>notaObjetivo(mesKey);
   if(esVendedora()){
     if(!OBJETIVO.mio) return '';
     return `<div class="card" style="margin-bottom:12px"><h3>Tu objetivo de ${mes}</h3>${
-      barraCumpl('Tus ventas del mes',ventasDelMes(0),OBJETIVO.mio)}<div class="pmsg">${notaObjetivo()}</div></div>`;
+      barra('Tus ventas del mes',ventas(0),OBJETIVO.mio)}<div class="pmsg">${nota()}</div></div>`;
   }
   if(!esDireccion()) return '';
   const porVen=Object.keys(OBJETIVO.vendedoras||{}).filter(k=>OBJETIVO.vendedoras[k]>0);
@@ -1451,16 +1479,16 @@ function barraObjetivo(){
     const i=Number(F.ven), nom=(d.VEN||[])[i], objetivo=OBJETIVO.vendedoras[nom]||0;
     if(!objetivo) return '';
     return `<div class="card" style="margin-bottom:12px"><h3>Objetivo de ${nom} · ${mes}</h3>${
-      barraCumpl(nom,ventasDelMes(i),objetivo)}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${notaObjetivo()}</div></div>`;
+      barra(nom,ventas(i),objetivo)}<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${nota()}</div></div>`;
   }
   const detalle=porVen.map(nom=>{
     const i=(d.VEN||[]).indexOf(nom);
-    return barraCumpl(nom,i<0?0:ventasDelMes(i),OBJETIVO.vendedoras[nom]);
+    return barra(nom,i<0?0:ventas(i),OBJETIVO.vendedoras[nom]);
   }).join('');
   return `<div class="card" style="margin-bottom:12px"><h3>Objetivo de ${mes}</h3>${
-    OBJETIVO.empresa?barraCumpl('<b>Toda la empresa</b>',ventasDelMes(null),OBJETIVO.empresa):''}${
+    OBJETIVO.empresa?barra('<b>Toda la empresa</b>',ventas(null),OBJETIVO.empresa):''}${
     detalle?`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">${detalle}</div>`:''}
-    <div style="font-size:11px;color:var(--text-muted);margin-top:8px">${notaObjetivo()} Se cargan desde <b>Configuración</b>.</div></div>`;
+    <div style="font-size:11px;color:var(--text-muted);margin-top:8px">${nota()} Se cargan desde <b>Configuración</b>.</div></div>`;
 }
 
 /* ===== CONFIGURACIÓN (sólo Dirección) =====================================================
@@ -1471,12 +1499,18 @@ let VISTA='tablero';
 let CFG={usuarios:null,mes:'',objetivos:null,cargando:false};
 
 const mesLegible=m=>{const p=String(m).split('-');return p.length===2?MES[+p[1]-1]+' '+p[0]:m;};
-function mesHoy(){ return (RAW.meta&&RAW.meta.today?RAW.meta.today:new Date().toISOString()).slice(0,7); }
-/* Meses ofrecidos para cargar objetivos: el actual y los tres siguientes. Cargar el objetivo de
-   un mes ya cerrado no cambia nada, y ofrecerlo sólo invita a corregir el pasado. */
+function mesHoy(){ return BUSINESS_TODAY.slice(0,7); }
+/* Conservar el historial desde 2026 (o antes, si hay datos), incluso al cambiar de año
+   o si el dataset se recorta. Incluir meses sin ventas y los tres próximos. */
 function mesesCargables(){
-  const [y,m]=mesHoy().split('-').map(Number), out=[];
-  for(let i=0;i<4;i++){ const d=new Date(Date.UTC(y,m-1+i,1)); out.push(d.toISOString().slice(0,7)); }
+  const hoy=mesHoy(), meta=RAW.meta||{};
+  const inicio=['2026-01',hoy,CFG.mes,meta.day0,meta.dateFrom,...(RAW.dict.MON||[])]
+    .filter(Boolean).map(m=>String(m).slice(0,7))
+    .filter(m=>/^\d{4}-(0[1-9]|1[0-2])$/.test(m)).sort()[0];
+  const [y,m]=hoy.split('-').map(Number), [iy,im]=inicio.split('-').map(Number), out=[];
+  for(let i=iy*12+im-1;i<=y*12+m-1+3;i++){
+    out.push(new Date(Date.UTC(Math.floor(i/12),i%12,1)).toISOString().slice(0,7));
+  }
   return out;
 }
 
@@ -1487,6 +1521,7 @@ async function cargarConfig(mes){
   CFG.usuarios=(u&&u.usuarios)||[];
   CFG.mes=(o&&o.mes)||mes;
   CFG.objetivos=(o&&o.objetivos)||{empresa:0,vendedoras:{}};
+  if(o&&o.ok) OBJETIVOS_MES.set(CFG.mes,{datos:{...CFG.objetivos,vendedoras:{...CFG.objetivos.vendedoras}}});
   CFG.cargando=false; go();
 }
 
@@ -1548,6 +1583,7 @@ function renderConfig(A){
     if(r&&r.ok){
       // Usamos lo que el servidor releyó de la hoja, no los valores todavía presentes en pantalla.
       CFG.objetivos=r.objetivos||{empresa:0,vendedoras:{}};
+      OBJETIVOS_MES.set(CFG.mes,{datos:{...CFG.objetivos,vendedoras:{...CFG.objetivos.vendedoras}}});
       // Si se cambió el objetivo del mes en curso, el tablero tiene que reflejarlo al volver.
       if(CFG.mes===mesHoy()){
         OBJETIVO.empresa=CFG.objetivos.empresa;
@@ -1622,10 +1658,7 @@ function render(A,D,PREV){
   if(F.can!=='') chips.push('Canal: <b>'+d.CAN[Number(F.can)]+'</b>');
   A.appendChild(el(`<div class="periodbar">${ICO.cal}<span><b>${rangeLabel()}</b>${chips.length?' · '+chips.join(' · '):''}</span></div>`));
 
-  /* Cumplimiento del objetivo del MES EN CURSO. Va antes del corte por "sin ventas en el período"
-     y se calcula sobre el mes corriente sin mirar el filtro: es un indicador de cómo viene el mes,
-     no del recorte que esté mirando la persona. Si eso no fuera así, elegir "mes anterior" en el
-     filtro mostraría un cumplimiento del mes pasado contra el objetivo del actual. */
+  /* Cada mes del período usa su propia meta y las ventas que pasan los filtros. */
   const barra=barraObjetivo();
   if(barra) A.appendChild(el(barra));
 

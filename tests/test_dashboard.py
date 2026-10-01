@@ -53,7 +53,7 @@ class DashboardTests(unittest.TestCase):
         self.context.close()
         self.assertEqual([], self.errors)
 
-    def load(self, raw=None, seller=False, objective=None):
+    def load(self, raw=None, seller=False, objective=None, goals_by_month=None):
         raw = copy.deepcopy(raw if raw is not None else RAW)
         if seller:
             for key in ('O', 'L', 'P', 'C'):
@@ -75,7 +75,9 @@ class DashboardTests(unittest.TestCase):
                 if payload['op'] == 'usuarios':
                     result = {'ok': True, 'usuarios': [{'rol': 'vendedora', 'activo': True, 'vendedora': 'Ana', 'nombre': 'Ana', 'usuario': 'ana'}]}
                 elif payload['op'] == 'objetivos':
-                    result = {'ok': True, 'mes': '2026-09', 'objetivos': objective or {}}
+                    month = payload.get('mes') or raw['meta']['today'][:7]
+                    goals = (goals_by_month or {}).get(month, objective) or {}
+                    result = {'ok': True, 'mes': month, 'objetivos': {'empresa': 0, 'vendedoras': {}, **goals}, 'mio': goals.get('mio', 0)}
                 elif payload['op'] == 'guardarObjetivos':
                     self.saved_goals = payload['filas']
                     result = {'ok': True, 'objetivos': {'empresa': payload['filas'][0]['objetivo'], 'vendedoras': {'Ana': payload['filas'][1]['objetivo']}}}
@@ -470,6 +472,102 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('25%', text)
         self.assertIn('Sin cotización', text)
         self.assertNotIn('US$ 0', text)
+
+    def test_objective_history_loads_september_after_october_rollover(self):
+        self.page.clock.set_fixed_time(datetime(2026, 10, 1, 15, tzinfo=timezone.utc))
+        raw = copy.deepcopy(RAW)
+        raw['meta']['today'] = '2026-10-01'
+        self.load(raw, objective={'empresa': 9000, 'vendedoras': {'Ana': 5000}},
+                  goals_by_month={'2026-09': {'empresa': 6000, 'vendedoras': {'Ana': 4000}}})
+        self.page.click('#btnCfg')
+        self.page.locator('#ob_empresa').wait_for()
+        self.assertEqual('2026-10', self.page.locator('#cfgMes').input_value())
+        self.assertEqual('9000', self.page.locator('#ob_empresa').input_value())
+        self.page.select_option('#cfgMes', '2026-09')
+        self.page.wait_for_function("document.getElementById('ob_empresa')?.value === '6000'")
+        self.assertEqual('2026-09', self.page.locator('#cfgMes').input_value())
+        self.assertEqual('4000', self.page.locator('#ob_Ana').input_value())
+        self.page.select_option('#cfgMes', '2026-10')
+        self.page.wait_for_function("document.getElementById('ob_empresa')?.value === '9000'")
+        self.assertIsNone(self.saved_goals)
+
+    def test_period_loads_historical_objectives_sales_and_exchange_rate(self):
+        self.page.clock.set_fixed_time(datetime(2026, 10, 1, 15, tzinfo=timezone.utc))
+        raw = copy.deepcopy(RAW)
+        raw['meta']['today'] = '2026-10-01'
+        raw['rateMon']['2026-10'] = 2000
+        self.load(raw, objective={'empresa': 9000, 'vendedoras': {'Ana': 5000}},
+                  goals_by_month={'2026-09': {'empresa': 6000, 'vendedoras': {'Ana': 4000}}})
+        self.page.select_option('#fPer', 'lastmon')
+        self.page.wait_for_function("document.querySelector('.objbar')?.textContent.includes('6.000')")
+        self.assertIn('Objetivo de Sep 2026', self.text())
+        self.assertIn('50% de $ 6.000', self.page.locator('.objbar').first.inner_text())
+        self.assertIn('Vendido $ 3.000', self.page.locator('.objbar').first.inner_text())
+        self.page.click('[data-cur="USD"]')
+        self.assertIn('50% de US$ 6', self.page.locator('.objbar').first.inner_text())
+        self.page.select_option('#fVen', '0')
+        self.assertIn('25% de US$ 4', self.page.locator('.objbar').inner_text())
+        self.page.select_option('#fPer', 'mtd')
+        self.assertIn('Oct 2026', self.text())
+        self.assertIn('0% de US$ 3', self.page.locator('.objbar').inner_text())
+
+    def test_seller_period_uses_own_historical_goal(self):
+        self.page.clock.set_fixed_time(datetime(2026, 10, 1, 15, tzinfo=timezone.utc))
+        raw = copy.deepcopy(RAW)
+        raw['meta']['today'] = '2026-10-01'
+        self.load(raw, seller=True, objective={'mio': 9000},
+                  goals_by_month={'2026-09': {'mio': 4000}})
+        self.page.select_option('#fPer', 'lastmon')
+        self.page.wait_for_function("document.querySelector('.objbar')?.textContent.includes('4.000')")
+        self.assertIn('Tu objetivo de Sep 2026', self.text())
+        self.assertIn('25% de $ 4.000', self.page.locator('.objbar').inner_text())
+
+    def test_multimonth_period_keeps_goals_separate_and_respects_partial_dates(self):
+        self.page.clock.set_fixed_time(datetime(2026, 10, 15, 15, tzinfo=timezone.utc))
+        raw = copy.deepcopy(RAW)
+        raw['meta'].update(today='2026-10-15', maxDate='2026-10-15')
+        raw['dict']['MON'].append('2026-10')
+        raw['O'].append([1, 0, 0, 0, 0, 0, 900, 31, 1, 103, 503])
+        self.load(raw, objective={'empresa': 9000, 'vendedoras': {}},
+                  goals_by_month={'2026-09': {'empresa': 6000, 'vendedoras': {}}})
+        self.page.select_option('#fPer', 'all')
+        self.page.wait_for_function("document.querySelectorAll('.objbar').length === 2")
+        self.assertIn('50% de $ 6.000', self.page.locator('.objbar').nth(0).inner_text())
+        self.assertIn('10% de $ 9.000', self.page.locator('.objbar').nth(1).inner_text())
+        self.page.select_option('#fPer', 'custom')
+        self.page.locator('#fFrom').fill('2026-09-12')
+        self.page.locator('#fFrom').dispatch_event('change')
+        self.page.locator('#fTo').fill('2026-09-30')
+        self.page.locator('#fTo').dispatch_event('change')
+        self.assertEqual(1, self.page.locator('.objbar').count())
+        self.assertIn('33% de $ 6.000', self.page.locator('.objbar').inner_text())
+
+    def test_period_without_goal_does_not_reuse_current_goal(self):
+        self.page.clock.set_fixed_time(datetime(2026, 10, 1, 15, tzinfo=timezone.utc))
+        raw = copy.deepcopy(RAW)
+        raw['meta']['today'] = '2026-10-01'
+        self.load(raw, objective={'empresa': 9000, 'vendedoras': {}},
+                  goals_by_month={'2026-09': {}})
+        self.page.select_option('#fPer', 'lastmon')
+        self.page.wait_for_function("!document.getElementById('app').textContent.includes('Cargando objetivos')")
+        self.assertEqual(0, self.page.locator('.objbar').count())
+
+    def test_objective_history_survives_new_year_and_months_without_sales(self):
+        self.page.clock.set_fixed_time(datetime(2027, 1, 1, 15, tzinfo=timezone.utc))
+        raw = copy.deepcopy(RAW)
+        raw['meta']['today'] = '2027-01-01'
+        raw['meta']['day0'] = '2025-11-01'
+        self.load(raw)
+        self.page.click('#btnCfg')
+        self.page.locator('#cfgMes').wait_for()
+        months = self.page.locator('#cfgMes option').evaluate_all('(options) => options.map(o => o.value)')
+        self.assertEqual('2025-11', months[0])
+        self.assertIn('2025-12', months)
+        self.assertIn('2026-09', months)
+        self.assertIn('2026-12', months)
+        self.assertEqual('2027-04', months[-1])
+        self.assertEqual(len(months), len(set(months)))
+        self.assertEqual('2027-01', self.page.locator('#cfgMes').input_value())
 
     def test_usd_objective_editor_saves_ars_and_keeps_draft_when_toggling(self):
         self.load(objective={'empresa': 6000, 'vendedoras': {'Ana': 4000}})

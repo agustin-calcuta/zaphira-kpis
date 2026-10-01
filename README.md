@@ -62,6 +62,8 @@ El selector ARS/USD también convierte objetivos, ventas del mes y saldo pendien
 
 Configuración muestra y permite editar objetivos en la moneda seleccionada. Los objetivos se guardan siempre en ARS; cambiar de moneda conserva el borrador y no modifica los valores guardados. Sin cotización, se indica la falta del dato y se bloquea la edición en USD.
 
+El filtro de período carga los objetivos de los meses seleccionados. Cada mes compara sus ventas filtradas con su objetivo mensual completo y usa su propia cotización de referencia. Los rangos de varios meses muestran el cumplimiento por mes. Configuración conserva los meses históricos desde enero de 2026 (o antes si hay datos), incluidos meses sin ventas, y permite cargar los tres próximos meses.
+
 ## Perfil de vendedora
 
 Muestra sus KPI y objetivo, evolución mensual de ventas con detalle colapsado, flujo de oportunidades, prendas vendidas, ticket promedio, provincias y tipos de producto. Conserva fecha, ARS/USD, PDF y Excel. No muestra configuración, rankings, comparativas entre personas, canales ni comparativo interanual.
