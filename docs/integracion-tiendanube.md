@@ -28,13 +28,14 @@ Tiendanube es una opción del selector **Canal**, disponible para Dirección; no
 | Descuentos aplicados | Suma del campo `discount` de pedidos con pago completo no cancelados; ya están descontados del total del pedido, no se restan nuevamente |
 | Pedidos con descuento | Pedidos pagados con `discount > 0`; porcentaje sobre pedidos con ese campo válido, con cobertura explícita |
 | Pedidos con cupón | Pedidos pagados con `coupon_id` válido; `null` significa sin cupón, campo ausente significa sin dato |
+| Cupones y descuentos por pedido | Sólo pedidos pagados no cancelados con cupón o descuento; muestra número/ID de pedido, fecha, código si está disponible, descuento total y componente atribuido al cupón. No incluye datos del comprador |
 | Medios / proveedores de pago | Cantidad y participación de pedidos pagados por `gateway_name` o `gateway`; `internal` se presenta como marcado manualmente |
 | Estado de envío | Estado actual de los pedidos pagados del período; se separan los no físicos y los estados desconocidos |
 | Pagados sin despacho completo | Estados `unpacked`, `unshipped`, `partially_packed` o `partially_fulfilled`, excluyendo pedidos sin productos físicos; se destaca cuántos tienen al menos 7 × 24 horas desde su creación |
 | Checkouts abandonados | Disponibles al momento de consultar, creados en el período y sin `completed_at`; cobertura explícita |
 | Visitas y comportamiento | Pendientes de integración; TN ofrece su panel y exportación, GA4 es una alternativa; no se muestran como cero |
 
-Las fechas corresponden a la creación del pedido en Argentina; sus estados son los actuales. ARS es la moneda fuente. La conversión a USD reutiliza las cotizaciones históricas del dashboard; ante importes o cotizaciones faltantes no se presenta un total parcial como completo. En ese caso el gráfico muestra sólo cantidades y la tabla identifica los importes incompletos. Se incluyen días sin pedidos; los bloques de 7 días parten del inicio del filtro y el último puede ser parcial. El origen `mobile` se conserva según Tiendanube, sin inferir el dispositivo del comprador. En esta vista no se muestran objetivos de empresa/vendedoras ni CRM; se conservan en Odoo.
+Las fechas corresponden a la creación del pedido en Argentina; sus estados son los actuales. ARS es la moneda fuente. La conversión a USD reutiliza las cotizaciones históricas del dashboard; ante importes o cotizaciones faltantes no se presenta un total parcial como completo. En ese caso el gráfico muestra sólo cantidades y la tabla identifica los importes incompletos. Se incluyen días sin pedidos; los bloques de 7 días parten del inicio del filtro y el último puede ser parcial. Los importes exactos y la cantidad de pedidos pagados de cada bloque están siempre visibles debajo del gráfico. `store` significa pedido creado en la tienda y `form` significa pedido creado desde un borrador en el panel administrador, según la documentación de Tiendanube. El origen `mobile` se conserva según Tiendanube, cuya documentación no precisa su criterio, sin inferir el dispositivo del comprador. En esta vista no se muestran objetivos de empresa/vendedoras ni CRM; se conservan en Odoo.
 
 Los descuentos también se convierten con la cotización del día de creación y alternativa mensual, sin mostrar sumas parciales como completas. Descuentos y cupones pueden coincidir en un pedido: no son categorías excluyentes. El estado de envío no representa todos los pendientes históricos de la tienda, sólo los pedidos creados en el rango seleccionado. La antigüedad desde creación no es una medición de retraso respecto de una fecha de entrega prometida.
 
@@ -42,7 +43,7 @@ Los descuentos también se convierten con la cotización del día de creación y
 
 Esta primera versión **consulta al abrir la sección o cambiar el período**, con reutilización de resultados por hasta 5 minutos. El botón Actualizar vuelve a consultar el backend, sujeto a esa misma caché. No se instaló una sincronización programada ni un histórico persistente de Tiendanube. El proceso de Odoo cada 30 minutos sigue siendo independiente.
 
-La caché guarda únicamente agregados, por rango de fechas y credencial; puede conservar el último resultado hasta 6 horas. Si falla una consulta y aún existe ese resultado, la pantalla lo identifica como desactualizado con su fecha y motivo. La caché puede ser desalojada antes por Apps Script: no equivale a una base histórica.
+La caché guarda los agregados y el detalle mínimo de pedidos con cupón o descuento, por rango de fechas y credencial; puede conservar el último resultado hasta 6 horas. Si falla una consulta y aún existe ese resultado, la pantalla lo identifica como desactualizado con su fecha y motivo. La caché puede ser desalojada antes por Apps Script: no equivale a una base histórica. Cuando el resultado supera el límite de tamaño de caché, se consulta de nuevo en vez de guardar un detalle parcial.
 
 La consulta sigue todos los enlaces de paginación del mismo recurso/tienda, deduplica IDs y verifica conteos. Tiene límites de 366 días, 10.000 registros y duración; una consulta incompleta devuelve un error, no un total parcial. Los errores 429 y 5xx tienen reintentos acotados.
 
@@ -50,7 +51,7 @@ Los checkouts están disponibles durante los últimos 30 días y pueden tardar h
 
 ### Permisos y publicación
 
-El backend verifica la firma de la sesión, el rol y que la cuenta de Dirección siga activa antes de leer credenciales o caché. Devuelve agregados sin correos, domicilios ni otros datos de compradores. Las vendedoras no reciben las métricas globales. No se agregó exportación Excel de Tiendanube.
+El backend verifica la firma de la sesión, el rol y que la cuenta de Dirección siga activa antes de leer credenciales o caché. Devuelve agregados y, para los descuentos, sólo número/ID de pedido, fecha, cupón e importes; nunca correos, domicilios ni otros datos de compradores. Las vendedoras no reciben las métricas globales. No se agregó exportación Excel de Tiendanube. Para resolver códigos que no llegan dentro del pedido se consulta el recurso de cupones; si la app no puede leerlo, se conserva el ID del cupón y se muestra "Código no disponible" sin afectar las demás métricas.
 
 Para publicar: incorporar `backend/Tiendanube.gs` al proyecto Apps Script y agregar `case 'tiendanube': return opTiendanube_(d);` al dispatcher de `Usuarios.gs`. Actualizar la versión del deployment existente para conservar la URL de la API. El frontend se publica desde `main` en GitHub Pages.
 

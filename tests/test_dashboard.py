@@ -552,6 +552,32 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('US$ 5', self.page.locator('.tn-evolution table').inner_text())
         self.assertIn('US$ 1', self.page.locator('.tn-commerce').inner_text())
 
+    def test_tiendanube_labels_and_exact_period_values_are_visible_without_hover(self):
+        self.setup_tn(tn_data={'daily':[{'date':'2026-09-15','orders':3,'paid':1,
+                                         'paidTotalArs':5000.75,'missingAmounts':0}]})
+        self.assertIn('Ticket promedio de pedidos pagados',self.text())
+        self.assertIn('Unidades promedio por pedido pagado',self.text())
+        self.assertIn('1 pedido pagado',self.page.locator('.tn-period-values').inner_text())
+        self.assertIn('$ 5.000,75 de importe',self.page.locator('.tn-period-values').inner_text())
+        self.assertGreater(self.page.locator('.tn-evolution svg text').count(),0)
+        self.assertIn('panel de administración',self.text())
+
+    def test_tiendanube_discount_detail_traces_coupon_and_escapes_code(self):
+        self.setup_tn(tn_data={'commerce':{'discountOrders':2,'discountKnown':2,'couponOrders':1,'couponKnown':2,
+            'awaitingDispatch':0,'awaitingDispatch7Days':0,'shippingKnown':0,
+            'discountDaily':[{'date':'2026-09-15','paid':2,'paidTotalArs':15,'missingAmounts':0}],
+            'providers':[],'shipping':[],
+            'discountCases':[{'orderId':'1','orderNumber':'17','date':'2026-09-15','couponId':'19',
+                'couponCodes':['<img src=x onerror=alert(1)>'],'discountArs':10,'couponDiscountArs':10},
+                {'orderId':'2','orderNumber':'18','date':'2026-09-15','couponId':None,
+                'couponCodes':[],'discountArs':5,'couponDiscountArs':0}]}})
+        self.page.get_by_text('Ver pedidos y códigos de cupón').click()
+        detail=self.page.locator('.tn-detail').last.inner_text()
+        self.assertIn('#17',detail)
+        self.assertIn('Sin cupón',detail)
+        self.assertIn('<img src=x onerror=alert(1)>',detail)
+        self.assertEqual(0,self.page.locator('#app img').count())
+
     def test_tiendanube_month_default_sends_current_range_and_commerce_does_not_double_discount(self):
         self.setup_tn()
         self.assertEqual('mtd',self.page.locator('#fPer').input_value())
@@ -590,9 +616,9 @@ class DashboardTests(unittest.TestCase):
         self.page.locator('.tn-evolution summary').click()
         rows=self.page.locator('.tn-evolution tbody tr')
         self.assertEqual(3, rows.count())
-        self.assertEqual(['0', '0', '$ 0', 'Sin pedidos pagados'], rows.nth(0).locator('td').all_text_contents()[1:])
-        self.assertEqual(['3', '1', '$ 5.000', '$ 5.000'], rows.nth(1).locator('td').all_text_contents()[1:])
-        self.assertEqual(['0', '0', '$ 0', 'Sin pedidos pagados'], rows.nth(2).locator('td').all_text_contents()[1:])
+        self.assertEqual(['0', '0', '$ 0,00', 'Sin pedidos pagados'], rows.nth(0).locator('td').all_text_contents()[1:])
+        self.assertEqual(['3', '1', '$ 5.000,00', '$ 5.000,00'], rows.nth(1).locator('td').all_text_contents()[1:])
+        self.assertEqual(['0', '0', '$ 0,00', 'Sin pedidos pagados'], rows.nth(2).locator('td').all_text_contents()[1:])
         self.assertIn('2 u. · 100%', self.page.locator('.tn-products').inner_text())
 
     def test_tiendanube_missing_currency_rate_hides_incomplete_amount_chart(self):

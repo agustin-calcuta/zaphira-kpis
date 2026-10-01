@@ -120,6 +120,10 @@ h3{font-size:15px;font-weight:600;margin:0 0 10px}
 .tn-detail table{width:100%;border-collapse:collapse;font-size:12px}
 .tn-detail th,.tn-detail td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
 .tn-detail th:first-child,.tn-detail td:first-child{text-align:left}
+.tn-period-values{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin-top:12px}
+.tn-period-value{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 11px;min-width:0}
+.tn-period-value b{display:block;font-size:12px;margin-bottom:4px}
+.tn-period-value span{display:block;font-size:12px;color:var(--text-secondary);overflow-wrap:anywhere}
 .pend{background:repeating-linear-gradient(135deg,var(--surface-2),var(--surface-2) 10px,var(--surface-1) 10px,var(--surface-1) 20px)}
 .pmsg{font-size:12.5px;color:var(--text-secondary);line-height:1.55}
 code{background:var(--surface-1);border:1px solid var(--border);border-radius:4px;padding:0 4px;font-size:11.5px}
@@ -602,6 +606,7 @@ function money(v){
   return sym+' '+Math.round(v).toLocaleString('es-AR');
 }
 function moneyFull(v){return (CUR==='USD'?'US$':'$')+' '+Math.round(v).toLocaleString('es-AR');}
+function tnMoneyExact(v){return (CUR==='USD'?'US$':'$')+' '+v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 const n0=v=>Math.round(v||0).toLocaleString('es-AR');
 /* MULTIYEAR: desde los meses realmente presentes en O (ventas) — no dict.MON, que también junta meses del CRM */
 const MULTIYEAR=(function(){var y={};RAW.O.forEach(o=>{var m=RAW.dict.MON[o[0]];if(/^\d{4}/.test(m))y[m.slice(0,4)]=1;});return Object.keys(y).length>1;})();
@@ -1263,8 +1268,14 @@ function renderTnEvolution(A,data,amounts,range){
   const evolution=tnEvolution(data,range),groups=evolution.groups,moneyComplete=amounts.total!==null;
   const points=groups.map(g=>({lbl:g.label,v:moneyComplete?g.amount:g.paid,n:g.paid}));
   sec(A,'Evolución de pedidos pagados');
-  const detail='<details class="evo-detail"><summary>Ver detalle de importes, pedidos y ticket</summary><div class="tn-detail"><table><thead><tr><th>Período</th><th>Creados</th><th>Pagados</th><th>Importe ('+CUR+')</th><th>Ticket ('+CUR+')</th></tr></thead><tbody>'+groups.map(g=>`<tr><td>${fmtFecha(g.from)}${g.to!==g.from?' a '+fmtFecha(g.to):''}</td><td>${n0(g.orders)}</td><td>${n0(g.paid)}</td><td>${g.amount===null?'Sin dato completo':moneyFull(g.amount)}</td><td>${!g.paid?'Sin pedidos pagados':g.amount===null?'Sin dato completo':moneyFull(g.amount/g.paid)}</td></tr>`).join('')+'</tbody></table></div></details>';
-  A.appendChild(el('<div class="card tn-evolution"><div class="pmsg">Por '+evolution.mode+' · fecha de creación del pedido. Incluye los días sin pedidos; los extremos del período pueden ser parciales.</div>'+chartSVG(points,{fmt:moneyComplete?money:n0,line:moneyComplete,integerCounts:true,integerValues:!moneyComplete,values:false,aria:'Evolución de pedidos pagados de Tiendanube'})+legendHTML(moneyComplete?[{t:'Importe de pedidos pagados ('+CUR+')',c:'var(--fill-primary)'},{t:'Pedidos pagados',c:SERIE2,line:true}]:[{t:'Pedidos pagados · importe sin datos completos',c:'var(--fill-primary)'}])+detail+'</div>'));
+  const visible='<div class="tn-period-values" aria-label="Valores exactos por período">'+groups.map(g=>`<div class="tn-period-value"><b>${tnEscape(g.label)}</b><span>${n0(g.paid)} ${g.paid===1?'pedido pagado':'pedidos pagados'}</span><span>${g.amount===null?'Importe sin dato completo':tnMoneyExact(g.amount)} de importe</span></div>`).join('')+'</div>';
+  const detail='<details class="evo-detail"><summary>Ver detalle de importes, pedidos y ticket promedio</summary><div class="tn-detail"><table><thead><tr><th>Período</th><th>Creados</th><th>Pagados</th><th>Importe ('+CUR+')</th><th>Ticket promedio ('+CUR+')</th></tr></thead><tbody>'+groups.map(g=>`<tr><td>${fmtFecha(g.from)}${g.to!==g.from?' a '+fmtFecha(g.to):''}</td><td>${n0(g.orders)}</td><td>${n0(g.paid)}</td><td>${g.amount===null?'Sin dato completo':tnMoneyExact(g.amount)}</td><td>${!g.paid?'Sin pedidos pagados':g.amount===null?'Sin dato completo':tnMoneyExact(g.amount/g.paid)}</td></tr>`).join('')+'</tbody></table></div></details>';
+  A.appendChild(el('<div class="card tn-evolution"><div class="pmsg">Por '+evolution.mode+' · fecha de creación del pedido. Incluye los días sin pedidos; los extremos del período pueden ser parciales.</div>'+chartSVG(points,{fmt:moneyComplete?money:n0,line:moneyComplete,integerCounts:true,integerValues:!moneyComplete,values:groups.length<=7,aria:'Evolución de pedidos pagados de Tiendanube'})+legendHTML(moneyComplete?[{t:'Importe de pedidos pagados ('+CUR+')',c:'var(--fill-primary)'},{t:'Pedidos pagados',c:SERIE2,line:true}]:[{t:'Pedidos pagados · importe sin datos completos',c:'var(--fill-primary)'}])+visible+detail+'</div>'));
+}
+function tnCaseAmount(value,date){
+  if(value===null||value===undefined)return 'Sin dato';
+  const conversion=CUR==='USD'?(RAW.rateDay[isoToOff(date)]||RAW.rateMon[date.slice(0,7)]||0):1;
+  return conversion?tnMoneyExact(value/conversion):'Sin cotización';
 }
 function renderTnCommerce(A,data){
   if(!data.commerce)return; // Compatible durante el despliegue gradual del backend.
@@ -1280,6 +1291,13 @@ function renderTnCommerce(A,data){
   ];
   sec(A,'Pagos, descuentos y envíos');
   A.appendChild(el('<div class="card tn-commerce"><div class="pmsg" style="margin-bottom:12px">Pedidos creados en el período con pago completo y no cancelados. Los descuentos ya están incluidos en el total de ventas; no se restan otra vez.</div><div class="kpis">'+cards.map(([l,v,n])=>`<div class="kpi"><div class="kl">${tnEscape(l)}</div><div class="kv">${tnEscape(v)}</div><div class="ks">${tnEscape(n)}</div></div>`).join('')+'</div>'+(discounts.missing?'<div class="cmpnote">Falta el importe de descuento o la cotización de '+n0(discounts.missing)+' pedidos. No se muestra una suma parcial como completa.</div>':'')+'</div>'));
+  if(Array.isArray(c.discountCases)&&c.discountCases.length){
+    const body=c.discountCases.map(x=>{
+      const code=x.couponCodes?.length?x.couponCodes.join(', '):x.couponId?'Código no disponible (ID '+x.couponId+')':'Sin cupón';
+      return `<tr><td>${tnEscape(x.orderNumber?'#'+x.orderNumber:'ID '+x.orderId)}</td><td>${tnEscape(fmtFecha(x.date))}</td><td>${tnEscape(code)}</td><td>${tnEscape(tnCaseAmount(x.discountArs,x.date))}</td><td>${tnEscape(tnCaseAmount(x.couponDiscountArs,x.date))}</td></tr>`;
+    }).join('');
+    A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Cupones y descuentos por pedido</h3><div class="pmsg">${n0(c.discountCases.length)} pedidos pagados con cupón o descuento. Un descuento puede provenir de una promoción o del medio de pago y no tener cupón. No se incluyen datos del comprador.</div><details class="evo-detail"><summary>Ver pedidos y códigos de cupón</summary><div class="tn-detail"><table><thead><tr><th>Pedido</th><th>Fecha</th><th>Cupón usado</th><th>Descuento total (${CUR})</th><th>Descuento por cupón (${CUR})</th></tr></thead><tbody>${body}</tbody></table></div></details></div>`));
+  }
   const labels={unpacked:'Sin empaquetar',unshipped:'Sin enviar',partially_packed:'Empaquetado parcial',partially_fulfilled:'Despacho parcial',shipped:'Despachados',delivered:'Entregados',not_required:'Sin envío físico',unknown:'Sin estado informado'};
   const box=el('<div class="tn-commerce-charts" style="margin-top:12px"></div>');A.appendChild(box);
   row2(box.firstElementChild,'Medios / proveedores de pago','<div class="pmsg">Cantidad y participación de pedidos pagados por el medio registrado en Tiendanube.</div>'+tnRanking(c.providers.map(p=>({label:p.name,value:p.orders})),paid,'ped.'),
@@ -1322,14 +1340,14 @@ function renderTiendanube(A){
   const cards=[
     ['Importe de pedidos pagados',moneyTN(amounts.total),CUR+' · incluye envío y descuentos'],
     ['Pedidos pagados',n0(s.paid),'Sin cancelados ni reembolsados'],
-    ['Ticket de pedidos pagados',s.paid?moneyTN(amounts.total===null?null:amounts.total/s.paid):'Sin pedidos pagados','Importe / pedidos pagados'],
+    ['Ticket promedio de pedidos pagados',s.paid?moneyTN(amounts.total===null?null:amounts.total/s.paid):'Sin pedidos pagados','Importe / pedidos pagados'],
     ['Pedidos creados',n0(s.orders),'Todos los estados'],
     ['Pendientes de pago',n0(s.pending),'Incluye pagos autorizados'],
     ['Cancelados',n0(s.cancelled),'Estado actual del pedido'],
     ['Reembolsados o anulados',n0(s.refunded),'Sin pedidos cancelados'],
     ['Pagos o reembolsos parciales',n0(s.partial),'Fuera del importe pagado'],
     ['Unidades en pedidos pagados',n0(s.paidUnits),'Cantidad de productos'],
-    ['Unidades por pedido pagado',s.paid?(s.paidUnits/s.paid).toLocaleString('es-AR',{maximumFractionDigits:2}):'Sin pedidos pagados','Unidades / pedidos pagados'],
+    ['Unidades promedio por pedido pagado',s.paid?(s.paidUnits/s.paid).toLocaleString('es-AR',{maximumFractionDigits:2}):'Sin pedidos pagados','Unidades / pedidos pagados'],
   ];
   if(s.other)cards.push(['Otros estados',n0(s.other),'Fuera del importe pagado']);
   A.appendChild(el('<div class="kpis">'+cards.map(([l,v,n])=>`<div class="kpi"><div class="kl">${tnEscape(l)}</div><div class="kv">${tnEscape(v)}</div><div class="ks">${tnEscape(n)}</div></div>`).join('')+'</div>'));
@@ -1340,7 +1358,7 @@ function renderTiendanube(A){
   const states=[['Pagados',s.paid,'var(--fill-primary)'],['Pendientes de pago',s.pending,'#b7791f'],['Cancelados',s.cancelled,'#b54747'],['Pagos o reembolsos parciales',s.partial,'#7865a4'],['Reembolsados o anulados',s.refunded,'#64748b'],['Otros estados',s.other,'#94a3b8']].filter(x=>x[1]).map(([label,value,color])=>({label,value,color}));
   const originLabels={store:'Tienda',mobile:'Mobile (según Tiendanube)',form:'Creación manual',api:'Integración',pos:'Punto de venta',meli:'Mercado Libre'};
   const origins=(data.origins||[]).map(o=>({label:originLabels[o.name]||o.name,value:o.orders})).sort((a,b)=>b.value-a.value);
-  row2(A,'Estado actual', '<div class="pmsg">Cantidad y porcentaje sobre todos los pedidos creados. Cada pedido cuenta una sola vez.</div>'+tnRanking(states,s.orders,'ped.'), 'Origen registrado', '<div class="pmsg">Origen de creación de los pedidos; no representa fuentes de tráfico ni dispositivos de los visitantes.</div>'+tnRanking(origins,s.orders,'ped.'));
+  row2(A,'Estado actual', '<div class="pmsg">Cantidad y porcentaje sobre todos los pedidos creados. Cada pedido cuenta una sola vez.</div>'+tnRanking(states,s.orders,'ped.'), 'Origen registrado', '<div class="pmsg">Tienda: pedido creado en la tienda online. Creación manual: pedido generado en el panel de administración a partir de un borrador. Mobile: valor informado por Tiendanube; su documentación no precisa el criterio y no permite afirmar desde aquí qué dispositivo usó el comprador. No son fuentes de tráfico.</div>'+tnRanking(origins,s.orders,'ped.'));
   renderTnCommerce(A,data);
   sec(A,'Productos en pedidos pagados');
   const list=data.products||[];

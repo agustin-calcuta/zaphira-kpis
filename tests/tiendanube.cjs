@@ -77,7 +77,7 @@ test('provider error bodies are never exposed and 404 is not zero records',()=>{
   const {c}=setup({responses:[{code:404,body:{description:'PRIVATE_TOKEN'}}]});
   assert.throws(()=>c.tnList_('orders',{},'secret',Date.now()+10000),error=>!error.message.includes('PRIVATE_TOKEN')&&error.message.includes('no se interpreta'));
 });
-test('successful reports cache aggregates only and reuse cache after authorization',()=>{
+test('successful reports cache scoped data only and reuse cache after authorization',()=>{
   const {c,calls,cache}=setup({responses:[{body:[order(1)],headers:{'x-total-count':'1'}},{body:[],headers:{'x-total-count':'0'}}]});
   const d={token:'session',...range};let out=c.opTiendanube_(d);assert.equal(out.ok,true);assert.equal(out.summary.paid,1);assert.equal(calls.length,2);
   out=c.opTiendanube_(d);assert.equal(out.ok,true);assert.equal(calls.length,2);assert.doesNotMatch([...cache.values()].join(''),/PROVIDER_SECRET|contact_email/);
@@ -93,6 +93,39 @@ test('commercial metrics use only fully paid noncancelled orders within the crea
   assert.equal(out.commerce.discountOrders,1);assert.equal(out.commerce.couponOrders,1);
   assert.equal(out.commerce.discountDaily[0].paidTotalArs,12.5);
   assert.equal(out.commerce.providers[0].orders,1);assert.equal(out.commerce.awaitingDispatch,1);
+});
+test('discount cases identify each paid order, coupon code and non-coupon discount without buyer data',()=>{
+  const {c}=setup();
+  const out=c.tnAggregate_([
+    order(1,'paid',{number:17,discount:'12.50',discount_coupon:'10.00',coupon_id:19,
+      coupon:[{id:19,code:'ARIEL10'}],contact_email:'PRIVATE_BUYER'}),
+    order(2,'paid',{number:18,discount:'5.00',discount_coupon:'0.00',coupon_id:null,coupon:[]}),
+    order(3,'pending',{discount:'15.00',coupon_id:20,coupon:[{code:'NOT_PAID'}]})
+  ],[],range,now);
+  assert.equal(out.commerce.discountCases.length,2);
+  assert.deepEqual(plain(out.commerce.discountCases[0]),{orderId:'2',orderNumber:'18',date:'2026-09-15',
+    couponId:null,couponCodes:[],discountArs:5,couponDiscountArs:0});
+  assert.equal(out.commerce.discountCases[1].couponCodes[0],'ARIEL10');
+  assert.equal(out.commerce.discountCases[1].couponDiscountArs,10);
+  assert.doesNotMatch(JSON.stringify(out),/PRIVATE_BUYER|NOT_PAID/);
+});
+test('coupon catalog resolves codes when the order only includes coupon_id',()=>{
+  const {c,calls}=setup({responses:[{body:[{id:19,code:'PROMO19'}],headers:{'x-total-count':'1'}}]});
+  const orders=[order(1,'paid',{coupon_id:19,coupon:[],discount:'10'})];
+  const codes=c.tnCouponCodeMap_(orders,range,'secret',Date.now()+10000);
+  assert.equal(codes['19'],'PROMO19');
+  assert.match(calls[0].url,/\/coupons\?/);
+  assert.equal(c.tnAggregate_(orders,[],range,now,codes).commerce.discountCases[0].couponCodes[0],'PROMO19');
+});
+test('missing coupon read permission keeps order metrics and marks code unavailable',()=>{
+  const {c}=setup({responses:[{code:403,body:{description:'PRIVATE'}}]});
+  const orders=[order(1,'paid',{coupon_id:19,discount:'10'})];
+  const codes=c.tnCouponCodeMap_(orders,range,'secret',Date.now()+10000);
+  const out=c.tnAggregate_(orders,[],range,now,codes);
+  assert.equal(out.commerce.couponOrders,1);
+  assert.equal(out.commerce.discountCases[0].couponId,'19');
+  assert.deepEqual(plain(out.commerce.discountCases[0].couponCodes),[]);
+  assert.doesNotMatch(JSON.stringify(out),/PRIVATE/);
 });
 test('unknown discount and coupon fields stay distinct from an explicit zero or no coupon',()=>{
   const {c}=setup();const out=c.tnAggregate_([order(1,'paid',{discount:'0.00',coupon_id:null}),order(2,'paid',{discount:null}),order(3,'paid',{discount:'-20',coupon_id:'invalid'})],[],range,now).commerce;
