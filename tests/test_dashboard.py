@@ -559,7 +559,9 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('Unidades promedio por pedido pagado',self.text())
         self.assertIn('1 pedido pagado',self.page.locator('.tn-period-values').inner_text())
         self.assertIn('$ 5.000,75 de importe',self.page.locator('.tn-period-values').inner_text())
-        self.assertGreater(self.page.locator('.tn-evolution svg text').count(),0)
+        self.assertEqual(self.page.locator('.tn-period-value').count(),
+                         self.page.locator('.tn-evolution svg text[text-anchor="middle"]').count(),
+                         'El gráfico debe mostrar sólo períodos; los valores exactos quedan en los cuadros')
         self.assertIn('panel de administración',self.text())
 
     def test_tiendanube_discount_detail_traces_coupon_and_escapes_code(self):
