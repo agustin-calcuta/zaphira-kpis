@@ -66,9 +66,7 @@ class DashboardTests(unittest.TestCase):
         self.saved_goals = None
         self.export_request = None
         def route(request):
-            if request.request.url.startswith('http://dashboard.test'):
-                request.fulfill(status=200, content_type='text/html', body=HTML)
-            elif request.request.url.startswith('https://script.google.com/'):
+            if request.request.url == 'http://dashboard.test/api':
                 self.assertEqual('synthetic-test-token', request.request.post_data_json['token'])
                 payload = request.request.post_data_json
                 result = {'ok': True, 'raw': raw, 'objetivo': objective or {}}
@@ -87,6 +85,8 @@ class DashboardTests(unittest.TestCase):
                 request.fulfill(status=200, content_type='application/json',
                                 headers={'Access-Control-Allow-Origin': '*'},
                                 body=json.dumps(result))
+            elif request.request.url.startswith('http://dashboard.test'):
+                request.fulfill(status=200, content_type='text/html', body=HTML)
             else:
                 request.abort()
         self.context.route('**/*', route)
@@ -660,7 +660,7 @@ class DashboardTests(unittest.TestCase):
                 return
             self.tn_request=payload
             route.fulfill(status=200, content_type='application/json', headers={'Access-Control-Allow-Origin': '*'}, body=json.dumps(data))
-        self.page.route('https://script.google.com/**',handler)
+        self.page.route('http://dashboard.test/api',handler)
         self.page.select_option('#fCan', 'tiendanube')
         self.page.get_by_text('Importe de pedidos pagados',exact=True).wait_for()
 

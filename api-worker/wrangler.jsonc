@@ -1,0 +1,25 @@
+{
+  "name": "zaphira-ventas-calcuta",
+  "main": "./index.mjs",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./public",
+    "run_worker_first": ["/api", "/internal/sync"]
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "zaphira-ventas-calcuta",
+    "database_id": "b56ea771-b107-47f5-b7da-d0c6acdd6bfe"
+  }],
+  "vars": {
+    "ODOO_URL": "https://zaphira.odoo.com",
+    "ODOO_DB": "zaphiraodoo-zaphira-zaphira-17467346",
+    "DATA_FROM": "2026-03-01",
+    "TN_STORE_ID": "1301166"
+  },
+  "triggers": {"crons": ["*/30 * * * *"]},
+  "observability": {"enabled": true, "head_sampling_rate": 1}
+}

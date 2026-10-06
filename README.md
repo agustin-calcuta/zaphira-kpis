@@ -1,22 +1,27 @@
 # Zaphira — KPIs de Ventas
 
-Frontend estático (GitHub Pages) del tablero de KPIs de ventas de Zaphira.
+Tablero de KPIs de ventas de Zaphira, publicado en Cloudflare Workers en
+[zaphira-ventas-calcuta.agustin-5e6.workers.dev](https://zaphira-ventas-calcuta.agustin-5e6.workers.dev/).
+El enlace anterior de GitHub Pages continúa funcionando y consulta la misma API de Cloudflare.
 
 - **Página:** `index.html` — renderiza y agrega todo client-side (filtros, ARS/USD, export).
 - **Acceso:** cada vendedora entra con su usuario y ve **sólo sus ventas**; Dirección ve todo y administra los accesos desde Configuración. El login lo valida el backend, no el navegador: acá no hay ninguna contraseña ni hash.
-- **Datos:** se piden por POST al backend en Google Apps Script (`{op:'data', token}`), que los devuelve **ya recortados por vendedora** y sincroniza con Odoo cada 30 min. Acá no hay credenciales ni datos versionados.
+- **Datos:** se piden por POST al Worker (`{op:'data', token}`), que los devuelve **ya recortados por vendedora** y sincroniza con Odoo cada 30 min. Acá no hay credenciales ni datos versionados.
 - **Export XLSX:** lo genera el mismo backend (`{op:'xlsx', token, …}`), también recortado.
 
-El código fuente del backend vive en el proyecto Apps Script (repo/carpeta `appscript-zaphira`, se deploya con `clasp`).
+El backend vive en [`api-worker`](api-worker/). `node api-worker/build.mjs && wrangler deploy --config api-worker/wrangler.jsonc`
+publica la página, la API y el cron juntos. El acceso existente se migró conservando los hashes,
+las sales y el secreto de sesión; las usuarias mantienen usuario y contraseña.
 
 ## Fuentes y almacenamiento
 
-Verificado en el proyecto Apps Script el 23/09/2026:
+Migrado desde Apps Script el 06/10/2026:
 
 - Odoo aporta las órdenes confirmadas (`sale`/`done`), líneas y oportunidades del CRM.
-- Google Sheets guarda las tablas de auditoría, usuarios, objetivos y cotizaciones.
-- El dataset compacto que consume el dashboard se guarda en fragmentos dentro de Script Properties. Las credenciales de Odoo también viven en propiedades privadas; no deben incorporarse a este repositorio.
-- Este flujo no utiliza Neon ni Cloudflare.
+- Cloudflare D1 guarda usuarios, objetivos y el dataset compacto; la cotización histórica se guarda allí como caché.
+- Las credenciales de Odoo, Tiendanube y la firma de sesiones viven como secretos del Worker, fuera del repositorio.
+- Google Sheets y Apps Script quedan como archivo histórico del tablero. `Postventa.gs` es un proceso separado que alimenta la planilla de incidencias de Denise y no forma parte de esta API.
+- El dataset ocupa cerca de 0,5 MB. Una actualización escribe aproximadamente 60 fragmentos cada 30 minutos y cada carga lee esos fragmentos; no hace falta Neon para este volumen.
 
 ## Indicadores según los filtros
 
@@ -47,11 +52,12 @@ Las tablas de evolución mensual se presentan cerradas por defecto y se expanden
 
 No se muestran las secciones pendientes de industria o tamaño del cliente. La comparación interanual aparece solo si el filtro contiene ventas de al menos dos años. Las secciones visibles se numeran automáticamente, sin saltos, según el rol y los filtros.
 
-Apps Script agrega `C[11]` con el flag activo (`1`) / archivado (`0`), independiente de ganado. Los datasets previos se admiten durante la resincronización con un aviso de compatibilidad. El cambio desplegado del backend se conserva como parche en [backend/crm-active.patch](backend/crm-active.patch); no contiene credenciales.
+El dataset agrega `C[11]` con el flag activo (`1`) / archivado (`0`), independiente de ganado. Los datasets previos se admiten durante la resincronización con un aviso de compatibilidad. El cambio histórico se conserva como parche en [backend/crm-active.patch](backend/crm-active.patch); no contiene credenciales.
 
 ## Verificación
 
 `python tests/test_dashboard.py` ejecuta las regresiones en Chromium con API y datos sintéticos. Requiere Python, Playwright y su navegador Chromium (`python -m pip install playwright` y `python -m playwright install chromium`). No inicia sesión ni consulta datos productivos.
+`node --test tests/api_transport.cjs tests/sales_api_worker.mjs` verifica transporte, sesiones, permisos y Excel.
 
 La integración de visitas y las dependencias pendientes se describen en [docs/integracion-tiendanube.md](docs/integracion-tiendanube.md).
 
@@ -68,7 +74,7 @@ El filtro de período carga los objetivos de los meses seleccionados. Cada mes c
 
 Muestra sus KPI y objetivo, evolución mensual de ventas con detalle colapsado, flujo de oportunidades, prendas vendidas, ticket promedio, provincias y tipos de producto. Conserva fecha, ARS/USD, PDF y Excel. No muestra configuración, rankings, comparativas entre personas, canales ni comparativo interanual.
 
-Apps Script limita los registros de órdenes, líneas, entregas y CRM por la identidad del token, y entrega únicamente el objetivo propio. Excel aplica el mismo recorte antes de exportar. El selector del navegador no determina los permisos. Las pruebas `node tests/backend_permissions.cjs <directorio-backend>` usan datos sintéticos sobre las funciones del backend descargado; incluyen intentos de cambiar vendedora/rol desde la petición y operaciones administrativas denegadas.
+El Worker limita los registros de órdenes, líneas, entregas y CRM por la identidad del token, y entrega únicamente el objetivo propio. Excel aplica el mismo recorte antes de exportar. El selector del navegador no determina los permisos. La prueba histórica `node tests/backend_permissions.cjs <directorio-backend>` sigue cubriendo el backend anterior con datos sintéticos.
 
 ## Tiendanube
 
@@ -78,4 +84,4 @@ El desglose de cupones y descuentos identifica el pedido, el código de cupón c
 
 La vista cuenta con pedidos, importes pagados, ticket, unidades por pedido, evolución, estados y orígenes, ranking de productos y checkouts abandonados. Suma descuentos aplicados, pedidos con descuento/cupón, medios de pago y estado de envío de los pedidos pagados; el indicador de envío pendiente o parcial describe estados actuales, no demoras frente a fechas prometidas. El ranking es por unidades de producto, no por prendas componentes de conjuntos. Oculta los objetivos de vendedoras y no suma datos de TN al consolidado de Odoo. Consulta al abrir/cambiar el período y reutiliza agregados hasta 5 minutos. Visitas y comportamiento quedan pendientes de integración, con enlace al panel nativo de TN; GA4 es una alternativa de automatización.
 
-El módulo [backend/Tiendanube.gs](backend/Tiendanube.gs) requiere `TN_ACCESS_TOKEN` en Script Properties y la ruta `tiendanube` en el dispatcher. [Definiciones, cobertura y publicación](docs/integracion-tiendanube.md). Pruebas del módulo: `node --test tests/tiendanube.cjs`.
+El módulo [`api-worker/tiendanube.mjs`](api-worker/tiendanube.mjs) usa `TN_ACCESS_TOKEN` como secreto de Cloudflare. [Definiciones y cobertura](docs/integracion-tiendanube.md). La prueba histórica del cálculo anterior sigue en `node --test tests/tiendanube.cjs`.

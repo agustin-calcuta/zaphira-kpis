@@ -285,10 +285,11 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 <div id="gate" hidden></div>
 
 <script type="module">
-/* Frontend GitHub Pages. Los datos ya NO se piden con ?data=1 (que devolvía el dataset entero a
+/* Frontend en Cloudflare; GitHub Pages sigue como enlace anterior. Los datos ya NO se piden con ?data=1 (que devolvía el dataset entero a
    cualquiera): se piden por POST con el token de la sesión, y el backend los manda recortados.
    type="module" habilita await top-level: todo lo de abajo corre recién con la sesión resuelta. */
-const EXEC_URL='https://script.google.com/macros/s/AKfycbxkBFVGB9x-Z1VDpONduRf2VruGhQdkl4-F3fNEMCLluZhbyU3nt2rSdyp9Rbu0pWhs/exec';
+const EXEC_URL=location.hostname==='agustin-calcuta.github.io'
+  ?'https://zaphira-ventas-calcuta.agustin-5e6.workers.dev/api':'/api';
 const MES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MESL=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 let CUR='ARS';
@@ -305,29 +306,23 @@ const el=(h)=>{const d=document.createElement('div');d.innerHTML=h;return d;};
    Contraseña inicial genérica + cambio obligatorio en el primer ingreso; los reseteos los hace
    Dirección desde Configuración. La sesión dura 12 h y la marca el token, no el navegador. */
 
-/* POST con Content-Type text/plain a propósito: con application/json el navegador manda antes un
-   preflight OPTIONS, y Apps Script no lo contesta — el pedido moriría sin llegar al servidor.
-   El cuerpo sigue siendo JSON; lo único que cambia es el rótulo. */
+/* El proxy resuelve la redirección temporal de Apps Script. El cuerpo mantiene el mismo contrato
+   JSON y text/plain que espera el backend; sólo cambia la ruta de transporte. */
 async function api(op,extra,timeoutMs){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs||45000);
   try{
-    let r=await fetch(EXEC_URL,{
+    const r=await fetch(EXEC_URL,{
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify(Object.assign({op},extra||{})),
       cache:'no-store',signal:controller.signal
     });
-    // ContentService puede devolver 404 antes de que su respuesta temporal esté lista.
-    // Releer sólo esa respuesta por GET; nunca repetir el POST (puede ser una escritura).
-    const responseUrl=new URL(r.url||EXEC_URL);
-    if(r.redirected&&responseUrl.protocol==='https:'&&responseUrl.hostname==='script.googleusercontent.com'&&responseUrl.pathname==='/macros/echo'){
-      for(let retry=0;r.status===404&&retry<2;retry++){
-        await new Promise(resolve=>setTimeout(resolve,3000));
-        r=await fetch(responseUrl.href,{method:'GET',cache:'no-store',credentials:'omit',signal:controller.signal});
-      }
+    if(!r.ok){
+      let message='HTTP '+r.status;
+      try{const error=await r.json();if(error&&error.error)message=error.error;}catch(_){}
+      throw new Error(message);
     }
-    if(!r.ok) throw new Error('HTTP '+r.status);
     return await r.json();
   }finally{ clearTimeout(timer); }
 }
@@ -415,12 +410,16 @@ function pedirLogin(msg){
     $('gform').addEventListener('submit',async e=>{
       e.preventDefault();
       const btn=$('gbtn'); btn.disabled=true; btn.textContent='Verificando…';
-      let r;
-      try{ r=await api('login',{u:$('gu').value.trim().toLowerCase(),p:$('gp').value}); }
-      catch(err){ r={ok:false,error:'No pudimos conectarnos. Revisá tu conexión y probá de nuevo.'}; }
+      let r, networkError=false;
+      try{ r=await api('login',{u:$('gu').value.trim().toLowerCase(),p:$('gp').value},35000); }
+      catch(err){networkError=true;r={ok:false,error:err&&err.name==='AbortError'
+        ?'El servidor tardó demasiado. Probá de nuevo.'
+        :(err&&err.message&&err.message!=='Failed to fetch'?err.message:'No pudimos conectarnos. Probá de nuevo.')};}
       if(!r||!r.ok){
-        $('gerr').innerHTML=`<div class="gerr">${(r&&r.error)||'No pudimos validar el usuario.'}</div>`;
-        $('gp').value=''; $('gp').focus();
+        $('gerr').innerHTML='<div class="gerr"></div>';
+        $('gerr').firstElementChild.textContent=(r&&r.error)||'No pudimos validar el usuario.';
+        if(!networkError)$('gp').value='';
+        $('gp').focus();
         btn.disabled=false; btn.textContent='Entrar'; return;
       }
       const ses={token:r.token,usuario:r.usuario,nombre:r.nombre,rol:r.rol,ven:r.vendedora,cambiar:r.cambiar};
