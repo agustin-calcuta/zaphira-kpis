@@ -561,6 +561,7 @@ const BUSINESS_TODAY=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentin
 const TODAY=isoToOff(BUSINESS_TODAY);
 const MAXOFF=isoToOff(RAW.meta.maxDate||RAW.meta.today||BUSINESS_TODAY);
 const MINOFF=Math.max(0,isoToOff(RAW.meta.dateFrom||'2026-03-01'));
+const TN_MINOFF=isoToOff('2026-01-01');
 const fmtDay=off=>{const t=offToDate(off);return t.getUTCDate()+' '+MESL[t.getUTCMonth()]+' '+t.getUTCFullYear();};
 const fmtFecha=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s||''));return m?(m[3]+'/'+m[2]+'/'+m[1]):(s||'');};
 
@@ -576,13 +577,16 @@ function rangeOf(key){
   if(key==='d90') return [TODAY-89,TODAY];
   if(key==='qtd') return [mk(Y,Math.floor(M/3)*3,1),TODAY];
   if(key==='ytd') return [mk(Y,0,1),TODAY];
-  return [MINOFF,null];   // 'all' y cualquier clave desconocida
+  return [minFuente(),null];   // 'all' y cualquier clave desconocida
 }
+let VISTA='tablero';
 let F={per:'mtd',from:MINOFF,to:null,ven:'',can:''};
-function setPeriod(key){F.per=key;const r=rangeOf(key);F.from=r[0]===null?MINOFF:Math.max(MINOFF,r[0]);F.to=r[1];}
+let PERIODO_EDITADO=false;
+const minFuente=()=>VISTA==='tienda'?TN_MINOFF:MINOFF;
+function setPeriod(key){F.per=key;const r=rangeOf(key);F.from=r[0]===null?minFuente():Math.max(minFuente(),r[0]);F.to=r[1];}
 setPeriod('mtd');
 function rangeLabel(){
-  if(F.per==='all') return 'Todo el período · '+fmtDay(MINOFF)+' a '+fmtDay(MAXOFF);
+  if(F.per==='all') return 'Todo el período · '+fmtDay(minFuente())+' a '+fmtDay(MAXOFF);
   if(F.from===null&&F.to===null) return 'Todo el período · '+fmtDay(0)+' a '+fmtDay(MAXOFF);
   if(F.from===null) return 'Hasta '+fmtDay(F.to);
   if(F.to===null) return 'Desde '+fmtDay(F.from);
@@ -646,27 +650,34 @@ function syncChrome(){   /* refresca lo que depende del estado del filtro, sin r
   document.getElementById('fPer').value=F.per;
   document.getElementById('fVen').value=F.ven;
   const canal=document.getElementById('fCan');if(canal)canal.value=VISTA==='tienda'?'tiendanube':F.can;
-  document.getElementById('fFrom').value=offToIso(F.from??MINOFF);
+  document.getElementById('fFrom').min=offToIso(minFuente());
+  document.getElementById('fFrom').value=offToIso(F.from??minFuente());
   document.getElementById('fTo').value=offToIso(F.to??Math.max(MAXOFF,TODAY));
 }
 // Cada fuente conserva sus filtros. La navegación nunca agrega pedidos TN al dataset Odoo.
 let FILTROS_ODOO=null, FILTROS_TN=null;
+let PERIODO_EDITADO_ODOO=false, PERIODO_EDITADO_TN=false;
 function elegirCanal(value, general=false){
   if(esVendedora())return;
   if(value==='tiendanube'){
     if(!esDireccion())return;
     if(VISTA!=='tienda'){
       FILTROS_ODOO={...F};
+      PERIODO_EDITADO_ODOO=PERIODO_EDITADO;
       F=FILTROS_TN?{...FILTROS_TN}:{...F,ven:'',can:''};
+      PERIODO_EDITADO=PERIODO_EDITADO_TN;
       if(!FILTROS_TN)setPeriod('mtd');
     }
     VISTA='tienda';
   }else{
     if(VISTA==='tienda'){
       FILTROS_TN={...F};
+      PERIODO_EDITADO_TN=PERIODO_EDITADO;
       if(FILTROS_ODOO)F={...FILTROS_ODOO};
+      PERIODO_EDITADO=PERIODO_EDITADO_ODOO;
     }
     F.can=value;if(general)F.ven='';VISTA='tablero';
+    if(!PERIODO_EDITADO)setPeriod(value==='0'?'ytd':'mtd');
   }
   syncChrome();go();
 }
@@ -690,7 +701,7 @@ function buildToolbar(){
   const canO=opt('','Todos',1)+d.CAN.map((c,i)=>({i,c}))
     .filter(x=>!esDireccion()||!/^(web\s*\(tiendanube\)|tienda\s*nube|yeni)$/i.test(String(x.c).trim()))
     .map(x=>opt(x.i,canLabel(x.c))).join('')+(esDireccion()?opt('tiendanube','Tiendanube'):'');
-  const minIso=offToIso(MINOFF), maxIso=offToIso(Math.max(MAXOFF,TODAY));
+  const minIso=offToIso(minFuente()), maxIso=offToIso(Math.max(MAXOFF,TODAY));
   const periodO=[['all','Todo el período']].concat(PRESETS).concat([['custom','Rango a medida…']])
     .map(p=>opt(p[0],p[1],p[0]===F.per)).join('');
   document.getElementById('toolbar').innerHTML=`
@@ -728,10 +739,12 @@ function buildToolbar(){
     const open=$('tgroup').classList.toggle('open');
     $('fToggle').setAttribute('aria-expanded',open?'true':'false');});
   $('fPer').addEventListener('change',e=>{
+    PERIODO_EDITADO=true;
     setPeriod(e.target.value);
     if(F.per==='custom'){F.from=isoToOff($('fFrom').value);F.to=isoToOff($('fTo').value);}
     syncChrome(); go();});
   const onDate=()=>{
+    PERIODO_EDITADO=true;
     let a=isoToOff($('fFrom').value), b=isoToOff($('fTo').value);
     if(a>b){const t=a;a=b;b=t;}          // si invierten las puntas, se ordenan solas
     F.from=a; F.to=b; go();};
@@ -740,6 +753,7 @@ function buildToolbar(){
   if(verFiltroVen&&!esVendedora()) $('fVen').addEventListener('change',e=>{F.ven=e.target.value;syncChrome();go();});
   if(verFiltroCan) $('fCan').addEventListener('change',e=>elegirCanal(e.target.value));
   $('reset').addEventListener('click',()=>{
+    PERIODO_EDITADO=false;
     setPeriod('mtd'); F.can='';
     // La vendedora no puede "limpiarse" a sí misma: su recorte es el rol, no un filtro.
     if(verFiltroVen&&!esVendedora()){F.ven=''; $('fVen').value='';}
@@ -876,6 +890,18 @@ function compute(rng){
   }
 
   const mm={}; O.forEach(o=>{(mm[o[0]]=mm[o[0]]||{v:0,n:0}); mm[o[0]].v+=toCur(o[0],o[7],o[6]); mm[o[0]].n++;});
+  /* El eje mensual debe incluir meses con cero ventas dentro de la cobertura de Odoo.
+     Antes se construía sólo a partir de órdenes, y los huecos parecían datos faltantes. */
+  const first=Math.max(MINOFF,RA??MINOFF),last=Math.min(TODAY,RB??TODAY);
+  if(first<=last){
+    const start=offToDate(first),end=offToDate(last);
+    for(let y=start.getUTCFullYear(),m=start.getUTCMonth();y<end.getUTCFullYear()||y===end.getUTCFullYear()&&m<=end.getUTCMonth();m++){
+      if(m===12){y++;m=0;}
+      const key=y+'-'+String(m+1).padStart(2,'0');
+      let i=d.MON.indexOf(key);if(i<0){i=d.MON.length;d.MON.push(key);}
+      if(!mm[i])mm[i]={v:0,n:0};
+    }
+  }
   const mk=Object.keys(mm).map(Number).sort((a,b)=>d.MON[a]<d.MON[b]?-1:1);
   const meses=mk.map(k=>({m:monLabel(d.MON[k]),ventas:mm[k].v,nv:mm[k].n,noRate:CUR==='USD'&&mm[k].n>0&&mm[k].v===0}));
   let ventas=0; O.forEach(o=>ventas+=toCur(o[0],o[7],o[6])); const nord=O.length;
@@ -889,6 +915,26 @@ function compute(rng){
   L.forEach(l=>{ if(l[3]<nTipos) prT[l[3]]+=l[5]; ent+=l[6]; });
   O.forEach(o=>{ if(o[3]<nTipos) oT[o[3]]++; });
   const prTot=prT.reduce((a,b)=>a+b,0);
+  const segmentosProvincia=['Administración','Laboral','Sanidad','Otros / Accesorios'];
+  let segmentoProv=null;
+  if(L.every(l=>l.length>9)){
+    const rows=new Map();
+    L.forEach(l=>{
+      const segmento=bucketOf(d.CAT[l[4]]);
+      if(segmento==='Sin categorizar')return;
+      const provincia=shortProv(d.PROV[l[9]]||'(sin provincia)');
+      if(!rows.has(provincia))rows.set(provincia,{provincia,total:0,valores:Object.fromEntries(segmentosProvincia.map(s=>[s,0]))});
+      const row=rows.get(provincia);
+      if(CUR==='USD'&&!(RAW.rateDay[l[8]]||RAW.rateMon[d.MON[l[0]]])){
+        row.valores[segmento]=null;row.total=null;
+      }else{
+        const amount=toCur(l[0],l[8],l[7]);
+        if(row.valores[segmento]!==null)row.valores[segmento]+=amount;
+        if(row.total!==null)row.total+=amount;
+      }
+    });
+    segmentoProv=[...rows.values()].sort((a,b)=>(b.total??0)-(a.total??0));
+  }
   const vm={}; O.forEach(o=>{(vm[o[1]]=vm[o[1]]||{m:0,n:0}); vm[o[1]].m+=toCur(o[0],o[7],o[6]); vm[o[1]].n++;});
   const vend=Object.keys(vm).map(i=>({n:d.VEN[i],monto:vm[i].m,ops:vm[i].n})).filter(x=>!esWeb(x.n)).sort((a,b)=>b.monto-a.monto).slice(0,10);
   const webI=d.CAN.indexOf('Web (Tiendanube)'), presI=d.CAN.indexOf('Venta directa');
@@ -1080,7 +1126,7 @@ function compute(rng){
   const usdMissingMonths=Object.keys(missMonths).sort();
   const usdBlocked=CUR==='USD' && convOk===0 && convFail>0;   // nada convertible en todo el filtro
 
-  return {meses,ventas,nord,prT,oT,prTot,ent,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,flujoCRM,convvend,crmN:received.length,won,yoy,evo,usdMissingMonths,usdBlocked,crmEstado,ticketPedido,crmReconciliation,motivosPerdida};
+  return {meses,ventas,nord,prT,oT,prTot,segmentoProv,ent,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,flujoCRM,convvend,crmN:received.length,won,yoy,evo,usdMissingMonths,usdBlocked,crmEstado,ticketPedido,crmReconciliation,motivosPerdida};
 }
 
 /* ===== barra horizontal (grid: label · pista · valor) ===== */
@@ -1154,7 +1200,7 @@ function smoothPath(p){
 }
 function chartSVG(pts,opt){
   opt=opt||{};
-  const line=!!opt.line, fmt=opt.fmt||n0;
+  const line=!!opt.line, fmt=opt.fmt||n0, fmtN=opt.fmtN||n0;
   /* W ≈ ancho real de la tarjeta: si el viewBox fuera más angosto, el SVG se escalaría hacia
      arriba y tanto la altura como las tipografías crecerían de más. */
   /* Con opt.delta se reserva una segunda línea abajo para la variación mes contra mes. */
@@ -1172,7 +1218,7 @@ function chartSVG(pts,opt){
     const y=tp+ih-ih*t/4;
     g+=`<line x1="${pl}" y1="${y.toFixed(1)}" x2="${pl+iw}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>`
       +`<text x="${pl-9}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11.5" fill="var(--text-muted)">${fmt(maxV*t/4)}</text>`;
-    if(line) g+=`<text x="${pl+iw+9}" y="${(y+4).toFixed(1)}" text-anchor="start" font-size="11.5" fill="${SERIE2}">${n0(maxN*t/4)}</text>`;
+    if(line) g+=`<text x="${pl+iw+9}" y="${(y+4).toFixed(1)}" text-anchor="start" font-size="11.5" fill="${SERIE2}">${fmtN(maxN*t/4)}</text>`;
   }
   let bars='',lbl='';
   const countY=[]; // baselines elegidas junto al importe para evitar choques entre las series
@@ -1200,7 +1246,8 @@ function chartSVG(pts,opt){
         {y:pointY-slope-10,inside:true},
         {y:y-8,inside:false},
         {y:Math.min(y-8,pointY-slope-12),inside:false},
-        {y:Math.min(y-8,pointY-slope-28),inside:false}
+        {y:Math.min(y-8,pointY-slope-28),inside:false},
+        {y:Math.min(y-8,pointY-slope-48),inside:false}
       ];
       const counts=[pointY-slope-14,pointY-slope-31,pointY+slope+23,pointY+slope+40];
       const validValue=c=>{
@@ -1209,7 +1256,7 @@ function chartSVG(pts,opt){
         return c.y<=pointY-slope-8||c.y>=pointY+slope+20;
       };
       const pair=values.flatMap(v=>counts.map(c=>({v,c}))).find(({v,c})=>
-        validValue(v)&&c>=tp+11&&c<=tp+ih-4&&Math.abs(v.y-c)>=22);
+        validValue(v)&&c>=tp+11&&c<=tp+ih-4&&Math.abs(v.y-c)>=28);
       if(pair){inside=pair.v.inside;labelY=pair.v.y;countY[i]=pair.c;}
       else countY[i]=Math.max(tp+11,Math.min(tp+ih-4,counts[0]>=tp+11?counts[0]:counts[2]));
     }
@@ -1234,7 +1281,7 @@ function chartSVG(pts,opt){
     if(lp.length>1) ln+=`<path d="${smoothPath(lp)}" fill="none" stroke="${SERIE2}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
     lp.forEach((q,i)=>{
       ln+=`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="3.8" fill="${SERIE2}" stroke="#fff" stroke-width="1.8"/>`;
-      if(opt.values!==false)ln+=`<text class="chart-count-label" x="${q[0].toFixed(1)}" y="${countY[i].toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${SERIE2}" stroke="#fff" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${n0(pts[i].n)}</text>`;
+      if(opt.values!==false)ln+=`<text class="chart-count-label" x="${q[0].toFixed(1)}" y="${countY[i].toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${SERIE2}" stroke="#fff" stroke-width="5" paint-order="stroke" stroke-linejoin="round">${fmtN(pts[i].n)}</text>`;
     });
   }
   return `<div class="chartbox"><svg viewBox="0 0 ${W} ${H}" style="min-width:${Math.max(760,W)}px" role="img" aria-label="${opt.aria||'Gráfico por mes'}">${g}${bars}${ln}${lbl}</svg></div>`;
@@ -1247,7 +1294,7 @@ function row2(A,h1,c1,h2,c2,flex1){A.appendChild(el(`<div class="duo"><div class
 const TN = {data:null, key:'', pending:false, error:'', sequence:0};
 const tnEscape = value => String(value??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function tnSelectedRange(){
-  return {from:offToIso(F.from??MINOFF),to:offToIso(F.to??TODAY)};
+  return {from:offToIso(F.from??TN_MINOFF),to:offToIso(F.to??TODAY)};
 }
 function tnAmounts(data){
   let total=0,missing=0;
@@ -1261,22 +1308,26 @@ function tnAmounts(data){
   return {total:missing?null:total,missing};
 }
 // Completar días sin pedidos antes de agrupar evita ocultar períodos sin actividad.
-// Los bloques semanales parten del inicio del filtro; el último puede ser parcial.
-function tnEvolution(data,range){
+// Semanas calendario lunes-domingo; los extremos del filtro pueden ser parciales.
+function tnEvolution(data,range,forcedMode){
   const start=Date.parse(range.from+'T00:00:00Z'),end=Date.parse(range.to+'T00:00:00Z');
-  const days=Math.round((end-start)/86400000)+1, mode=days<=14?'día':days<=98?'bloque de 7 días':'mes';
+  const days=Math.round((end-start)/86400000)+1, mode=forcedMode||(days<=14?'día':days<=98?'semana':'mes');
   const daily=new Map(data.daily.map(d=>[d.date,d])),groups=new Map();
   for(let t=start,i=0;t<=end;t+=86400000,i++){
-    const date=new Date(t).toISOString().slice(0,10),key=days<=14?date:days<=98?Math.floor(i/7):date.slice(0,7);
-    if(!groups.has(key))groups.set(key,{from:date,to:date,orders:0,paid:0,amount:0,missing:0});
+    const date=new Date(t).toISOString().slice(0,10);
+    const monday=t-((new Date(t).getUTCDay()+6)%7)*86400000;
+    const key=mode==='día'?date:mode==='semana'?new Date(monday).toISOString().slice(0,10):date.slice(0,7);
+    if(!groups.has(key))groups.set(key,{from:date,to:date,orders:0,paid:0,amount:0,missing:0,units:0,unitsKnown:true});
     const group=groups.get(key);group.to=date;
     const day=daily.get(date);if(!day)continue;
     const amount=tnAmounts({daily:[day]});
     group.orders+=day.orders;group.paid+=day.paid;group.missing+=amount.missing;group.amount+=amount.total??0;
+    if(Number.isFinite(day.paidUnits))group.units+=day.paidUnits;
+    else if(day.paid)group.unitsKnown=false;
   }
   const short=date=>date.slice(8,10)+'/'+date.slice(5,7);
   return {mode,groups:[...groups.values()].map(g=>({...g,amount:g.missing?null:g.amount,
-    label:days>98?MES[+g.from.slice(5,7)-1]+' '+g.from.slice(2,4):short(g.from)+(g.to!==g.from?'–'+short(g.to):'')}))};
+    label:mode==='mes'?MES[+g.from.slice(5,7)-1]+' '+g.from.slice(2,4):short(g.from)+(g.to!==g.from?'–'+short(g.to):'')}))};
 }
 function tnRanking(rows,total,unit){
   if(!rows.length||!total)return '<div class="pmsg">Sin datos para este período.</div>';
@@ -1290,6 +1341,25 @@ function renderTnEvolution(A,data,amounts,range){
   const detail='<details class="evo-detail"><summary>Ver detalle de importes, pedidos y ticket promedio</summary><div class="tn-detail"><table><thead><tr><th>Período</th><th>Creados</th><th>Pagados</th><th>Importe ('+CUR+')</th><th>Ticket promedio ('+CUR+')</th></tr></thead><tbody>'+groups.map(g=>`<tr><td>${fmtFecha(g.from)}${g.to!==g.from?' a '+fmtFecha(g.to):''}</td><td>${n0(g.orders)}</td><td>${n0(g.paid)}</td><td>${g.amount===null?'Sin dato completo':tnMoneyExact(g.amount)}</td><td>${!g.paid?'Sin pedidos pagados':g.amount===null?'Sin dato completo':tnMoneyExact(g.amount/g.paid)}</td></tr>`).join('')+'</tbody></table></div></details>';
   const comparison='<div class="cmpnote">Debajo de cada período, variación '+(moneyComplete?'del importe':'de los pedidos pagados')+' respecto del anterior. Los extremos del rango pueden ser parciales.</div>';
   A.appendChild(el('<div class="card tn-evolution"><div class="pmsg">Por '+evolution.mode+' · fecha de creación del pedido. Incluye los días sin pedidos; los extremos del período pueden ser parciales.</div>'+chartSVG(points,{fmt:moneyComplete?money:n0,line:moneyComplete,delta:true,h:265,integerCounts:true,integerValues:!moneyComplete,values:true,aria:'Evolución de pedidos pagados de Tiendanube'})+legendHTML(moneyComplete?[{t:'Importe de pedidos pagados ('+CUR+')',c:'var(--fill-primary)'},{t:'Pedidos pagados',c:SERIE2,line:true}]:[{t:'Pedidos pagados · importe sin datos completos',c:'var(--fill-primary)'}])+comparison+detail+'</div>'));
+}
+function renderTnAverages(A,data,range){
+  sec(A,'Ticket y unidades promedio');
+  const decimal=v=>v.toLocaleString('es-AR',{maximumFractionDigits:2});
+  const chart=(mode)=>{
+    const groups=tnEvolution(data,range,mode).groups;
+    const unitsKnown=groups.every(g=>g.unitsKnown);
+    const points=groups.map(g=>({lbl:g.label,v:g.paid&&g.amount!==null?g.amount/g.paid:0,
+      n:g.paid?g.units/g.paid:0,noRate:g.paid>0&&g.amount===null}));
+    return chartSVG(points,{fmt:money,fmtN:decimal,line:unitsKnown,h:245,
+      aria:'Ticket y unidades promedio por pedido pagado, por '+mode})
+      +legendHTML(unitsKnown?[{t:'Ticket promedio ('+CUR+')',c:'var(--fill-primary)'},
+        {t:'Unidades promedio por pedido pagado',c:SERIE2,line:true}]
+        :[{t:'Ticket promedio ('+CUR+')',c:'var(--fill-primary)'}])
+      +(unitsKnown?'':'<div class="pmsg">La serie de unidades promedio estará disponible cuando se actualicen los datos de Tiendanube.</div>');
+  };
+  A.appendChild(el('<div class="card tn-averages"><h3>Evolución mensual</h3>'+chart('mes')
+    +'<details class="evo-detail"><summary>Ver evolución semanal</summary><div class="pmsg">Semanas de lunes a domingo; los extremos del período pueden ser parciales.</div>'
+    +chart('semana')+'</details></div>'));
 }
 function tnCaseAmount(value,date){
   if(value===null||value===undefined)return 'Sin dato';
@@ -1306,10 +1376,10 @@ function renderTnCommerce(A,data){
     ['Descuentos aplicados',discounts.total===null?'Sin dato completo':moneyFull(discounts.total),'Ya descontados del importe de pedidos pagados'],
     ['Pedidos con descuento',count(c.discountOrders,c.discountKnown),coverage(c.discountKnown)+share(c.discountOrders,c.discountKnown)],
     ['Pedidos con cupón',count(c.couponOrders,c.couponKnown),coverage(c.couponKnown)+share(c.couponOrders,c.couponKnown)],
-    ['Pagados sin despacho completo',count(c.awaitingDispatch,c.shippingKnown),n0(c.awaitingDispatch7Days)+' creados hace 7 días o más · '+coverage(c.shippingKnown)],
+    ['Pagados con envío pendiente o parcial',count(c.awaitingDispatch,c.shippingKnown),n0(c.awaitingDispatch7Days)+' creados hace 7 días o más · '+coverage(c.shippingKnown)],
   ];
   sec(A,'Pagos, descuentos y envíos');
-  A.appendChild(el('<div class="card tn-commerce"><div class="pmsg" style="margin-bottom:12px">Pedidos creados en el período con pago completo y no cancelados. Los descuentos ya están incluidos en el total de ventas; no se restan otra vez.</div><div class="kpis">'+cards.map(([l,v,n])=>`<div class="kpi"><div class="kl">${tnEscape(l)}</div><div class="kv">${tnEscape(v)}</div><div class="ks">${tnEscape(n)}</div></div>`).join('')+'</div>'+(discounts.missing?'<div class="cmpnote">Falta el importe de descuento o la cotización de '+n0(discounts.missing)+' pedidos. No se muestra una suma parcial como completa.</div>':'')+'</div>'));
+  A.appendChild(el('<div class="card tn-commerce"><div class="pmsg" style="margin-bottom:12px">Pedidos creados en el período con pago completo y no cancelados. Los descuentos ya están incluidos en el total de ventas; no se restan otra vez.</div><div class="kpis">'+cards.map(([l,v,n])=>`<div class="kpi"><div class="kl">${tnEscape(l)}</div><div class="kv">${tnEscape(v)}</div><div class="ks">${tnEscape(n)}</div></div>`).join('')+'</div><div class="cmpnote">Envío pendiente o parcial: estado actual sin empaquetar, sin enviar, empaquetado parcial o despacho parcial. No equivale a demora frente a una fecha de entrega prometida; excluye pedidos sin envío físico.</div>'+(discounts.missing?'<div class="cmpnote">Falta el importe de descuento o la cotización de '+n0(discounts.missing)+' pedidos. No se muestra una suma parcial como completa.</div>':'')+'</div>'));
   if(Array.isArray(c.discountCases)&&c.discountCases.length){
     const body=c.discountCases.map(x=>{
       const code=x.couponCodes?.length?x.couponCodes.join(', '):x.couponId?'Código no disponible (ID '+x.couponId+')':'Sin cupón';
@@ -1373,6 +1443,7 @@ function renderTiendanube(A){
   A.appendChild(el('<div class="cmpnote">El período corresponde a la creación del pedido; los estados son los actuales. El importe suma el total de los pedidos con pago completo. No representa facturación fiscal ni cobros por fecha de acreditación.</div>'));
   if(amounts.missing)A.appendChild(el(`<div class="card" style="margin-top:12px"><div class="pmsg">No se muestra un importe parcial: ${n0(amounts.missing)} pedidos pagados no tienen importe en ARS o cotización suficiente para la moneda elegida.</div></div>`));
   renderTnEvolution(A,data,amounts,range);
+  renderTnAverages(A,data,range);
   sec(A,'Estados y origen de los pedidos');
   const states=[['Pagados',s.paid,'var(--fill-primary)'],['Pendientes de pago',s.pending,'#b7791f'],['Cancelados',s.cancelled,'#b54747'],['Pagos o reembolsos parciales',s.partial,'#7865a4'],['Reembolsados o anulados',s.refunded,'#64748b'],['Otros estados',s.other,'#94a3b8']].filter(x=>x[1]).map(([label,value,color])=>({label,value,color}));
   const originLabels={store:'Tienda',mobile:'Mobile (según Tiendanube)',form:'Creación manual',api:'Integración',pos:'Punto de venta',meli:'Mercado Libre'};
@@ -1381,7 +1452,7 @@ function renderTiendanube(A){
   renderTnCommerce(A,data);
   sec(A,'Productos en pedidos pagados');
   const list=data.products||[];
-  A.appendChild(el('<div class="card tn-products"><h3>Los 10 productos con más unidades</h3><div class="pmsg">Unidades de pedidos con pago completo, agrupadas por producto. El porcentaje se calcula sobre todas las unidades pagadas del período.</div>'+tnRanking(list.map(p=>({label:p.name,value:p.units})),s.paidUnits,'u.')+'</div>'));
+  A.appendChild(el('<div class="card tn-products"><h3>Los 10 productos con más unidades</h3><div class="pmsg">Suma de las cantidades de las líneas de pedidos con pago completo, agrupada por producto. Un conjunto vendido como una unidad cuenta como una unidad, aunque incluya varias prendas. El porcentaje se calcula sobre todas las unidades pagadas del período.</div>'+tnRanking(list.map(p=>({label:p.name,value:p.units})),s.paidUnits,'u.')+'</div>'));
   sec(A,'Carritos abandonados');
   const c=data.abandoned;
   A.appendChild(el(`<div class="card"><div class="kl">Checkouts abandonados disponibles</div><div class="kv">${c.count===null?'Sin cobertura':n0(c.count)}</div><div class="pmsg">${c.noCoverage?'El período elegido es anterior a la ventana que permite consultar Tiendanube.':`Creados del ${fmtFecha(c.from)} al ${fmtFecha(c.to)} y todavía disponibles al momento de la consulta.`} ${c.partialCoverage&&!c.noCoverage?'El período tiene cobertura parcial.':''} Tiendanube permite consultar los últimos 30 días; se omite el día del borde para evitar mostrarlo incompleto. Sólo incluye compras que llegaron al segundo paso del checkout y pueden demorar hasta 6 horas en aparecer. No equivale a todos los carritos creados ni a un histórico de abandonos.</div></div>`));
@@ -1495,7 +1566,6 @@ function barraObjetivoMes(mesKey,OBJETIVO){
    Dos cosas en una pantalla: los accesos del equipo y los objetivos del mes. Están juntas
    porque se tocan en el mismo momento —cuando entra o sale alguien, y cuando arranca el mes—
    y separarlas obligaría a acordarse de dos lugares. */
-let VISTA='tablero';
 let CFG={usuarios:null,mes:'',objetivos:null,cargando:false};
 
 const mesLegible=m=>{const p=String(m).split('-');return p.length===2?MES[+p[1]-1]+' '+p[0]:m;};
@@ -1692,6 +1762,11 @@ function render(A,D,PREV){
    {l:'Órdenes',           v:n0(D.nord),       s:'confirmadas',          a:D.nord,       b:PREV&&PREV.nord},
    {l:'Prendas vendidas',  v:n0(D.prTot),      s:'unidades',             a:D.prTot,      b:PREV&&PREV.prTot},
   ];
+  if(F.can===String(d.CAN.indexOf('Venta directa'))||F.ven!==''||esVendedora()){
+    const avg=D.nord?D.prTot/D.nord:0,prevAvg=PREV&&PREV.nord?PREV.prTot/PREV.nord:0;
+    SC.push({l:'Prendas promedio por orden',v:avg.toLocaleString('es-AR',{maximumFractionDigits:2}),
+      s:'prendas / órdenes confirmadas',a:avg,b:PREV&&prevAvg});
+  }
   if(crmVista.principal) SC.push(
     {l:'% de cierres ganados',v:cerrTop?porcentajeCierres(CEtop.ganadas,cerrTop):CEtop.sinEstado?'Sin cierres identificados':'Sin cierres',
       s:cerrTop?n0(CEtop.ganadas)+' ganadas / ('+n0(CEtop.ganadas)+' ganadas + '+n0(CEtop.perdidas)+' perdidas)':'Sin oportunidades cerradas identificadas en el período',
@@ -1718,7 +1793,7 @@ function render(A,D,PREV){
     {line:true,delta:true,fmt:M,h:265,aria:'Ventas confirmadas y cantidad de órdenes por mes, con variación mensual'});
   A.appendChild(el(`<div class="card"><h3>Evolución mensual — ventas y órdenes de compra</h3>${evoChart}
     ${legendHTML([{c:'var(--fill-primary)',t:'Ventas confirmadas (eje izquierdo)'},{c:SERIE2,t:'Órdenes de compra (eje derecho)',line:1}])}
-    <div class="cmpnote">Bajo cada mes, la variación del monto contra el mes anterior. Monto con IVA incluido de las órdenes confirmadas en Odoo, imputado a la fecha de la venta.</div></div>`));
+    <div class="cmpnote">Bajo cada mes, la variación del monto contra el mes anterior. Monto con IVA incluido de las órdenes confirmadas en Odoo, imputado a la fecha de la venta. La extracción de ventas comienza el ${fmtFecha(offToIso(MINOFF))}; desde allí los meses sin órdenes se muestran en cero.</div></div>`));
 
   if(esVendedora()){
     A.appendChild(el(`<div class="card" style="margin-top:12px">${evoTable(D.evo.lbl,D.evo.vendedora,M,{total:false})}</div>`));
@@ -1813,6 +1888,18 @@ function render(A,D,PREV){
   A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes — 6 provincias principales${curTag}</h3>
     ${evoTable(D.evo.lbl,D.evo.provincia,M)}
     <div class="cmpnote">El total de estas filas no es el total del período: quedan afuera las provincias fuera del top 6 y los clientes sin provincia cargada.</div></div>`));
+  if(!esVendedora()&&F.can===String(RAW.dict.CAN.indexOf('Venta directa'))){
+    sec(A,'Ventas por segmento y provincia');
+    const segmentos=['Administración','Laboral','Sanidad','Otros / Accesorios'];
+    const amount=v=>v===null?'Sin cotización':M(v||0);
+    const body=(D.segmentoProv||[]).map(r=>`<tr><td>${tnEscape(r.provincia)}</td>`
+      +segmentos.map(s=>`<td>${amount(r.valores[s])}</td>`).join('')+`<td>${amount(r.total)}</td></tr>`).join('');
+    A.appendChild(el(`<div class="card"><h3>Venta directa por segmento de producto y provincia</h3>`
+      +(D.segmentoProv===null?'<div class="pmsg">El desglose por provincia se completa con la próxima sincronización de Odoo.</div>'
+        :body?`<div class="evo"><table><thead><tr><th>Provincia</th>${segmentos.map(s=>`<th>${s}</th>`).join('')}<th>Total</th></tr></thead><tbody>${body}</tbody></table></div>`
+          :'<div class="pmsg">Sin prendas de los segmentos identificados en este período.</div>')
+      +'<div class="cmpnote">Importes con IVA de las líneas de productos del canal Venta directa; se excluyen gastos, insumos y categorías sin prenda. La provincia sale del cliente de cada orden.</div></div>'));
+  }
 
   /* 11 */
   sec(A,'Ventas por tipo de producto');

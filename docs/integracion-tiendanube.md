@@ -11,7 +11,7 @@ Tiendanube es una opción del selector **Canal**, disponible para Dirección; no
 
 ### Qué muestra y cómo se calcula
 
-**Mes actual** es el período predeterminado de Odoo y Tiendanube, desde el primer día del mes hasta hoy en `America/Argentina/Buenos_Aires`, también al limpiar. La fecha actual no depende de `meta.today`: una sincronización atrasada no retiene el mes anterior. Al cambiar manualmente el período se conserva por fuente durante la sesión; al recargar vuelve a Mes actual. El orden de filtros permanece Moneda → Canal → Vendedora → Período.
+**Mes actual** es el período predeterminado de Odoo y Tiendanube, desde el primer día del mes hasta hoy en `America/Argentina/Buenos_Aires`, también al limpiar. Al seleccionar **Venta directa** sin haber elegido manualmente otro período, se muestra **Año en curso**. La fecha actual no depende de `meta.today`: una sincronización atrasada no retiene el mes anterior. Al cambiar manualmente el período se conserva por fuente durante la sesión; al recargar vuelve a Mes actual. Tiendanube admite fechas desde enero de 2026; la extracción de Odoo comienza en marzo de 2026. El orden de filtros permanece Moneda → Canal → Vendedora → Período.
 
 | Métrica | Definición |
 | --- | --- |
@@ -22,7 +22,8 @@ Tiendanube es una opción del selector **Canal**, disponible para Dirección; no
 | Reembolsados o anulados | `refunded` y `voided`, sin cancelados |
 | Unidades y productos | Cantidades de las líneas de pedidos pagados |
 | Unidades por pedido | Unidades de pedidos pagados / cantidad de pedidos pagados; sin pedidos se muestra sin dato |
-| Evolución de ventas | Importe y pedidos pagados por día, bloques de 7 días o mes, según la extensión del filtro; tabla desplegable con pedidos creados y ticket |
+| Evolución de ventas | Importe y pedidos pagados por día, semana calendario o mes, según la extensión del filtro; tabla desplegable con pedidos creados y ticket |
+| Ticket y unidades promedio | Evolución mensual y semanal del importe y de las unidades por pedido pagado |
 | Estados y orígenes | Cantidad y participación sobre todos los pedidos del período; cada pedido pertenece a un solo estado y origen |
 | Ranking de productos | Hasta 10 productos por unidades; porcentaje sobre todas las unidades pagadas, no sólo el top 10 |
 | Descuentos aplicados | Suma del campo `discount` de pedidos con pago completo no cancelados; ya están descontados del total del pedido, no se restan nuevamente |
@@ -31,11 +32,11 @@ Tiendanube es una opción del selector **Canal**, disponible para Dirección; no
 | Cupones y descuentos por pedido | Sólo pedidos pagados no cancelados con cupón o descuento; muestra número/ID de pedido, fecha, código si está disponible, descuento total y componente atribuido al cupón. No incluye datos del comprador |
 | Medios / proveedores de pago | Cantidad y participación de pedidos pagados por `gateway_name` o `gateway`; `internal` se presenta como marcado manualmente |
 | Estado de envío | Estado actual de los pedidos pagados del período; se separan los no físicos y los estados desconocidos |
-| Pagados sin despacho completo | Estados `unpacked`, `unshipped`, `partially_packed` o `partially_fulfilled`, excluyendo pedidos sin productos físicos; se destaca cuántos tienen al menos 7 × 24 horas desde su creación |
+| Pagados con envío pendiente o parcial | Estados `unpacked`, `unshipped`, `partially_packed` o `partially_fulfilled`, excluyendo pedidos sin productos físicos; se destaca cuántos tienen al menos 7 × 24 horas desde su creación |
 | Checkouts abandonados | Disponibles al momento de consultar, creados en el período y sin `completed_at`; cobertura explícita |
 | Visitas y comportamiento | Pendientes de integración; TN ofrece su panel y exportación, GA4 es una alternativa; no se muestran como cero |
 
-Las fechas corresponden a la creación del pedido en Argentina; sus estados son los actuales. ARS es la moneda fuente. La conversión a USD reutiliza las cotizaciones históricas del dashboard; ante importes o cotizaciones faltantes no se presenta un total parcial como completo. En ese caso el gráfico muestra sólo cantidades y la tabla identifica los importes incompletos. Se incluyen días sin pedidos; los bloques de 7 días parten del inicio del filtro y el último puede ser parcial. Las barras y la línea muestran importes abreviados y cantidad de pedidos sin pasar el cursor; debajo de cada período figura la variación frente al anterior. La tabla desplegable conserva el importe exacto de cada bloque. Cuando falta el importe completo, el gráfico y su variación usan sólo cantidades. `store` significa pedido creado en la tienda y `form` significa pedido creado desde un borrador en el panel administrador, según la documentación de Tiendanube. El origen `mobile` se conserva según Tiendanube, cuya documentación no precisa su criterio, sin inferir el dispositivo del comprador. En esta vista no se muestran objetivos de empresa/vendedoras ni CRM; se conservan en Odoo.
+Las fechas corresponden a la creación del pedido en Argentina; sus estados son los actuales. ARS es la moneda fuente. La conversión a USD reutiliza las cotizaciones históricas del dashboard; ante importes o cotizaciones faltantes no se presenta un total parcial como completo. En ese caso el gráfico muestra sólo cantidades y la tabla identifica los importes incompletos. Se incluyen días sin pedidos; las semanas van de lunes a domingo y los extremos del filtro pueden ser parciales. Las barras y la línea muestran importes abreviados y cantidad de pedidos sin pasar el cursor; debajo de cada período figura la variación frente al anterior. La tabla desplegable conserva el importe exacto de cada bloque. Cuando falta el importe completo, el gráfico y su variación usan sólo cantidades. `store` significa pedido creado en la tienda y `form` significa pedido creado desde un borrador en el panel administrador, según la documentación de Tiendanube. El origen `mobile` se conserva según Tiendanube, cuya documentación no precisa su criterio, sin inferir el dispositivo del comprador. En esta vista no se muestran objetivos de empresa/vendedoras ni CRM; se conservan en Odoo.
 
 Los descuentos también se convierten con la cotización del día de creación y alternativa mensual, sin mostrar sumas parciales como completas. Descuentos y cupones pueden coincidir en un pedido: no son categorías excluyentes. El estado de envío no representa todos los pendientes históricos de la tienda, sólo los pedidos creados en el rango seleccionado. La antigüedad desde creación no es una medición de retraso respecto de una fecha de entrega prometida.
 
@@ -55,7 +56,7 @@ El backend verifica la firma de la sesión, el rol y que la cuenta de Dirección
 
 Para publicar: incorporar `backend/Tiendanube.gs` al proyecto Apps Script y agregar `case 'tiendanube': return opTiendanube_(d);` al dispatcher de `Usuarios.gs`. Actualizar la versión del deployment existente para conservar la URL de la API. El frontend se publica desde `main` en GitHub Pages.
 
-Validación: 46 pruebas de interfaz, 17 pruebas de cálculos/permisos/paginación de Tiendanube, 3 de transporte y regresiones de aislamiento del backend. Se verificó diseño móvil, fechas al cambiar el mes y la conexión real a la API. Las pruebas no contienen credenciales ni datos personales reales.
+Validación: 62 pruebas de interfaz, 20 pruebas de cálculos/permisos/paginación de Tiendanube y regresiones de transporte y aislamiento del backend. Se verificaron diseño móvil, fechas, semanas calendario y separación de etiquetas del gráfico. Las pruebas no contienen credenciales ni datos personales reales.
 
 ### Visitas: panel de Tiendanube, exportación y alternativa GA4
 

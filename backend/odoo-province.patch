@@ -1,0 +1,17 @@
+--- a/Code.gs
++++ b/Code.gs
+@@ -413 +413 @@
+-  var ordAttr = {};   // id -> [monIdx, venIdx, canIdx, tipoIdx, dayOff]
++  var ordAttr = {};   // id -> [monIdx, venIdx, canIdx, tipoIdx, dayOff, provinciaIdx]
+@@ -446 +446,2 @@
+-    ordAttr[o.id] = [iMon, iVen, iCan, iTipo, dOff];
++    var iProv=idx(PROV,prov), iInd=idx(IND,ind);
++    ordAttr[o.id] = [iMon, iVen, iCan, iTipo, dOff, iProv];
+@@ -452 +453 @@
+-    return [iMon, iVen, iCan, iTipo, idx(PROV,prov), idx(IND,ind), Math.round(o.amount_total), dOff,
++    return [iMon, iVen, iCan, iTipo, iProv, iInd, Math.round(o.amount_total), dOff,
+@@ -460,2 +461,2 @@
+-    // [7]=subtotal CON IVA (price_total; era price_subtotal), [8]=día de la orden
+-    L.push([a[0], a[1], a[2], a[3], idx(CAT,cat), Math.round(l.product_uom_qty), Math.round(l.qty_delivered||0), Math.round(l.price_total != null ? l.price_total : l.price_subtotal), a[4]]);
++    // [7]=subtotal CON IVA, [8]=día de la orden, [9]=provincia del cliente de la orden.
++    L.push([a[0], a[1], a[2], a[3], idx(CAT,cat), Math.round(l.product_uom_qty), Math.round(l.qty_delivered||0), Math.round(l.price_total != null ? l.price_total : l.price_subtotal), a[4], a[5]]);

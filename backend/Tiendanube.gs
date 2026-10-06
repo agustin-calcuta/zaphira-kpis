@@ -176,7 +176,7 @@ function tnAggregate_(orders, checkouts, range, now, couponCodes) {
       : ['partially_paid', 'partially_refunded'].indexOf(o.payment_status) >= 0 ? 'partial'
       : ['refunded', 'voided'].indexOf(o.payment_status) >= 0 ? 'refunded' : 'other';
     summary[kind]++;
-    if (!daily[day]) daily[day] = {date: day, orders: 0, paid: 0, paidTotalArs: 0, missingAmounts: 0};
+    if (!daily[day]) daily[day] = {date: day, orders: 0, paid: 0, paidTotalArs: 0, paidUnits: 0, missingAmounts: 0};
     daily[day].orders++;
     if (kind !== 'paid') return;
     paidOrders.push(o);
@@ -190,7 +190,7 @@ function tnAggregate_(orders, checkouts, range, now, couponCodes) {
     o.products.forEach(function(p) {
       var qty = Number(p.quantity);
       if (!isFinite(qty) || qty < 0 || !Number.isInteger(qty)) tnError_('Tiendanube devolvió una cantidad inválida.');
-      summary.paidUnits += qty;
+      summary.paidUnits += qty; daily[day].paidUnits += qty;
       var key = String(p.product_id || p.name || 'sin-producto');
       if (!products[key]) products[key] = {name: String(p.name_without_variants || p.name || 'Producto').slice(0, 200), units: 0};
       products[key].units += qty;
@@ -218,7 +218,7 @@ function opTiendanube_(d) {
   var range;
   try { range = tnRange_(d); } catch (e) { return {ok: false, error: e.message}; }
   var fingerprint = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token).map(function(b) { return ('0'+((b+256)%256).toString(16)).slice(-2); }).join('').slice(0,20);
-  var key = 'tn-v3-' + fingerprint + '-' + range.from + '-' + range.to;
+  var key = 'tn-v4-' + fingerprint + '-' + range.from + '-' + range.to;
   var cache = CacheService.getScriptCache(), previous = null;
   try { previous = JSON.parse(cache.get(key) || 'null'); } catch (e) {}
   if (previous && Date.now() - Date.parse(previous.updatedAt) < 300000) return previous;

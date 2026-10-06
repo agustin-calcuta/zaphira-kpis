@@ -111,10 +111,11 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('Flujo de oportunidades creadas — etapa actual', self.text())
         self.assertIn('no es la tasa de cierres ganados', self.text())
 
-    def test_seller_has_six_cards_and_correct_rate(self):
+    def test_seller_has_average_garments_card_and_correct_rate(self):
         self.load()
         self.page.select_option('#fVen', '0')
-        self.assertEqual(6, len(self.top_labels()))
+        self.assertEqual(7, len(self.top_labels()))
+        self.assertIn('Prendas promedio por orden', self.top_labels())
         self.assertIn('2 ganadas / (2 ganadas + 3 perdidas)', self.text())
 
     def test_default_month_and_reset_use_current_argentina_date_despite_stale_odoo(self):
@@ -137,6 +138,48 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual('mtd',self.page.locator('#fPer').input_value())
         self.assertEqual('2026-09-01',self.page.locator('#fFrom').input_value())
         self.assertEqual('2026-09-30',self.page.locator('#fTo').input_value())
+
+    def test_direct_channel_opens_current_year_but_keeps_manual_period(self):
+        self.load()
+        self.page.select_option('#fCan','0')
+        self.assertEqual('ytd',self.page.locator('#fPer').input_value())
+        self.assertEqual(RAW['meta']['dateFrom'],self.page.locator('#fFrom').input_value(),
+                         'Odoo cannot claim coverage before its extraction cutoff')
+        self.page.select_option('#fPer','d30')
+        self.page.select_option('#fCan','')
+        self.page.select_option('#fCan','0')
+        self.assertEqual('d30',self.page.locator('#fPer').input_value())
+
+    def test_direct_segment_by_province_uses_line_category_and_order_province(self):
+        raw=copy.deepcopy(RAW)
+        raw['dict']['PROV']=['Córdoba','Buenos Aires']
+        raw['dict']['CAT']=['Sanidad','Laboral']
+        raw['O'][0][4]=0; raw['O'][1][4]=1
+        raw['L'][0][4]=0; raw['L'][1][4]=1
+        raw['L'][0].append(0); raw['L'][1].append(1)
+        self.load(raw)
+        self.page.select_option('#fCan','0')
+        table=self.page.locator('.card').filter(has=self.page.get_by_role('heading',name='Venta directa por segmento de producto y provincia')).locator('table')
+        self.assertIn('Córdoba',table.text_content())
+        self.assertIn('Sanidad',table.text_content())
+        self.assertIn('$ 1,0 K',table.text_content())
+        self.assertIn('Prendas promedio por orden',self.top_labels())
+
+    def test_monthly_evolution_fills_zero_sales_months_inside_odoo_coverage(self):
+        raw=copy.deepcopy(RAW)
+        raw['meta'].update(day0='2026-03-01',dateFrom='2026-03-01')
+        raw['dict']['MON']=['2026-03','2026-09']
+        raw['O'][0][7]=14;raw['O'][1][7]=198
+        raw['L'][0][8]=14;raw['L'][1][8]=198
+        self.load(raw)
+        self.page.select_option('#fCan','0')
+        chart=self.page.locator('#app svg[aria-label^="Ventas confirmadas"]')
+        self.assertIn('Mar',chart.text_content())
+        self.assertIn('Abr',chart.text_content())
+        self.assertIn('Ago',chart.text_content())
+        self.assertNotIn('Ene',chart.text_content())
+        pairs=chart.evaluate('svg => [...svg.querySelectorAll(".chart-value-label")].map((value,i) => { const count=svg.querySelectorAll(".chart-count-label")[i]; const a=value.getBoundingClientRect(), b=count.getBoundingClientRect(); return a.bottom<=b.top || b.bottom<=a.top; })')
+        self.assertTrue(all(pairs), 'amount and count labels must remain separate, including zero-sale months')
 
     def test_tiendanube_only_appears_in_channel_and_general_includes_odoo_web_sales(self):
         self.load()
@@ -259,7 +302,7 @@ class DashboardTests(unittest.TestCase):
         self.load(raw, seller=True)
         self.assertTrue(self.page.locator('#fVen').is_disabled())
         self.assertEqual(0, self.page.locator('#fCan').count())
-        self.assertEqual(6, len(self.top_labels()))
+        self.assertEqual(7, len(self.top_labels()))
         self.assertNotIn('Web (Tiendanube)', self.text())
 
     def flow_fixture(self):
@@ -428,7 +471,7 @@ class DashboardTests(unittest.TestCase):
             'Ventas por provincia',
             'Ventas por tipo de producto',
         ], self.page.locator('.sect').all_text_contents())
-        self.assertEqual(6, len(self.top_labels()))
+        self.assertEqual(7, len(self.top_labels()))
         self.assertTrue(self.page.locator('#fVen').is_disabled())
         self.assertEqual(['Ana'], self.page.locator('#fVen option').all_text_contents())
         self.assertEqual(0, self.page.locator('#btnCfg, #fCan, .crm-comparativa').count())
@@ -681,6 +724,41 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('Abr 26',chart.text_content())
         self.assertIn('+50%',chart.text_content())
         self.assertEqual(0,self.page.locator('.tn-period-values').count())
+
+    def test_tiendanube_year_to_date_includes_january_and_february(self):
+        self.setup_tn(tn_data={'daily':[
+            {'date':'2026-01-15','orders':1,'paid':1,'paidTotalArs':100,'paidUnits':2,'missingAmounts':0},
+            {'date':'2026-02-15','orders':1,'paid':1,'paidTotalArs':150,'paidUnits':3,'missingAmounts':0}]})
+        self.page.select_option('#fPer','ytd')
+        self.assertEqual('2026-01-01',self.page.locator('#fFrom').input_value())
+        self.assertEqual('2026-01-01',self.page.locator('#fFrom').get_attribute('min'))
+        self.page.locator('.tn-evolution svg').get_by_text('Ene 26').wait_for()
+        self.assertIn('Feb 26',self.page.locator('.tn-evolution svg').text_content())
+        self.assertEqual('2026-01-01',self.tn_request['from'])
+
+    def test_tiendanube_weeks_start_monday_and_first_week_is_partial(self):
+        self.setup_tn()
+        self.page.select_option('#fPer','custom')
+        self.page.locator('#fFrom').fill('2026-09-01')
+        self.page.locator('#fFrom').dispatch_event('change')
+        self.page.locator('#fTo').fill('2026-09-23')
+        self.page.locator('#fTo').dispatch_event('change')
+        chart=self.page.locator('.tn-evolution svg')
+        self.assertIn('01/09–06/09',chart.text_content())
+        self.assertIn('07/09–13/09',chart.text_content())
+        self.assertIn('21/09–23/09',chart.text_content())
+
+    def test_tiendanube_ticket_and_units_average_monthly_and_weekly(self):
+        self.setup_tn(tn_data={
+            'summary':{'orders':2,'paid':2,'pending':0,'cancelled':0,'refunded':0,'partial':0,'other':0,'paidUnits':5},
+            'daily':[{'date':'2026-09-15','orders':2,'paid':2,'paidTotalArs':100,'paidUnits':5,'missingAmounts':0}]})
+        monthly=self.page.locator('.tn-averages svg').first
+        self.assertIn('$ 50',monthly.text_content())
+        self.assertIn('2,5',monthly.locator('.chart-count-label').all_text_contents())
+        self.page.locator('.tn-averages summary').click()
+        weekly=self.page.locator('.tn-averages svg').nth(1)
+        self.assertIn('14/09–20/09',weekly.text_content())
+        self.assertIn('2,5',weekly.locator('.chart-count-label').all_text_contents())
 
     def test_monthly_chart_labels_do_not_overlap_each_other_or_the_line(self):
         self.load()

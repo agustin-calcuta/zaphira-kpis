@@ -41,6 +41,7 @@ test('aggregates mutually exclusive states, includes mobile/manual and never mix
   assert.equal(data.summary.orders,7);assert.equal(data.summary.paid,3);assert.equal(data.summary.paidTotalArs,301.5);assert.equal(data.summary.paidUnits,6);
   assert.equal(data.summary.pending,1);assert.equal(data.summary.cancelled,1);assert.equal(data.summary.partial,1);assert.equal(data.summary.refunded,1);
   assert.equal(data.origins.length,3);
+  assert.equal(data.daily[0].paidUnits,6,'Daily units support weekly and monthly averages');
 });
 test('amounts missing or foreign currency are flagged instead of silently summed',()=>{
   const {c}=setup();const data=c.tnAggregate_([order(1,'paid',{currency:'USD'}),order(2,'paid',{total:null}),order(3)],[],range,now);
