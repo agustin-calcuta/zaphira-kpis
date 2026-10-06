@@ -49,7 +49,7 @@ test('XLSX export is a real workbook with filtered rows', () => {
   assert.match(orders, /10000/);
 });
 
-test('API only accepts the two dashboard origins', async () => {
+test('API only accepts the dashboard origins', async () => {
   const bad = await worker.fetch(new Request(origin + '/api', {
     method: 'POST', headers: {Origin: 'https://evil.example'}, body: '{}'
   }), {});
@@ -59,4 +59,10 @@ test('API only accepts the two dashboard origins', async () => {
   }), {});
   assert.equal(preflight.status, 204);
   assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), origin);
+  const pagesOrigin = 'https://zaphiraventas.pages.dev';
+  const pagesPreflight = await worker.fetch(new Request(origin + '/api', {
+    method: 'OPTIONS', headers: {Origin: pagesOrigin}
+  }), {});
+  assert.equal(pagesPreflight.status, 204);
+  assert.equal(pagesPreflight.headers.get('Access-Control-Allow-Origin'), pagesOrigin);
 });

@@ -1,7 +1,9 @@
 # Zaphira — KPIs de Ventas
 
-Tablero de KPIs de ventas de Zaphira, publicado en Cloudflare Workers en
-[zaphira-ventas-calcuta.agustin-5e6.workers.dev](https://zaphira-ventas-calcuta.agustin-5e6.workers.dev/).
+Tablero de KPIs de ventas de Zaphira, disponible en
+[zaphiraventas.pages.dev](https://zaphiraventas.pages.dev/). El Worker
+[zaphira-ventas-calcuta.agustin-5e6.workers.dev](https://zaphira-ventas-calcuta.agustin-5e6.workers.dev/)
+sigue atendiendo la API y los datos mediante un service binding de Cloudflare.
 El enlace anterior de GitHub Pages continúa funcionando y consulta la misma API de Cloudflare.
 
 - **Página:** `index.html` — renderiza y agrega todo client-side (filtros, ARS/USD, export).

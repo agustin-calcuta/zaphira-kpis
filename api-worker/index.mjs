@@ -6,7 +6,8 @@ import {syncSales} from './odoo-sync.mjs';
 
 const ORIGINS = new Set([
   'https://agustin-calcuta.github.io',
-  'https://zaphira-ventas-calcuta.agustin-5e6.workers.dev'
+  'https://zaphira-ventas-calcuta.agustin-5e6.workers.dev',
+  'https://zaphiraventas.pages.dev'
 ]);
 const MAX_BODY = 32_768;
 const SESSION_ERROR = {ok: false, code: 'sesion', error: 'Tu sesión venció. Volvé a entrar.'};
