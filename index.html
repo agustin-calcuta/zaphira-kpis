@@ -1562,7 +1562,8 @@ function barraObjetivoTiendanube(data,range){
   return '<div class="card" style="margin-bottom:12px"><h3>Objetivo Tienda Nube</h3><div class="pmsg">Todavía no hay un objetivo para el período. Dirección puede cargarlo en Configuración.</div></div>';
 }
 function barraObjetivoTnGeneral(mes,objetivo){
-  if(!objetivo||F.can!==''||F.ven!==''||!esDireccion())return '';
+  if(F.can!==''||F.ven!==''||!esDireccion())return '';
+  if(!objetivo)return mes===mesHoy()?'<div class="pmsg"><b>Tienda Nube</b> · Sin objetivo cargado. Dirección puede fijarlo en Configuración.</div>':'';
   const range={from:offToIso(F.from===null?MINOFF:F.from),to:offToIso(F.to===null?TODAY:F.to)};
   const key=range.from+'|'+range.to;
   if(TN.key!==key&&!TN.pending)queueMicrotask(()=>cargarTiendanube(false,range));

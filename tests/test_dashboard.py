@@ -869,6 +869,11 @@ class DashboardTests(unittest.TestCase):
         self.page.select_option('#fVen', '0')
         self.assertNotIn('pedidos pagados', self.page.locator('.objbar').inner_text())
 
+    def test_all_channels_marks_tiendanube_goal_as_unset_until_manager_enters_it(self):
+        self.load(objective={'empresa': 6000, 'vendedoras': {'Ana': 4000}})
+        self.assertIn('Tienda Nube · Sin objetivo cargado', self.text())
+        self.assertEqual(2, self.page.locator('.objbar').count())
+
     def test_all_channels_never_shows_fake_zero_when_tiendanube_amount_is_incomplete(self):
         def tn_goal(route):
             if route.request.post_data_json.get('op') != 'tiendanube':
