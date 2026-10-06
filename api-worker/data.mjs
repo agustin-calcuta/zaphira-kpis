@@ -1,5 +1,7 @@
 import {argentinaDate} from './auth.mjs';
 
+export const TIENDANUBE_OBJECTIVE_SCOPE = '__tiendanube__';
+
 export async function readDataset(db) {
   const rows = (await db.prepare('SELECT payload FROM dataset ORDER BY id').all()).results;
   if (!rows.length) return {};
@@ -18,9 +20,10 @@ export async function writeDataset(db, raw) {
 
 export async function readObjectives(db, mes) {
   const rows = (await db.prepare('SELECT alcance,objetivo FROM objetivos WHERE mes = ?').bind(mes).all()).results;
-  const result = {empresa: 0, vendedoras: {}};
+  const result = {empresa: 0, tiendanube: 0, vendedoras: {}};
   for (const row of rows) {
     if (row.alcance === 'empresa') result.empresa = Number(row.objetivo) || 0;
+    else if (row.alcance === TIENDANUBE_OBJECTIVE_SCOPE) result.tiendanube = Number(row.objetivo) || 0;
     else result.vendedoras[row.alcance] = Number(row.objetivo) || 0;
   }
   return result;
@@ -30,7 +33,7 @@ export async function objectives(db, user, mesInput) {
   const mes = /^\d{4}-\d{2}$/.test(String(mesInput || '')) ? mesInput : argentinaDate(new Date(), 'yyyy-MM');
   const obj = await readObjectives(db, mes);
   if (user.rol !== 'direccion') {
-    return {ok: true, mes, objetivos: {empresa: 0, vendedoras: {}}, mio: obj.vendedoras[user.vendedora] || 0};
+    return {ok: true, mes, objetivos: {empresa: 0, tiendanube: 0, vendedoras: {}}, mio: obj.vendedoras[user.vendedora] || 0};
   }
   return {ok: true, mes, objetivos: obj};
 }
@@ -65,7 +68,7 @@ export async function dataResponse(db, user) {
   const mes = argentinaDate(new Date(), 'yyyy-MM');
   const obj = await readObjectives(db, mes);
   const raw = await readDataset(db);
-  if (user.rol === 'direccion') return {ok: true, objetivo: {mes, empresa: obj.empresa, vendedoras: obj.vendedoras}, raw};
+  if (user.rol === 'direccion') return {ok: true, objetivo: {mes, empresa: obj.empresa, tiendanube: obj.tiendanube, vendedoras: obj.vendedoras}, raw};
   if (!raw.dict) return {ok: true, objetivo: {mes, mio: 0}, raw: {}};
   const recortado = trimToSeller(raw, user.vendedora);
   if (!recortado) return {ok: false, code: 'sin_vendedora', error: 'No encontramos tus ventas.', vendedora: user.vendedora};

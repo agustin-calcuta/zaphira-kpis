@@ -361,7 +361,7 @@ function syncState(text,tone){
 }
 
 let USER=null;
-let OBJETIVO={mes:'',empresa:0,mio:0,vendedoras:{}};
+let OBJETIVO={mes:'',empresa:0,tiendanube:0,mio:0,vendedoras:{}};
 const esDireccion =()=>!!USER&&USER.rol==='direccion';
 const esVendedora =()=>!!USER&&USER.rol==='vendedora';
 /* El ranking y la conversión por vendedora son los dos paneles que comparan compañeras entre sí:
@@ -493,7 +493,7 @@ try{
       if(validation&&validation.ok){
         RESP=cached.response;
         RESP.objetivo=esDireccion()
-          ? {mes:validation.mes,empresa:validation.objetivos.empresa,vendedoras:validation.objetivos.vendedoras}
+          ? {mes:validation.mes,empresa:validation.objetivos.empresa,tiendanube:validation.objetivos.tiendanube||0,vendedoras:validation.objetivos.vendedoras}
           : {mes:validation.mes,mio:validation.mio};
         USED_CACHE=true;
         BACKGROUND_REFRESH=api('data',{token:USER.token},45000);
@@ -578,7 +578,7 @@ function rangeOf(key){
   if(key==='ytd') return [mk(Y,0,1),TODAY];
   return [minFuente(),null];   // 'all' y cualquier clave desconocida
 }
-let VISTA='tablero';
+let VISTA='tablero', CFG_RETURN_VIEW='tablero';
 let F={per:'mtd',from:MINOFF,to:null,ven:'',can:''};
 let PERIODO_EDITADO=false;
 const minFuente=()=>VISTA==='tienda'?TN_MINOFF:MINOFF;
@@ -760,6 +760,7 @@ function buildToolbar(){
     syncChrome(); go();});
   $('btnPdf').addEventListener('click',()=>window.print());
   if(esDireccion()) $('btnCfg').addEventListener('click',()=>{
+    CFG_RETURN_VIEW=VISTA;
     VISTA='config';
     if(!CFG.usuarios) cargarConfig(mesHoy()); else go();
   });
@@ -1425,6 +1426,7 @@ function renderTiendanube(A){
   const stamp=new Date(data.updatedAt).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires'});
   const status=el('<div class="cmpnote" style="margin-bottom:12px" role="status"></div>');
   status.firstElementChild.textContent=(data.stale?'Última consulta válida: ':'Actualizado: ')+stamp+(data.stale?' · '+data.warning:' · Las consultas se reutilizan hasta 5 minutos.');A.appendChild(status);
+  A.appendChild(el(barraObjetivoTiendanube(data,range)));
   const cards=[
     ['Importe de pedidos pagados',moneyTN(amounts.total),CUR+' · incluye envío y descuentos'],
     ['Pedidos pagados',n0(s.paid),'Sin cancelados ni reembolsados'],
@@ -1464,7 +1466,7 @@ function go(){
   const app=document.getElementById('app'); app.innerHTML='';
   const web=VISTA==='tienda';
   syncChrome();
-  ['fVen','btnXlsx','btnCfg'].forEach(id=>{const node=document.getElementById(id);if(node)node.disabled=web||(id==='fVen'&&esVendedora());});
+  ['fVen','btnXlsx','btnCfg'].forEach(id=>{const node=document.getElementById(id);if(node)node.disabled=(web&&id!=='btnCfg')||(id==='fVen'&&esVendedora());});
   if(web){const r=tnSelectedRange();if(TN.key!==r.from+'|'+r.to){cargarTiendanube();return;}renderTiendanube(app);return;}
   if(VISTA==='config'){ renderConfig(app); return; }
   const pr=prevRange();                       // null en "Todo el período": no hay un antes
@@ -1510,27 +1512,54 @@ function barraCumpl(rot,vendido,objetivo,mes){
       falta>0?' · faltan '+montoObjetivo(falta,mes):' · objetivo cumplido'}</div></div>`;
 }
 const OBJETIVOS_MES=new Map([[OBJETIVO.mes||(RAW.meta.today||BUSINESS_TODAY).slice(0,7),{datos:OBJETIVO}]]);
-function mesesObjetivoPeriodo(){
-  const inicio=offToDate(F.from===null?MINOFF:F.from), fin=offToDate(F.to===null?MAXOFF:F.to), meses=[];
+function mesesEntre(inicio,fin){
+  const meses=[];
   if(inicio>fin) return meses;
   for(let i=inicio.getUTCFullYear()*12+inicio.getUTCMonth();i<=fin.getUTCFullYear()*12+fin.getUTCMonth();i++){
     meses.push(new Date(Date.UTC(Math.floor(i/12),i%12,1)).toISOString().slice(0,7));
   }
   return meses;
 }
+function mesesObjetivoPeriodo(){
+  return mesesEntre(offToDate(F.from===null?MINOFF:F.from),offToDate(F.to===null?MAXOFF:F.to));
+}
+function estadoObjetivoMes(mes){
+  if(!OBJETIVOS_MES.has(mes)){
+    const estado={cargando:true}; OBJETIVOS_MES.set(mes,estado);
+    api('objetivos',{token:USER.token,mes}).then(r=>{
+      if(!r||!r.ok||r.mes!==mes) throw new Error('objetivos');
+      estado.datos=esVendedora()?{mio:r.mio}:{empresa:0,tiendanube:0,vendedoras:{},...r.objetivos};
+    }).catch(()=>{estado.error=true;}).finally(()=>{estado.cargando=false;if(VISTA==='tablero'||VISTA==='tienda')go();});
+  }
+  return OBJETIVOS_MES.get(mes);
+}
 function barraObjetivo(){
   return mesesObjetivoPeriodo().map(mes=>{
-    if(!OBJETIVOS_MES.has(mes)){
-      const estado={cargando:true}; OBJETIVOS_MES.set(mes,estado);
-      api('objetivos',{token:USER.token,mes}).then(r=>{
-        if(!r||!r.ok||r.mes!==mes) throw new Error('objetivos');
-        estado.datos=esVendedora()?{mio:r.mio}:{empresa:0,vendedoras:{},...r.objetivos};
-      }).catch(()=>{estado.error=true;}).finally(()=>{estado.cargando=false;if(VISTA==='tablero')go();});
-    }
-    const estado=OBJETIVOS_MES.get(mes);
+    const estado=estadoObjetivoMes(mes);
     if(estado.cargando||estado.error) return `<div class="card" style="margin-bottom:12px"><h3>Objetivo de ${mesLegible(mes)}</h3><div class="pmsg">${estado.error?'No pudimos cargar los objetivos de este mes. Recargá para reintentar.':'Cargando objetivos…'}</div></div>`;
     return barraObjetivoMes(mes,estado.datos);
   }).join('');
+}
+function barraObjetivoTiendanube(data,range){
+  const meses=mesesEntre(new Date(range.from+'T00:00:00Z'),new Date(range.to+'T00:00:00Z'));
+  let pending=false, failed=false;
+  const cards=meses.map(mes=>{
+    const estado=estadoObjetivoMes(mes);
+    if(estado.cargando){pending=true;return '';}
+    if(estado.error){failed=true;return '';}
+    const objetivo=Number(estado.datos?.tiendanube)||0;
+    if(!objetivo)return '';
+    const dias=data.daily.filter(d=>d.date?.slice(0,7)===mes);
+    const incompletos=dias.reduce((n,d)=>n+(Number(d.missingAmounts)||0),0);
+    const vendido=dias.reduce((n,d)=>n+(Number(d.paidTotalArs)||0),0);
+    const detalle=incompletos
+      ? `<div class="pmsg">Objetivo: ${montoObjetivo(objetivo,mes)}. Hay ${n0(incompletos)} pedidos pagados sin importe completo en ARS; no se calcula un cumplimiento parcial.</div>`
+      : barraCumpl('Pedidos pagados de Tienda Nube',vendido,objetivo,mes);
+    return `<div class="card" style="margin-bottom:12px"><h3>Objetivo Tienda Nube · ${mesLegible(mes)}</h3>${detalle}<div class="pmsg">${notaObjetivo(mes)} ${data.stale?'Las ventas corresponden a la última consulta válida.':''}</div></div>`;
+  }).filter(Boolean);
+  if(cards.length)return cards.join('');
+  if(pending||failed)return `<div class="card" style="margin-bottom:12px"><h3>Objetivo Tienda Nube</h3><div class="pmsg">${failed?'No pudimos cargar los objetivos. Recargá para reintentar.':'Cargando objetivos…'}</div></div>`;
+  return '<div class="card" style="margin-bottom:12px"><h3>Objetivo Tienda Nube</h3><div class="pmsg">Todavía no hay un objetivo para el período. Dirección puede cargarlo en Configuración.</div></div>';
 }
 function barraObjetivoMes(mesKey,OBJETIVO){
   const mes=mesLegible(mesKey);
@@ -1589,7 +1618,7 @@ async function cargarConfig(mes){
   if(u&&u.code==='sesion'){ sesionBorrar(); location.reload(); return; }
   CFG.usuarios=(u&&u.usuarios)||[];
   CFG.mes=(o&&o.mes)||mes;
-  CFG.objetivos=(o&&o.objetivos)||{empresa:0,vendedoras:{}};
+  CFG.objetivos=(o&&o.objetivos)||{empresa:0,tiendanube:0,vendedoras:{}};
   if(o&&o.ok) OBJETIVOS_MES.set(CFG.mes,{datos:{...CFG.objetivos,vendedoras:{...CFG.objetivos.vendedoras}}});
   CFG.cargando=false; go();
 }
@@ -1598,7 +1627,7 @@ function renderConfig(A){
   A.appendChild(el(`<div class="periodbar" style="justify-content:space-between">
     <span>${ICO.cal}<span style="margin-left:6px"><b>Configuración</b> · accesos y objetivos</span></span>
     <button class="btn btn--quiet" id="cfgBack" type="button">Volver al tablero</button></div>`));
-  document.getElementById('cfgBack').addEventListener('click',()=>{VISTA='tablero';go();});
+  document.getElementById('cfgBack').addEventListener('click',()=>{VISTA=CFG_RETURN_VIEW;go();});
 
   if(CFG.cargando||!CFG.usuarios){
     A.appendChild(el('<div class="card"><h3>Cargando…</h3></div>'));
@@ -1608,7 +1637,7 @@ function renderConfig(A){
   /* --- objetivos del mes --- */
   const vend=CFG.usuarios.filter(u=>u.rol==='vendedora'&&u.activo);
   const tipoCambio=CUR==='USD'?tasaObjetivo(CFG.mes):1;
-  const val=a=>a==='empresa'?(CFG.objetivos.empresa||0):(CFG.objetivos.vendedoras[a]||0);
+  const val=a=>a==='empresa'?(CFG.objetivos.empresa||0):a==='__tiendanube__'?(CFG.objetivos.tiendanube||0):(CFG.objetivos.vendedoras[a]||0);
   /* El monto en letras debajo del campo NO es decoración: son objetivos de nueve cifras y un cero
      de más o de menos no se ve a simple vista en un input numérico. Se actualiza al tipear. */
   const filaObj=(a,rot)=>{const id='ob_'+a.replace(/\W/g,'_');return `<div class="ofila">
@@ -1618,7 +1647,7 @@ function renderConfig(A){
         <div class="ohint" id="${id}_h">${val(a)?montoObjetivo(val(a),CFG.mes):'sin objetivo'}</div></div>
     </div>`;};
   A.appendChild(el(`<div class="card"><h3>Objetivo de ventas</h3>
-    <div class="pmsg" style="margin-bottom:12px">Montos con IVA, en ${CUR}. ${CUR==='USD'?'Se guardan en pesos a la cotización de referencia de esta pantalla (ARS '+n0(tipoCambio)+' por USD). ':''}El de la empresa se muestra en el tablero de Dirección; el de cada vendedora, en su propio tablero. Dejar en blanco es no fijar objetivo: no aparece la barra.</div>
+    <div class="pmsg" style="margin-bottom:12px">Montos con IVA, en ${CUR}. ${CUR==='USD'?'Se guardan en pesos a la cotización de referencia de esta pantalla (ARS '+n0(tipoCambio)+' por USD). ':''}El de la empresa se muestra en el tablero de Dirección; el de cada vendedora, en su propio tablero. El de Tienda Nube se compara con sus pedidos pagados. Dejar en blanco es no fijar objetivo.</div>
     <div class="ofila" style="margin-bottom:14px">
       <label for="cfgMes">Mes</label>
       <select class="ctl" id="cfgMes">${mesesCargables().map(m=>
@@ -1626,7 +1655,10 @@ function renderConfig(A){
     </div>
     <div id="objForm">${filaObj('empresa','<b>Toda la empresa</b>')}
       <div style="height:1px;background:var(--border);margin:12px 0"></div>
-      ${vend.map(u=>filaObj(u.vendedora,u.nombre)).join('')}</div>
+      ${vend.map(u=>filaObj(u.vendedora,u.nombre)).join('')}
+      <div style="height:1px;background:var(--border);margin:12px 0"></div>
+      ${filaObj('__tiendanube__','<b>Tienda Nube</b> · canal de venta')}
+      <div class="pmsg">Este objetivo es independiente del objetivo personal de Yeni. Se mide con los pedidos pagados de Tienda Nube, no con ventas a nombre de Yeni en Odoo.</div></div>
     <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
       <button class="btn" id="objSave" type="button" ${!tipoCambio?'disabled':''}>Guardar objetivos</button>
       <span id="objMsg" style="font-size:12px;color:var(--text-muted)"></span></div></div>`));
@@ -1636,6 +1668,7 @@ function renderConfig(A){
     const v=Number(i.value)||0;
     const ars=Math.round(v*tipoCambio*100)/100;
     if(i.dataset.alcance==='empresa') CFG.objetivos.empresa=ars;
+    else if(i.dataset.alcance==='__tiendanube__') CFG.objetivos.tiendanube=ars;
     else CFG.objetivos.vendedoras[i.dataset.alcance]=ars;
     document.getElementById(i.id+'_h').textContent=v?moneyFull(v):'sin objetivo';
   }));
@@ -1646,16 +1679,17 @@ function renderConfig(A){
       ({alcance:i.dataset.alcance,objetivo:val(i.dataset.alcance)}));
     let r;
     try{ r=await api('guardarObjetivos',{token:USER.token,mes:CFG.mes,filas}); }
-    catch(err){ r={ok:false,error:'No pudimos conectarnos con la planilla.'}; }
+    catch(err){ r={ok:false,error:'No pudimos conectarnos con el servidor.'}; }
     b.disabled=false;
     msg.textContent=r&&r.ok?'Guardado y verificado.':('No se pudo guardar. '+((r&&r.error)||''));
     if(r&&r.ok){
-      // Usamos lo que el servidor releyó de la hoja, no los valores todavía presentes en pantalla.
-      CFG.objetivos=r.objetivos||{empresa:0,vendedoras:{}};
+      // Usamos lo que el servidor releyó, no los valores todavía presentes en pantalla.
+      CFG.objetivos=r.objetivos||{empresa:0,tiendanube:0,vendedoras:{}};
       OBJETIVOS_MES.set(CFG.mes,{datos:{...CFG.objetivos,vendedoras:{...CFG.objetivos.vendedoras}}});
       // Si se cambió el objetivo del mes en curso, el tablero tiene que reflejarlo al volver.
       if(CFG.mes===mesHoy()){
         OBJETIVO.empresa=CFG.objetivos.empresa;
+        OBJETIVO.tiendanube=CFG.objetivos.tiendanube;
         OBJETIVO.vendedoras={...CFG.objetivos.vendedoras};
       }
     }

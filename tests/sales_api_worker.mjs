@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {unzipSync} from '../api-worker/node_modules/fflate/esm/browser.js';
 import worker from '../api-worker/index.mjs';
 import {legacyHash, signToken, verifyToken} from '../api-worker/auth.mjs';
-import {trimToSeller} from '../api-worker/data.mjs';
+import {trimToSeller, readObjectives, objectives} from '../api-worker/data.mjs';
 import {xlsxResponse} from '../api-worker/xlsx.mjs';
 
 const origin = 'https://zaphira-ventas-calcuta.agustin-5e6.workers.dev';
@@ -31,6 +31,20 @@ test('seller data never contains another seller or her name in the dictionary', 
   assert.deepEqual(result.P, [[0, 0]]);
   assert.deepEqual(result.C, []);
   assert.deepEqual(raw.dict.VEN, ['Ana', 'Berta']);
+});
+
+test('Tienda Nube and Yeni have independent goals and seller responses stay private', async () => {
+  const rows = [
+    {alcance: 'empresa', objetivo: 100000},
+    {alcance: '__tiendanube__', objetivo: 60000},
+    {alcance: 'Yeni', objetivo: 12000}
+  ];
+  const db = {prepare: () => ({bind: () => ({all: async () => ({results: rows})})})};
+  const admin = await readObjectives(db, '2026-10');
+  assert.deepEqual(admin, {empresa: 100000, tiendanube: 60000, vendedoras: {Yeni: 12000}});
+  const seller = await objectives(db, {rol: 'vendedora', vendedora: 'Yeni'}, '2026-10');
+  assert.equal(seller.mio, 12000);
+  assert.deepEqual(seller.objetivos, {empresa: 0, tiendanube: 0, vendedoras: {}});
 });
 
 test('XLSX export is a real workbook with filtered rows', () => {

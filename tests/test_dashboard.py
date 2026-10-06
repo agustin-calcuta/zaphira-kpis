@@ -53,7 +53,7 @@ class DashboardTests(unittest.TestCase):
         self.context.close()
         self.assertEqual([], self.errors)
 
-    def load(self, raw=None, seller=False, objective=None, goals_by_month=None):
+    def load(self, raw=None, seller=False, objective=None, goals_by_month=None, users=None):
         raw = copy.deepcopy(raw if raw is not None else RAW)
         if seller:
             for key in ('O', 'L', 'P', 'C'):
@@ -71,14 +71,17 @@ class DashboardTests(unittest.TestCase):
                 payload = request.request.post_data_json
                 result = {'ok': True, 'raw': raw, 'objetivo': objective or {}}
                 if payload['op'] == 'usuarios':
-                    result = {'ok': True, 'usuarios': [{'rol': 'vendedora', 'activo': True, 'vendedora': 'Ana', 'nombre': 'Ana', 'usuario': 'ana'}]}
+                    result = {'ok': True, 'usuarios': users if users is not None else [{'rol': 'vendedora', 'activo': True, 'vendedora': 'Ana', 'nombre': 'Ana', 'usuario': 'ana'}]}
                 elif payload['op'] == 'objetivos':
                     month = payload.get('mes') or raw['meta']['today'][:7]
                     goals = (goals_by_month or {}).get(month, objective) or {}
                     result = {'ok': True, 'mes': month, 'objetivos': {'empresa': 0, 'vendedoras': {}, **goals}, 'mio': goals.get('mio', 0)}
                 elif payload['op'] == 'guardarObjetivos':
                     self.saved_goals = payload['filas']
-                    result = {'ok': True, 'objetivos': {'empresa': payload['filas'][0]['objetivo'], 'vendedoras': {'Ana': payload['filas'][1]['objetivo']}}}
+                    values = {row['alcance']: row['objetivo'] for row in payload['filas']}
+                    result = {'ok': True, 'objetivos': {'empresa': values.get('empresa', 0),
+                              'tiendanube': values.get('__tiendanube__', 0),
+                              'vendedoras': {k: v for k, v in values.items() if k not in ('empresa', '__tiendanube__')}}}
                 elif payload['op'] == 'xlsx':
                     self.export_request = payload
                     result = {'ok': True, 'b64': 'dGVzdA==', 'filename': 'synthetic.xlsx'}
@@ -626,13 +629,14 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual('8.5', field.input_value())
         self.page.click('#objSave')
         self.page.wait_for_function("document.getElementById('objMsg').textContent.includes('verificado')")
-        self.assertEqual([{'alcance': 'empresa', 'objetivo': 8500}, {'alcance': 'Ana', 'objetivo': 4000}], self.saved_goals)
+        self.assertEqual([{'alcance': 'empresa', 'objetivo': 8500}, {'alcance': 'Ana', 'objetivo': 4000},
+                          {'alcance': '__tiendanube__', 'objetivo': 0}], self.saved_goals)
         self.page.click('#cfgBack')
         self.assertIn('de US$ 9', self.page.locator('.objbar').first.inner_text())
 
 
-    def setup_tn(self, stale=False, raw=None, start_view='', start_channel='', period='d30', objective=None, tn_data=None):
-        self.load(raw=raw, objective=objective)
+    def setup_tn(self, stale=False, raw=None, start_view='', start_channel='', period='d30', objective=None, tn_data=None, goals_by_month=None, users=None):
+        self.load(raw=raw, objective=objective, goals_by_month=goals_by_month, users=users)
         self.page.select_option('#fPer', period)
         self.page.select_option('#fVen', start_view)
         self.page.select_option('#fCan', start_channel)
@@ -840,6 +844,46 @@ class DashboardTests(unittest.TestCase):
         self.page.click('#tnBack')
         self.assertGreater(self.page.locator('.objbar').count(), 0)
         self.assertIn('de $ 6.000', self.page.locator('.objbar').first.inner_text())
+
+    def test_tiendanube_goal_is_separate_from_yeni_and_can_be_edited_from_channel(self):
+        users = [{'rol': 'vendedora', 'activo': True, 'vendedora': name,
+                  'nombre': name, 'usuario': name.lower()} for name in ('Ana', 'Yeni')]
+        self.setup_tn(period='mtd', users=users,
+                      objective={'empresa': 0, 'tiendanube': 6000, 'vendedoras': {'Yeni': 7000}})
+        self.assertIn('83% de $ 6.000', self.page.locator('.objbar').inner_text())
+        self.assertIn('Vendido $ 5.000', self.page.locator('.objbar').inner_text())
+        self.page.click('#btnCfg')
+        self.assertEqual('7000', self.page.locator('#ob_Yeni').input_value())
+        self.assertEqual('6000', self.page.locator('#ob___tiendanube__').input_value())
+        self.page.locator('#ob___tiendanube__').fill('10000')
+        self.page.click('#objSave')
+        self.page.wait_for_function("document.getElementById('objMsg').textContent.includes('verificado')")
+        self.assertIn({'alcance': 'Yeni', 'objetivo': 7000}, self.saved_goals)
+        self.assertIn({'alcance': '__tiendanube__', 'objetivo': 10000}, self.saved_goals)
+        self.page.click('#cfgBack')
+        self.assertEqual('tiendanube', self.page.locator('#fCan').input_value())
+        self.assertIn('50% de $ 10.000', self.page.locator('.objbar').inner_text())
+
+    def test_tiendanube_goal_uses_selected_month_and_skips_incomplete_amounts(self):
+        self.setup_tn(period='lastmon', objective={'tiendanube': 10000},
+                      goals_by_month={'2026-08': {'tiendanube': 8000}},
+                      tn_data={'daily': [{'date': '2026-08-12', 'orders': 1, 'paid': 1,
+                                          'paidTotalArs': 4000, 'missingAmounts': 0}]})
+        self.page.select_option('#fPer', 'lastmon')
+        self.page.wait_for_function("document.querySelector('.objbar')?.textContent.includes('8.000')")
+        self.assertIn('Objetivo Tienda Nube · Ago 2026', self.text())
+        self.assertIn('50% de $ 8.000', self.page.locator('.objbar').inner_text())
+        self.page.click('[data-cur="USD"]')
+        self.assertIn('50% de US$ 8', self.page.locator('.objbar').inner_text())
+        self.page.select_option('#fPer', 'mtd')
+        self.assertIn('0% de US$ 10', self.page.locator('.objbar').inner_text())
+
+    def test_tiendanube_goal_does_not_show_partial_compliance(self):
+        self.setup_tn(period='mtd', objective={'tiendanube': 6000},
+                      tn_data={'daily': [{'date': '2026-09-15', 'orders': 2, 'paid': 2,
+                                          'paidTotalArs': 5000, 'missingAmounts': 1}]})
+        self.assertEqual(0, self.page.locator('.objbar').count())
+        self.assertIn('no se calcula un cumplimiento parcial', self.text())
 
     def test_tiendanube_evolution_fills_empty_days_and_keeps_correct_ticket(self):
         self.setup_tn()
