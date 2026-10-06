@@ -1392,9 +1392,9 @@ function renderTnCommerce(A,data){
   row2(box.firstElementChild,'Medios / proveedores de pago','<div class="pmsg">Cantidad y participación de pedidos pagados por el medio registrado en Tiendanube.</div>'+tnRanking(c.providers.map(p=>({label:p.name,value:p.orders})),paid,'ped.'),
     'Estado de envío de pedidos pagados','<div class="pmsg">Estado actual de los pedidos del período. La antigüedad se cuenta desde su creación; no implica que estén fuera del plazo de entrega.</div>'+tnRanking(c.shipping.map(s=>({label:labels[s.name]||s.name,value:s.orders})),paid,'ped.'));
 }
-async function cargarTiendanube(force=false){
+async function cargarTiendanube(force=false,range=tnSelectedRange()){
   if(!esDireccion()) return;
-  const range=tnSelectedRange(),key=range.from+'|'+range.to;
+  const key=range.from+'|'+range.to;
   if(TN.pending&&TN.key===key) return;
   if(!force&&TN.key===key&&(TN.data||TN.error)) return;
   const sequence=++TN.sequence;
@@ -1407,7 +1407,7 @@ async function cargarTiendanube(force=false){
     if(r.configured&&(!r.summary||!Array.isArray(r.daily)||!r.abandoned)) throw new Error('El backend todavía no tiene habilitada esta sección.');
     TN.data=r;
   }catch(e){if(sequence===TN.sequence) TN.error=e?.name==='AbortError'?'La consulta demoró demasiado. Probá un período más corto.':e.message;}
-  finally{if(sequence===TN.sequence){TN.pending=false;if(VISTA==='tienda')go();}}
+  finally{if(sequence===TN.sequence){TN.pending=false;if(VISTA==='tienda'||(VISTA==='tablero'&&F.can===''&&F.ven===''))go();}}
 }
 function renderTiendanube(A){
   if(!esDireccion())return;
@@ -1561,6 +1561,20 @@ function barraObjetivoTiendanube(data,range){
   if(pending||failed)return `<div class="card" style="margin-bottom:12px"><h3>Objetivo Tienda Nube</h3><div class="pmsg">${failed?'No pudimos cargar los objetivos. Recargá para reintentar.':'Cargando objetivos…'}</div></div>`;
   return '<div class="card" style="margin-bottom:12px"><h3>Objetivo Tienda Nube</h3><div class="pmsg">Todavía no hay un objetivo para el período. Dirección puede cargarlo en Configuración.</div></div>';
 }
+function barraObjetivoTnGeneral(mes,objetivo){
+  if(!objetivo||F.can!==''||F.ven!==''||!esDireccion())return '';
+  const range={from:offToIso(F.from===null?MINOFF:F.from),to:offToIso(F.to===null?TODAY:F.to)};
+  const key=range.from+'|'+range.to;
+  if(TN.key!==key&&!TN.pending)queueMicrotask(()=>cargarTiendanube(false,range));
+  const rot='<b>Tienda Nube</b> <span style="color:var(--text-muted)">· pedidos pagados</span>';
+  if(TN.key!==key||TN.pending)return `<div class="objbar"><div class="pmsg">${rot} · Consultando ventas de Tienda Nube…</div></div>`;
+  if(TN.error||!TN.data?.configured)return `<div class="objbar"><div class="pmsg">${rot} · No pudimos consultar sus ventas. Abrí el canal Tienda Nube y tocá Actualizar.</div></div>`;
+  const dias=TN.data.daily.filter(d=>d.date?.slice(0,7)===mes);
+  const incompletos=dias.reduce((n,d)=>n+(Number(d.missingAmounts)||0),0);
+  if(incompletos)return `<div class="objbar"><div class="pmsg">${rot} · Objetivo ${montoObjetivo(objetivo,mes)}. Hay ${n0(incompletos)} pedidos pagados sin importe completo en ARS; no se calcula un cumplimiento parcial.</div></div>`;
+  const vendido=dias.reduce((n,d)=>n+(Number(d.paidTotalArs)||0),0);
+  return barraCumpl(rot,vendido,objetivo,mes)+(TN.data.stale?'<div class="pmsg">Tienda Nube: ventas de la última consulta válida.</div>':'');
+}
 function barraObjetivoMes(mesKey,OBJETIVO){
   const mes=mesLegible(mesKey);
   const ventas=i=>ventasDelMes(i,mesKey), barra=(rot,v,o)=>barraCumpl(rot,v,o,mesKey), nota=()=>notaObjetivo(mesKey);
@@ -1571,7 +1585,7 @@ function barraObjetivoMes(mesKey,OBJETIVO){
   }
   if(!esDireccion()) return '';
   const porVen=Object.keys(OBJETIVO.vendedoras||{}).filter(k=>OBJETIVO.vendedoras[k]>0);
-  if(!OBJETIVO.empresa&&!porVen.length) return '';
+  if(!OBJETIVO.empresa&&!porVen.length&&!OBJETIVO.tiendanube) return '';
   const d=RAW.dict||{};
   /* Dirección filtrando una persona ve sólo su objetivo. Sin filtro conserva el consolidado. */
   if(F.ven!==''){
@@ -1584,10 +1598,12 @@ function barraObjetivoMes(mesKey,OBJETIVO){
     const i=(d.VEN||[]).indexOf(nom);
     return barra(nom,i<0?0:ventas(i),OBJETIVO.vendedoras[nom]);
   }).join('');
+  const tienda=barraObjetivoTnGeneral(mesKey,OBJETIVO.tiendanube);
   return `<div class="card" style="margin-bottom:12px"><h3>Objetivo de ${mes}</h3>${
     OBJETIVO.empresa?barra('<b>Toda la empresa</b>',ventas(null),OBJETIVO.empresa):''}${
-    detalle?`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">${detalle}</div>`:''}
-    <div style="font-size:11px;color:var(--text-muted);margin-top:8px">${nota()} Se cargan desde <b>Configuración</b>.</div></div>`;
+    detalle?`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">${detalle}</div>`:''}${
+    tienda?`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">${tienda}</div>`:''}
+    <div style="font-size:11px;color:var(--text-muted);margin-top:8px">${nota()} Tienda Nube usa pedidos pagados de su propia API y no se suma otra vez a las ventas de Odoo. Se cargan desde <b>Configuración</b>.</div></div>`;
 }
 
 /* ===== CONFIGURACIÓN (sólo Dirección) =====================================================

@@ -636,11 +636,6 @@ class DashboardTests(unittest.TestCase):
 
 
     def setup_tn(self, stale=False, raw=None, start_view='', start_channel='', period='d30', objective=None, tn_data=None, goals_by_month=None, users=None):
-        self.load(raw=raw, objective=objective, goals_by_month=goals_by_month, users=users)
-        self.page.select_option('#fPer', period)
-        self.page.select_option('#fVen', start_view)
-        self.page.select_option('#fCan', start_channel)
-        self.odoo_summary = self.page.locator('#app > div > .kpis').first.locator('.kv').all_text_contents()
         data = {'ok': True, 'configured': True, 'storeId': '1301166', 'updatedAt': '2026-09-29T15:00:00Z',
                 'summary': {'orders': 3, 'paid': 1, 'pending': 1, 'cancelled': 1, 'refunded': 0, 'partial': 0,
                             'other': 0, 'paidUnits': 2},
@@ -665,6 +660,11 @@ class DashboardTests(unittest.TestCase):
             self.tn_request=payload
             route.fulfill(status=200, content_type='application/json', headers={'Access-Control-Allow-Origin': '*'}, body=json.dumps(data))
         self.page.route('http://dashboard.test/api',handler)
+        self.load(raw=raw, objective=objective, goals_by_month=goals_by_month, users=users)
+        self.page.select_option('#fPer', period)
+        self.page.select_option('#fVen', start_view)
+        self.page.select_option('#fCan', start_channel)
+        self.odoo_summary = self.page.locator('#app > div > .kpis').first.locator('.kv').all_text_contents()
         self.page.select_option('#fCan', 'tiendanube')
         self.page.get_by_text('Importe de pedidos pagados',exact=True).wait_for()
 
@@ -844,6 +844,43 @@ class DashboardTests(unittest.TestCase):
         self.page.click('#tnBack')
         self.assertGreater(self.page.locator('.objbar').count(), 0)
         self.assertIn('de $ 6.000', self.page.locator('.objbar').first.inner_text())
+
+    def test_all_channels_shows_tiendanube_goal_from_paid_orders_without_visiting_channel(self):
+        calls = []
+        def tn_goal(route):
+            payload = route.request.post_data_json
+            if payload.get('op') != 'tiendanube':
+                route.fallback()
+                return
+            calls.append(payload)
+            route.fulfill(status=200, content_type='application/json', body=json.dumps({
+                'ok': True, 'configured': True, 'summary': {}, 'abandoned': {},
+                'daily': [{'date': '2026-09-15', 'paid': 1, 'paidTotalArs': 5000, 'missingAmounts': 0}]}))
+        self.page.route('http://dashboard.test/api', tn_goal)
+        self.load(objective={'empresa': 6000, 'tiendanube': 10000,
+                             'vendedoras': {'Ana': 4000, 'Yeni': 7000}})
+        self.page.wait_for_function("document.querySelector('#app')?.textContent.includes('50% de $ 10.000')")
+        self.assertEqual('Todos', self.page.locator('#fCan option:checked').inner_text())
+        self.assertIn('Tienda Nube', self.page.locator('.card').filter(has=self.page.get_by_role('heading', name='Objetivo de Sep 2026')).inner_text())
+        self.assertIn('50% de $ 10.000', self.page.locator('.objbar').last.inner_text())
+        self.assertIn('Yeni', self.text())
+        self.assertEqual('2026-09-01', calls[-1]['from'])
+        self.assertEqual('2026-09-23', calls[-1]['to'])
+        self.page.select_option('#fVen', '0')
+        self.assertNotIn('pedidos pagados', self.page.locator('.objbar').inner_text())
+
+    def test_all_channels_never_shows_fake_zero_when_tiendanube_amount_is_incomplete(self):
+        def tn_goal(route):
+            if route.request.post_data_json.get('op') != 'tiendanube':
+                route.fallback()
+                return
+            route.fulfill(status=200, content_type='application/json', body=json.dumps({
+                'ok': True, 'configured': True, 'summary': {}, 'abandoned': {},
+                'daily': [{'date': '2026-09-15', 'paid': 2, 'paidTotalArs': 5000, 'missingAmounts': 1}]}))
+        self.page.route('http://dashboard.test/api', tn_goal)
+        self.load(objective={'tiendanube': 10000})
+        self.page.get_by_text('no se calcula un cumplimiento parcial', exact=False).wait_for()
+        self.assertNotIn('0% de $ 10.000', self.text())
 
     def test_tiendanube_goal_is_separate_from_yeni_and_can_be_edited_from_channel(self):
         users = [{'rol': 'vendedora', 'activo': True, 'vendedora': name,
