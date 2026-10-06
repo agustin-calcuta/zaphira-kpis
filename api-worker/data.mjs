@@ -2,6 +2,10 @@ import {argentinaDate} from './auth.mjs';
 
 export const TIENDANUBE_OBJECTIVE_SCOPE = '__tiendanube__';
 
+// Acceso ligado a la cuenta actual de Yeni; no habilita Tiendanube para otras vendedoras.
+export const canViewTiendaNube = user => user?.rol === 'direccion' ||
+  (user?.rol === 'vendedora' && user.usuario === 'yeni' && user.vendedora === 'Yeni');
+
 export async function readDataset(db) {
   const rows = (await db.prepare('SELECT payload FROM dataset ORDER BY id').all()).results;
   if (!rows.length) return {};
@@ -33,7 +37,9 @@ export async function objectives(db, user, mesInput) {
   const mes = /^\d{4}-\d{2}$/.test(String(mesInput || '')) ? mesInput : argentinaDate(new Date(), 'yyyy-MM');
   const obj = await readObjectives(db, mes);
   if (user.rol !== 'direccion') {
-    return {ok: true, mes, objetivos: {empresa: 0, tiendanube: 0, vendedoras: {}}, mio: obj.vendedoras[user.vendedora] || 0};
+    return {ok: true, mes, objetivos: {empresa: 0, tiendanube: 0, vendedoras: {}},
+      mio: obj.vendedoras[user.vendedora] || 0,
+      tiendanube: canViewTiendaNube(user) ? obj.tiendanube : 0};
   }
   return {ok: true, mes, objetivos: obj};
 }
@@ -69,8 +75,11 @@ export async function dataResponse(db, user) {
   const obj = await readObjectives(db, mes);
   const raw = await readDataset(db);
   if (user.rol === 'direccion') return {ok: true, objetivo: {mes, empresa: obj.empresa, tiendanube: obj.tiendanube, vendedoras: obj.vendedoras}, raw};
-  if (!raw.dict) return {ok: true, objetivo: {mes, mio: 0}, raw: {}};
-  const recortado = trimToSeller(raw, user.vendedora);
+  if (!raw.dict && !canViewTiendaNube(user)) return {ok: true, objetivo: {mes, mio: 0}, raw: {}};
+  const recortado = trimToSeller(raw, user.vendedora) || (canViewTiendaNube(user)
+    ? {...raw, O: [], L: [], P: [], C: [], dict: {CAN: [], TIPO: [], PROV: [], IND: [], CAT: [], MON: [], STAGE: [], ...raw.dict, VEN: [user.vendedora]}} : null);
   if (!recortado) return {ok: false, code: 'sin_vendedora', error: 'No encontramos tus ventas.', vendedora: user.vendedora};
-  return {ok: true, objetivo: {mes, mio: obj.vendedoras[user.vendedora] || 0}, raw: recortado};
+  return {ok: true, perfilTiendanube: canViewTiendaNube(user),
+    objetivo: {mes, mio: obj.vendedoras[user.vendedora] || 0,
+      tiendanube: canViewTiendaNube(user) ? obj.tiendanube : 0}, raw: recortado};
 }

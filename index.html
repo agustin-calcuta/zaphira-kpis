@@ -364,6 +364,8 @@ let USER=null;
 let OBJETIVO={mes:'',empresa:0,tiendanube:0,mio:0,vendedoras:{}};
 const esDireccion =()=>!!USER&&USER.rol==='direccion';
 const esVendedora =()=>!!USER&&USER.rol==='vendedora';
+const esYeniTiendanube=()=>esVendedora()&&USER.usuario==='yeni'&&USER.ven==='Yeni';
+const puedeVerTiendanube=()=>esDireccion()||esYeniTiendanube();
 /* El ranking y la conversión por vendedora son los dos paneles que comparan compañeras entre sí:
    los ve sólo Dirección. Una vendedora ya recibe el dataset con una sola persona adentro. */
 const veComparativaEntreVendedoras=()=>esDireccion();
@@ -374,7 +376,7 @@ function pintarSesion(){
   w.hidden=!USER;
   if(USER){
     document.getElementById('whoN').textContent=USER.nombre||USER.usuario;
-    document.getElementById('headerSubtitle').textContent=esDireccion()?'Dirección · gestión comercial':'Ventas · gestión comercial';
+    document.getElementById('headerSubtitle').textContent=esDireccion()?'Dirección · gestión comercial':esYeniTiendanube()?'Tienda Nube · gestión comercial':'Ventas · gestión comercial';
   }
 }
 
@@ -481,7 +483,8 @@ try{
     if(!USER) USER=await pedirLogin();
     if(USER.cambiar) USER=await pedirCambioClave(USER,true);
     pintarSesion();
-    const cached=dataCacheLeer(USER);
+    const previous=dataCacheLeer(USER);
+    const cached=esYeniTiendanube()&&!previous?.response?.perfilTiendanube?null:previous;
     if(cached){
       loadingState('Validando la sesión…','La última sincronización guardada está lista para abrir.');
       syncState('Validando sesión…','loading');
@@ -494,7 +497,7 @@ try{
         RESP=cached.response;
         RESP.objetivo=esDireccion()
           ? {mes:validation.mes,empresa:validation.objetivos.empresa,tiendanube:validation.objetivos.tiendanube||0,vendedoras:validation.objetivos.vendedoras}
-          : {mes:validation.mes,mio:validation.mio};
+          : {mes:validation.mes,mio:validation.mio,tiendanube:esYeniTiendanube()?validation.tiendanube||0:0};
         USED_CACHE=true;
         BACKGROUND_REFRESH=api('data',{token:USER.token},45000);
         break;
@@ -537,6 +540,7 @@ RAW.rateDay = RAW.rateDay || [];
    no una vendedora. Compactar el diccionario y remapear las filas evita que figure duplicada
    incluso antes de que termine la siguiente sincronización de Apps Script. */
 (function agruparTiendanube(raw){
+  if(esYeniTiendanube())return;
   const old=(raw.dict&&raw.dict.VEN)||[];
   if(!old.some(v=>/^yeni$/i.test(String(v).trim()))) return;
   const labels=old.map(v=>/^yeni$/i.test(String(v).trim())?'Web (Tiendanube)':v), compact=[];
@@ -657,9 +661,10 @@ function syncChrome(){   /* refresca lo que depende del estado del filtro, sin r
 let FILTROS_ODOO=null, FILTROS_TN=null;
 let PERIODO_EDITADO_ODOO=false, PERIODO_EDITADO_TN=false;
 function elegirCanal(value, general=false){
-  if(esVendedora())return;
+  if(esVendedora()&&!esYeniTiendanube())return;
+  if(esYeniTiendanube()&&value!==''&&value!=='tiendanube')return;
   if(value==='tiendanube'){
-    if(!esDireccion())return;
+    if(!puedeVerTiendanube())return;
     if(VISTA!=='tienda'){
       FILTROS_ODOO={...F};
       PERIODO_EDITADO_ODOO=PERIODO_EDITADO;
@@ -675,7 +680,7 @@ function elegirCanal(value, general=false){
       if(FILTROS_ODOO)F={...FILTROS_ODOO};
       PERIODO_EDITADO=PERIODO_EDITADO_ODOO;
     }
-    F.can=value;if(general)F.ven='';VISTA='tablero';
+    F.can=value;if(general&&!esVendedora())F.ven='';VISTA='tablero';
     if(!PERIODO_EDITADO)setPeriod(value==='0'?'ytd':'mtd');
   }
   syncChrome();go();
@@ -691,15 +696,17 @@ function buildToolbar(){
   const verFiltroVen=true;
   /* Una vendedora vende sólo por venta directa (por eso Ariel pidió sacarle la sección 6): el
      filtro de canal no le cambia nada y es lo único que le nombraba el canal web. */
-  const verFiltroCan=!esVendedora();
+  const verFiltroCan=!esVendedora()||esYeniTiendanube();
   const venO=esVendedora()
     ? opt(F.ven, d.VEN[Number(F.ven)]!==undefined?d.VEN[Number(F.ven)]:(USER.ven||'—'), 1)
     : opt('','Todas',1)+d.VEN.map((v,i)=>({i,v}))
       .filter(x=>!esDireccion()||!/^(web\s*\(tiendanube\)|tienda\s*nube|yeni)$/i.test(String(x.v).trim()))
       .sort((a,b)=>a.v<b.v?-1:1).map(x=>opt(x.i,x.v)).join('');
-  const canO=opt('','Todos',1)+d.CAN.map((c,i)=>({i,c}))
-    .filter(x=>!esDireccion()||!/^(web\s*\(tiendanube\)|tienda\s*nube|yeni)$/i.test(String(x.c).trim()))
-    .map(x=>opt(x.i,canLabel(x.c))).join('')+(esDireccion()?opt('tiendanube','Tiendanube'):'');
+  const canO=esYeniTiendanube()
+    ? opt('','Mis ventas en Odoo',1)+opt('tiendanube','Tiendanube')
+    : opt('','Todos',1)+d.CAN.map((c,i)=>({i,c}))
+      .filter(x=>!esDireccion()||!/^(web\s*\(tiendanube\)|tienda\s*nube|yeni)$/i.test(String(x.c).trim()))
+      .map(x=>opt(x.i,canLabel(x.c))).join('')+(esDireccion()?opt('tiendanube','Tiendanube'):'');
   const minIso=offToIso(minFuente()), maxIso=offToIso(Math.max(MAXOFF,TODAY));
   const periodO=[['all','Todo el período']].concat(PRESETS).concat([['custom','Rango a medida…']])
     .map(p=>opt(p[0],p[1],p[0]===F.per)).join('');
@@ -727,7 +734,7 @@ function buildToolbar(){
    </div>`;
 
   const $=id=>document.getElementById(id);
-  if(!HASDAY&&!esDireccion()){   // dataset previo al día por fila: el período no puede filtrar todavía
+  if(!HASDAY&&!esDireccion()&&!esYeniTiendanube()){   // El período TN no depende de las filas de Odoo.
     $('fPer').disabled=true;
     $('fPer').title='El filtro por fechas se habilita en la próxima sincronización (cada 30 min).';
   }
@@ -1393,7 +1400,7 @@ function renderTnCommerce(A,data){
     'Estado de envío de pedidos pagados','<div class="pmsg">Estado actual de los pedidos del período. La antigüedad se cuenta desde su creación; no implica que estén fuera del plazo de entrega.</div>'+tnRanking(c.shipping.map(s=>({label:labels[s.name]||s.name,value:s.orders})),paid,'ped.'));
 }
 async function cargarTiendanube(force=false,range=tnSelectedRange()){
-  if(!esDireccion()) return;
+  if(!puedeVerTiendanube()) return;
   const key=range.from+'|'+range.to;
   if(TN.pending&&TN.key===key) return;
   if(!force&&TN.key===key&&(TN.data||TN.error)) return;
@@ -1410,10 +1417,10 @@ async function cargarTiendanube(force=false,range=tnSelectedRange()){
   finally{if(sequence===TN.sequence){TN.pending=false;if(VISTA==='tienda'||(VISTA==='tablero'&&F.can===''&&F.ven===''))go();}}
 }
 function renderTiendanube(A){
-  if(!esDireccion())return;
+  if(!puedeVerTiendanube())return;
   syncState(TN.pending?'Consultando Tiendanube…':TN.error?'Tiendanube no disponible':'Tiendanube',TN.pending?'loading':TN.error?'error':'ok');
   const range=tnSelectedRange();
-  A.appendChild(el(`<div class="periodbar"><span><b>Tiendanube</b> · ${fmtFecha(range.from)} a ${fmtFecha(range.to)}</span><button class="btn btn--quiet" id="tnBack" type="button">Volver a General</button><button class="btn" id="tnRefresh" type="button" ${TN.pending?'disabled':''}>Actualizar</button></div>`));
+  A.appendChild(el(`<div class="periodbar"><span><b>Tiendanube</b> · ${fmtFecha(range.from)} a ${fmtFecha(range.to)}</span><button class="btn btn--quiet" id="tnBack" type="button">${esYeniTiendanube()?'Ver mis ventas en Odoo':'Volver a General'}</button><button class="btn" id="tnRefresh" type="button" ${TN.pending?'disabled':''}>Actualizar</button></div>`));
   document.getElementById('tnBack').onclick=()=>elegirCanal('',true);
   document.getElementById('tnRefresh').onclick=()=>cargarTiendanube(true);
   A.appendChild(el('<div class="card" style="margin-bottom:14px"><div class="pmsg">Pedidos registrados en Tiendanube, incluidos los creados manualmente. Estos importes se muestran separados del consolidado de Odoo para evitar contar dos veces una misma venta.</div></div>'));
@@ -1528,7 +1535,7 @@ function estadoObjetivoMes(mes){
     const estado={cargando:true}; OBJETIVOS_MES.set(mes,estado);
     api('objetivos',{token:USER.token,mes}).then(r=>{
       if(!r||!r.ok||r.mes!==mes) throw new Error('objetivos');
-      estado.datos=esVendedora()?{mio:r.mio}:{empresa:0,tiendanube:0,vendedoras:{},...r.objetivos};
+      estado.datos=esVendedora()?{mio:r.mio,tiendanube:esYeniTiendanube()?r.tiendanube||0:0}:{empresa:0,tiendanube:0,vendedoras:{},...r.objetivos};
     }).catch(()=>{estado.error=true;}).finally(()=>{estado.cargando=false;if(VISTA==='tablero'||VISTA==='tienda')go();});
   }
   return OBJETIVOS_MES.get(mes);
@@ -2071,7 +2078,7 @@ function arrancar(){
       +'nombre exacto entre las vendedoras de Odoo. Avisale a Calcuta para corregirlo.');
   }
   if(FATAL) return pantalla('No se pudieron cargar los datos',FATAL);
-  if(!esDireccion()&&(!RAW.O||!RAW.O.length)&&(!RAW.C||!RAW.C.length)){
+  if(!esDireccion()&&!esYeniTiendanube()&&(!RAW.O||!RAW.O.length)&&(!RAW.C||!RAW.C.length)){
     return pantalla('Todavía no hay datos',
       esVendedora()?'Todavía no figuran ventas tuyas en el período sincronizado.'
                    :'El servidor todavía no sincronizó con Odoo. Probá recargar en unos minutos.');
@@ -2080,6 +2087,11 @@ function arrancar(){
     return pantalla('No encontramos tus ventas',
       'Tu usuario está asociado a <b>'+(USER.ven||'(sin asignar)')+'</b>, que no figura con ese '
       +'nombre exacto entre las vendedoras de Odoo. Avisale a Calcuta para corregirlo.');
+  }
+  if(esYeniTiendanube()){
+    FILTROS_ODOO={...F};
+    VISTA='tienda';
+    setPeriod('mtd');
   }
   buildToolbar(); go();
 }

@@ -1,5 +1,5 @@
 import {login, currentUser, password, users, reset, addUser, setActive} from './auth.mjs';
-import {readDataset, dataResponse, objectives, saveObjectives, trimToSeller} from './data.mjs';
+import {readDataset, dataResponse, objectives, saveObjectives, trimToSeller, canViewTiendaNube} from './data.mjs';
 import {tiendanubeResponse} from './tiendanube.mjs';
 import {xlsxResponse} from './xlsx.mjs';
 import {syncSales} from './odoo-sync.mjs';
@@ -36,7 +36,7 @@ async function dispatch(input, env) {
       return permitted ? xlsxResponse(permitted, input) : {ok: false, error: 'No encontramos tus ventas para exportar.'};
     }
     case 'tiendanube':
-      if (user.rol !== 'direccion') return {ok: false, code: 'permiso', error: 'Esta sección está disponible para Dirección.'};
+      if (!canViewTiendaNube(user)) return {ok: false, code: 'permiso', error: 'No tenés permiso para consultar Tiendanube.'};
       return tiendanubeResponse(env.DB, env.TN_ACCESS_TOKEN, input);
     case 'usuarios': return user.rol === 'direccion' ? users(env.DB) : PERMISSION_ERROR;
     case 'reset': return user.rol === 'direccion' ? reset(env.DB, input.usuario) : PERMISSION_ERROR;

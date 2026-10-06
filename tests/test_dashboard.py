@@ -53,14 +53,15 @@ class DashboardTests(unittest.TestCase):
         self.context.close()
         self.assertEqual([], self.errors)
 
-    def load(self, raw=None, seller=False, objective=None, goals_by_month=None, users=None):
+    def load(self, raw=None, seller=False, objective=None, goals_by_month=None, users=None, seller_name='Ana'):
         raw = copy.deepcopy(raw if raw is not None else RAW)
         if seller:
             for key in ('O', 'L', 'P', 'C'):
-                raw[key] = [row for row in raw.get(key, []) if row[1] == 0]
-            raw['dict']['VEN'] = ['Ana']
-        session = {'token': 'synthetic-test-token', 'usuario': 'test', 'nombre': 'Test',
-                   'rol': 'vendedora' if seller else 'direccion', 'ven': 'Ana', 'cambiar': False}
+                raw[key] = [] if seller_name == 'Yeni' else [row for row in raw.get(key, []) if row[1] == 0]
+            raw['dict']['VEN'] = [seller_name]
+        session = {'token': 'synthetic-test-token', 'usuario': 'yeni' if seller_name == 'Yeni' else 'test',
+                   'nombre': seller_name if seller_name == 'Yeni' else 'Test',
+                   'rol': 'vendedora' if seller else 'direccion', 'ven': seller_name, 'cambiar': False}
         self.context.add_init_script('localStorage.setItem("zaphira_sesion_v2", '
                                      + json.dumps(json.dumps(session)) + ');')
         self.saved_goals = None
@@ -69,13 +70,15 @@ class DashboardTests(unittest.TestCase):
             if request.request.url == 'http://dashboard.test/api':
                 self.assertEqual('synthetic-test-token', request.request.post_data_json['token'])
                 payload = request.request.post_data_json
-                result = {'ok': True, 'raw': raw, 'objetivo': objective or {}}
+                result = {'ok': True, 'raw': raw, 'objetivo': objective or {},
+                          'perfilTiendanube': seller and seller_name == 'Yeni'}
                 if payload['op'] == 'usuarios':
                     result = {'ok': True, 'usuarios': users if users is not None else [{'rol': 'vendedora', 'activo': True, 'vendedora': 'Ana', 'nombre': 'Ana', 'usuario': 'ana'}]}
                 elif payload['op'] == 'objetivos':
                     month = payload.get('mes') or raw['meta']['today'][:7]
                     goals = (goals_by_month or {}).get(month, objective) or {}
-                    result = {'ok': True, 'mes': month, 'objetivos': {'empresa': 0, 'vendedoras': {}, **goals}, 'mio': goals.get('mio', 0)}
+                    result = {'ok': True, 'mes': month, 'objetivos': {'empresa': 0, 'vendedoras': {}, **goals},
+                              'mio': goals.get('mio', 0), 'tiendanube': goals.get('tiendanube', 0) if seller_name == 'Yeni' else 0}
                 elif payload['op'] == 'guardarObjetivos':
                     self.saved_goals = payload['filas']
                     values = {row['alcance']: row['objetivo'] for row in payload['filas']}
@@ -635,7 +638,7 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('de US$ 9', self.page.locator('.objbar').first.inner_text())
 
 
-    def setup_tn(self, stale=False, raw=None, start_view='', start_channel='', period='d30', objective=None, tn_data=None, goals_by_month=None, users=None):
+    def setup_tn(self, stale=False, raw=None, start_view='', start_channel='', period='d30', objective=None, tn_data=None, goals_by_month=None, users=None, seller_name=None):
         data = {'ok': True, 'configured': True, 'storeId': '1301166', 'updatedAt': '2026-09-29T15:00:00Z',
                 'summary': {'orders': 3, 'paid': 1, 'pending': 1, 'cancelled': 1, 'refunded': 0, 'partial': 0,
                             'other': 0, 'paidUnits': 2},
@@ -660,7 +663,11 @@ class DashboardTests(unittest.TestCase):
             self.tn_request=payload
             route.fulfill(status=200, content_type='application/json', headers={'Access-Control-Allow-Origin': '*'}, body=json.dumps(data))
         self.page.route('http://dashboard.test/api',handler)
-        self.load(raw=raw, objective=objective, goals_by_month=goals_by_month, users=users)
+        self.load(raw=raw, seller=seller_name is not None, seller_name=seller_name or 'Ana',
+                  objective=objective, goals_by_month=goals_by_month, users=users)
+        if seller_name is not None:
+            self.page.get_by_text('Importe de pedidos pagados',exact=True).wait_for()
+            return
         self.page.select_option('#fPer', period)
         self.page.select_option('#fVen', start_view)
         self.page.select_option('#fCan', start_channel)
@@ -977,6 +984,22 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(0,self.page.locator('#fVen option[value=tiendanube]').count())
         self.assertEqual(0,self.page.locator('#fCan').count())
         self.assertTrue(self.page.locator('#fVen').is_disabled())
+
+    def test_yeni_enters_tiendanube_with_existing_account_and_keeps_odoo_goal_separate(self):
+        self.setup_tn(seller_name='Yeni', objective={'mes': '2026-09', 'mio': 7000, 'tiendanube': 10000})
+        self.assertEqual('tiendanube', self.page.locator('#fCan').input_value())
+        self.assertEqual(['Mis ventas en Odoo', 'Tiendanube'], self.page.locator('#fCan option').all_text_contents())
+        self.assertEqual(['Yeni'], self.page.locator('#fVen option').all_text_contents())
+        self.assertTrue(self.page.locator('#fVen').is_disabled())
+        self.assertIn('50% de $ 10.000', self.page.locator('.objbar').inner_text())
+        self.assertIn('Pedidos pagados', self.text())
+        self.assertEqual(0, self.page.locator('#btnCfg').count())
+        self.page.click('#tnBack')
+        self.assertEqual('', self.page.locator('#fCan').input_value())
+        self.assertIn('Tu objetivo de Sep 2026', self.text())
+        self.assertIn('0% de $ 7.000', self.page.locator('.objbar').inner_text())
+        self.page.select_option('#fCan', 'tiendanube')
+        self.assertIn('50% de $ 10.000', self.page.locator('.objbar').inner_text())
 
     def test_tiendanube_mobile_has_no_horizontal_overflow(self):
         self.setup_tn()
