@@ -3,7 +3,8 @@
 Tablero de KPIs de ventas de Zaphira, disponible en
 [zaphiraventas.pages.dev](https://zaphiraventas.pages.dev/). El Worker
 [zaphira-ventas-calcuta.agustin-5e6.workers.dev](https://zaphira-ventas-calcuta.agustin-5e6.workers.dev/)
-sigue atendiendo la API y los datos mediante un service binding de Cloudflare.
+sigue atendiendo la API y los datos. La página de Pages consulta ese Worker directamente;
+su ruta local `/api` no está configurada.
 El enlace anterior de GitHub Pages continúa funcionando y consulta la misma API de Cloudflare.
 
 - **Página:** `index.html` — renderiza y agrega todo client-side (filtros, ARS/USD, export).

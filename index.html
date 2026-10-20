@@ -288,7 +288,7 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 /* Frontend en Cloudflare; GitHub Pages sigue como enlace anterior. Los datos ya NO se piden con ?data=1 (que devolvía el dataset entero a
    cualquiera): se piden por POST con el token de la sesión, y el backend los manda recortados.
    type="module" habilita await top-level: todo lo de abajo corre recién con la sesión resuelta. */
-const EXEC_URL=location.hostname==='agustin-calcuta.github.io'
+const EXEC_URL=['agustin-calcuta.github.io','zaphiraventas.pages.dev'].includes(location.hostname)
   ?'https://zaphira-ventas-calcuta.agustin-5e6.workers.dev/api':'/api';
 const MES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MESL=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];

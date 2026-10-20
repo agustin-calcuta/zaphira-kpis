@@ -54,7 +54,8 @@ class DashboardTests(unittest.TestCase):
         self.context.close()
         self.assertEqual([], self.errors)
 
-    def load(self, raw=None, seller=False, objective=None, goals_by_month=None, users=None, seller_name='Ana'):
+    def load(self, raw=None, seller=False, objective=None, goals_by_month=None, users=None,
+             seller_name='Ana', origin='http://dashboard.test'):
         raw = copy.deepcopy(raw if raw is not None else RAW)
         if seller:
             for key in ('O', 'L', 'P', 'C'):
@@ -67,8 +68,16 @@ class DashboardTests(unittest.TestCase):
                                      + json.dumps(json.dumps(session)) + ');')
         self.saved_goals = None
         self.export_request = None
+        api_url = ('https://zaphira-ventas-calcuta.agustin-5e6.workers.dev/api'
+                   if origin == 'https://zaphiraventas.pages.dev' else origin + '/api')
         def route(request):
-            if request.request.url == 'http://dashboard.test/api':
+            if request.request.url == api_url:
+                if request.request.method == 'OPTIONS':
+                    request.fulfill(status=204, headers={
+                        'Access-Control-Allow-Origin': origin,
+                        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type'})
+                    return
                 self.assertEqual('synthetic-test-token', request.request.post_data_json['token'])
                 payload = request.request.post_data_json
                 result = {'ok': True, 'raw': raw, 'objetivo': objective or {},
@@ -92,12 +101,12 @@ class DashboardTests(unittest.TestCase):
                 request.fulfill(status=200, content_type='application/json',
                                 headers={'Access-Control-Allow-Origin': '*'},
                                 body=json.dumps(result))
-            elif request.request.url.startswith('http://dashboard.test'):
+            elif request.request.url.startswith(origin):
                 request.fulfill(status=200, content_type='text/html', body=HTML)
             else:
                 request.abort()
         self.context.route('**/*', route)
-        self.page.goto('http://dashboard.test')
+        self.page.goto(origin)
         self.page.locator('#fVen').wait_for()
 
     def text(self):
@@ -117,6 +126,11 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(['Ventas confirmadas', 'Ticket promedio', 'Órdenes', 'Prendas vendidas'], self.top_labels())
         self.assertIn('Flujo de oportunidades creadas — etapa actual', self.text())
         self.assertIn('no es la tasa de cierres ganados', self.text())
+
+    def test_pages_domain_calls_worker_api(self):
+        self.load(origin='https://zaphiraventas.pages.dev')
+        self.assertIn('Fuente: Odoo', self.text())
+        self.assertEqual(0, self.page.locator('#gate:visible').count())
 
     def test_seller_has_average_garments_card_and_correct_rate(self):
         self.load()
