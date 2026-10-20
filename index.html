@@ -366,9 +366,8 @@ const esDireccion =()=>!!USER&&USER.rol==='direccion';
 const esVendedora =()=>!!USER&&USER.rol==='vendedora';
 const esYeniTiendanube=()=>esVendedora()&&USER.usuario==='yeni'&&USER.ven==='Yeni';
 const puedeVerTiendanube=()=>esDireccion()||esYeniTiendanube();
-/* El ranking y la conversión por vendedora son los dos paneles que comparan compañeras entre sí:
-   los ve sólo Dirección. Una vendedora ya recibe el dataset con una sola persona adentro. */
-const veComparativaEntreVendedoras=()=>esDireccion();
+/* Las comparativas entre vendedoras y canales sólo tienen sentido en la vista general. */
+const veComparativaEntreVendedoras=()=>esDireccion()&&F.ven===''&&F.can==='';
 
 const LOGO=()=>document.querySelector('.brand img').src;
 function pintarSesion(){
@@ -1088,18 +1087,17 @@ function compute(rng){
       .map(k=>({n:k,v:acc[k],c:(colores||{})[k]||''}));
   }
 
-  /* TICKET PROMEDIO por pedido nuevo vs reposición (pedido de Ariel: sólo acá, no en todo el
-     tablero). El backend marca cada orden en O[8] según la antigüedad del cliente: nuevo si su
-     ficha se creó en el mismo mes de la venta. Son PROMEDIOS, no sumas, así que se acumula monto
-     y cantidad por separado y se divide al final — sumar los promedios mensuales daría otra cosa.
-     Guard HASREP: el dataset previo al 04/09/2026 no trae O[8] y la tarjeta no se muestra. */
+  /* O[8] viene de la clasificación explícita de la oportunidad CRM. Las órdenes sin vínculo o sin
+     valor no se atribuyen a ninguna categoría. Se muestran aparte para explicar la cobertura. */
   const palPedido={'Pedido nuevo':'#1e3a6e','Reposición':'#7fa3d9'};
-  const HASREP=O.length===0||O[0].length>8;
+  const HASREP=RAW.meta.orderClassSource==='crm';
   const tkAcc={'Pedido nuevo':new Array(mk.length).fill(0),'Reposición':new Array(mk.length).fill(0)};
   const tkCnt={'Pedido nuevo':new Array(mk.length).fill(0),'Reposición':new Array(mk.length).fill(0)};
   const tkTot={'Pedido nuevo':{m:0,n:0},'Reposición':{m:0,n:0}};
+  let tkSinClasificar=0;
   if(HASREP) O.forEach(o=>{
     const j=posMes[o[0]]; if(j===undefined) return;
+    if(o[8]!==1&&o[8]!==0){tkSinClasificar++;return;}
     const k=o[8]===1?'Pedido nuevo':'Reposición', v=toCur(o[0],o[7],o[6]);
     tkAcc[k][j]+=v; tkCnt[k][j]++; tkTot[k].m+=v; tkTot[k].n++;
   });
@@ -1108,7 +1106,8 @@ function compute(rng){
   const ticketPedido=HASREP?{
     series:aFilas(tkProm,['Pedido nuevo','Reposición'],palPedido),
     nuevo:{n:tkTot['Pedido nuevo'].n,tk:tkTot['Pedido nuevo'].n?tkTot['Pedido nuevo'].m/tkTot['Pedido nuevo'].n:0},
-    repo :{n:tkTot['Reposición'].n, tk:tkTot['Reposición'].n ?tkTot['Reposición'].m /tkTot['Reposición'].n :0}
+    repo :{n:tkTot['Reposición'].n, tk:tkTot['Reposición'].n ?tkTot['Reposición'].m /tkTot['Reposición'].n :0},
+    sinClasificar:tkSinClasificar
   }:null;
 
   const palCanal={'Venta directa':'#1e3a6e','Web (Tiendanube)':'#7fa3d9'};
@@ -1274,8 +1273,8 @@ function chartSVG(pts,opt){
     /* Variación contra el mes anterior, debajo del nombre del mes. Se omite en el primer mes (no
        tiene con qué comparar) y en los meses sin cotización, donde el valor es 0 por falta de dato
        y no por falta de ventas: ahí un "-100%" sería directamente falso. */
-    if(opt.delta&&i>0&&!p.noRate&&!pts[i-1].noRate){
-      const pv=pct(p.v,pts[i-1].v);
+    if(opt.delta&&i>0&&(opt.deltaOn==='n'||!p.noRate&&!pts[i-1].noRate)){
+      const pv=opt.deltaOn==='n'?pct(p.n||0,pts[i-1].n||0):pct(p.v,pts[i-1].v);
       if(pv!==null){
         const col=Math.abs(pv)<0.5?'var(--text-muted)':(pv>0?'var(--text-success)':'var(--text-danger)');
         lbl+=`<text x="${x.toFixed(1)}" y="${(H-7).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${col}">${dltTxt(pv)}</text>`;
@@ -1847,10 +1846,10 @@ function render(A,D,PREV){
      no del módulo de facturación. Decirle "facturación" fue lo que hizo dudar del número. */
   sec(A,'Ventas confirmadas — evolución mensual'+curTag);
   const evoChart=chartSVG(D.meses.map(x=>({lbl:x.m,v:x.ventas,n:x.nv,noRate:x.noRate})),
-    {line:true,delta:true,fmt:M,h:265,aria:'Ventas confirmadas y cantidad de órdenes por mes, con variación mensual'});
+    {line:true,delta:true,deltaOn:'n',fmt:M,h:265,aria:'Ventas confirmadas y cantidad de órdenes por mes, con variación mensual de órdenes'});
   A.appendChild(el(`<div class="card"><h3>Evolución mensual — ventas y órdenes de compra</h3>${evoChart}
     ${legendHTML([{c:'var(--fill-primary)',t:'Ventas confirmadas (eje izquierdo)'},{c:SERIE2,t:'Órdenes de compra (eje derecho)',line:1}])}
-    <div class="cmpnote">Bajo cada mes, la variación del monto contra el mes anterior. Monto con IVA incluido de las órdenes confirmadas en Odoo, imputado a la fecha de la venta. La extracción de ventas comienza el ${fmtFecha(offToIso(MINOFF))}; desde allí los meses sin órdenes se muestran en cero.</div></div>`));
+    <div class="cmpnote">Bajo cada mes, la variación de la cantidad de órdenes contra el mes anterior. Las barras muestran el monto con IVA de las órdenes confirmadas en Odoo, imputado a la fecha de la venta. La extracción comienza el ${fmtFecha(offToIso(MINOFF))}; desde allí los meses sin órdenes se muestran en cero.</div></div>`));
 
   if(esVendedora()){
     A.appendChild(el(`<div class="card" style="margin-top:12px">${evoTable(D.evo.lbl,D.evo.vendedora,M,{total:false})}</div>`));
@@ -1873,8 +1872,12 @@ function render(A,D,PREV){
     <div style="font-size:12.5px">${TIPOS.map(t=>
       `<div style="margin-bottom:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${t.c}"></span> ${t.n}: <b>${n0(t.u)} u</b> (${tp?Math.round(100*t.u/tp):0}%)</div>`
      ).join('')}</div></div>`;
-  const dpr2=`<b>${n0(tp)} prendas</b> en total. Órdenes: ${TIPOS.map(t=>t.n+' '+n0(t.o)).join(' · ')}. Entregadas hasta hoy: <b>${n0(D.ent)} u</b> — el resto está pendiente de entrega.`;
-  row2(A,'Prendas por tipo de orden',dpr,'Lectura','<div class="pmsg">'+dpr2+'</div>',1);
+  const totalOrdenes=D.oT.reduce((a,b)=>a+b,0);
+  const dor=TIPOS.map(t=>hb(t.n,totalOrdenes?100*t.o/totalOrdenes:0,
+    n0(t.o)+' órd. · '+(totalOrdenes?Math.round(100*t.o/totalOrdenes):0)+'%',{color:t.c})).join('')
+    +`<div class="cmpnote">${n0(totalOrdenes)} órdenes confirmadas en el filtro. Cada orden cuenta una vez según el tipo cargado en Odoo.</div>`;
+  row2(A,'Prendas por tipo de orden',dpr,'Órdenes por tipo de orden',dor,1);
+  A.appendChild(el(`<div class="cmpnote" style="margin:4px 2px 10px">Entregadas hasta hoy: <b>${n0(D.ent)} prendas</b>; el resto está pendiente de entrega.</div>`));
   A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes — prendas y órdenes por tipo</h3>
     ${evoTable(D.evo.lbl,D.evo.tipoPrendas,n0)}
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
@@ -1899,10 +1902,8 @@ function render(A,D,PREV){
     A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por vendedora</h3>${evoTable(D.evo.lbl,D.evo.vendedora,M)}</div>`));
   }
 
-  /* 6 — fuera del tablero individual (pedido de Ariel, 04/09/2026): las vendedoras venden sólo
-     por venta directa, así que el comparativo por canal no les dice nada. La sección desaparece
-     entera, sin cartel, igual que se hace con el ranking en la vista Ventas. */
-  if(!esVendedora()){
+  /* Las comparativas por canal se reservan para Dirección con todas las vendedoras y canales. */
+  if(veComparativaEntreVendedoras()){
     sec(A,'Ventas por canal');
     const totM=D.web.m+D.pres.m||1, totO=D.web.n+D.pres.n||1;
     const cr=(nm,dd,col)=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${nm}</span><b>${M(dd.m)} · ${n0(dd.n)} órd.</b></div>
@@ -1923,7 +1924,7 @@ function render(A,D,PREV){
     +(PREV&&!usdPend?' '+dltBadge(tk,tkP,cmpT):'')+`</div></div>`));
 
   /* Pedido nuevo vs reposición: sólo en esta sección, como pidió Ariel. */
-  if(D.ticketPedido&&D.ticketPedido.series.length){
+  if(D.ticketPedido){
     const TP=D.ticketPedido;
     const tarjeta=(rot,d,col)=>`<div style="flex:1 1 160px;min-width:0">
         <div style="font-size:11.5px;color:var(--text-muted)"><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:${col};margin-right:5px"></span>${rot}</div>
@@ -1933,7 +1934,7 @@ function render(A,D,PREV){
       <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px">
         ${tarjeta('Pedido nuevo',TP.nuevo,'#1e3a6e')}${tarjeta('Reposición',TP.repo,'#7fa3d9')}</div>
       ${evoTable(D.evo.lbl,TP.series,MF,{total:false})}
-      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Es <b>pedido nuevo</b> cuando el cliente se dio de alta en Odoo el mismo mes de la venta; si ya era cliente, es <b>reposición</b>. Los valores son promedios por orden, no totales.</div></div>`));
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Clasificación cargada en la oportunidad del CRM de Odoo. ${n0(TP.sinClasificar)} ${TP.sinClasificar===1?'orden sin clasificar':'órdenes sin clasificar'} (sin oportunidad vinculada o sin valor cargado) fuera de este desglose. Los valores son promedios por orden, no totales.</div></div>`));
   }
 
   /* 9 */
@@ -1958,8 +1959,14 @@ function render(A,D,PREV){
       +'<div class="cmpnote">Importes con IVA de las líneas de productos del canal Venta directa; se excluyen gastos, insumos y categorías sin prenda. La provincia sale del cliente de cada orden.</div></div>'));
   }
 
-  /* 11 */
-  sec(A,'Ventas por tipo de producto');
+  /* Industria del cliente primero; segmento y categoría describen el producto vendido. */
+  sec(A,'Ventas por industria y tipo de producto');
+  const indVisibles=D.industria.filter(x=>!x.muted);
+  const maxIndustria=Math.max(...indVisibles.map(x=>x.v),1);
+  const industriaBarras=D.industria.map(x=>hb(tnEscape(x.n),x.v/maxIndustria*100,M(x.v),
+    {muted:x.muted,color:x.muted?'#c3ccd6':'#1e3a6e'})).join('');
+  A.appendChild(el(`<div class="card"><h3>Industria del cliente</h3>${industriaBarras||'<div class="pmsg">Sin ventas para este filtro.</div>'}
+    <div class="cmpnote">La industria proviene de la ficha del cliente en Odoo. «Sin industria» identifica ventas cuyo cliente aún no tiene ese dato cargado.</div></div>`));
   const bh=D.buckets.map(x=>`<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${M(x.v)} · ${x.p}%</b></div>
     <div style="background:var(--surface-1);border-radius:4px;height:11px"><div style="width:${x.p}%;height:11px;border-radius:4px;background:${x.c}"></div></div></div>`).join('')
     +`<div style="margin-top:6px;padding-top:9px;border-top:1px dashed var(--border)">

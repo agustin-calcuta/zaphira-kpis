@@ -27,7 +27,7 @@ Migrado desde Apps Script el 06/10/2026:
 
 ## Indicadores según los filtros
 
-- **General:** ventas confirmadas, ticket promedio, órdenes y prendas; el flujo CRM se presenta en una sección separada.
+- **General:** ventas confirmadas, ticket promedio, órdenes y prendas; el flujo CRM se presenta en una sección separada. La variación bajo el gráfico mensual de ventas y órdenes compara la cantidad de órdenes; las barras siguen mostrando montos.
 - **Vendedora comercial:** agrega oportunidades ganadas y porcentaje de oportunidades ganadas.
 - **Tiendanube:** es una vista propia al elegir **Canal → Tiendanube**. La ven Dirección y la cuenta `yeni`, que abre allí al iniciar sesión con sus credenciales actuales; las demás vendedoras no tienen acceso. Yeni puede cambiar a **Mis ventas en Odoo**, donde su objetivo personal sigue separado. Usa la API de TN para sus pedidos, pagos, ticket, productos y abandonos. No agrega esos pedidos al consolidado Odoo. La cuenta técnica Web/`Yeni` no aparece como otra opción de vendedora en el tablero de Dirección; sus registros de Odoo siguen dentro del consolidado. Con Canal = Todos y Vendedora = Todas, el consolidado conserva todas las ventas de Odoo, incluidas las web. La vista del canal Tiendanube no muestra CRM comercial.
 - **Canal seleccionado:** el dataset CRM actual no contiene canal. Sus indicadores se ocultan para no presentar totales sin filtrar; en venta directa se indica cómo volver a consultarlos por vendedora. Venta directa abre en Año en curso si no se eligió manualmente otro período; los meses sin órdenes dentro de la cobertura de Odoo se muestran en cero. El promedio de prendas por orden usa el mismo numerador del KPI de prendas. El cruce de segmentos de producto por provincia requiere la provincia de cada línea, incorporada al backend.
@@ -52,7 +52,11 @@ El flujo aparece inmediatamente debajo de los KPIs principales. En Dirección, a
 
 Las tablas de evolución mensual se presentan cerradas por defecto y se expanden con «Detalle mes a mes». Los gráficos y la tabla comparativa del CRM permanecen visibles.
 
-No se muestran las secciones pendientes de industria o tamaño del cliente. La comparación interanual aparece solo si el filtro contiene ventas de al menos dos años. Las secciones visibles se numeran automáticamente, sin saltos, según el rol y los filtros.
+La sección de producto muestra primero la industria de la ficha del cliente, incluidas las ventas «Sin industria», y luego los segmentos y categorías de las prendas. La cantidad de órdenes por tipo aparece junto al gráfico de prendas por tipo. Los gráficos comparativos de vendedoras y canales aparecen sólo para Dirección con todas las vendedoras y todos los canales seleccionados. La comparación interanual aparece solo si el filtro contiene ventas de al menos dos años. Las secciones visibles se numeran automáticamente, sin saltos, según el rol y los filtros.
+
+El desglose de ticket promedio entre pedido nuevo y reposición usa el campo `Pedido nuevo / Reposición` de la oportunidad CRM vinculada a la orden. Las órdenes sin oportunidad o sin clasificación explícita se cuentan como «sin clasificar» y quedan fuera de esos dos promedios; el ticket promedio general sigue usando todas las órdenes confirmadas. El tablero no infiere la clasificación por fecha de alta del cliente. El 19/10/2026, de 1.688 órdenes confirmadas desde marzo, 79 tenían clasificación explícita en una oportunidad vinculada; esta cobertura depende de la carga y vinculación en Odoo.
+
+La sincronización consulta sólo órdenes en estado `sale` o `done` y líneas de esos mismos estados. Las canceladas no entran en los importes ni en los conteos, aunque luego se cree una orden de reemplazo. Una auditoría de Odoo del 19/10/2026 encontró dos oportunidades con una orden cancelada y otra confirmada; en ambos casos el tablero toma sólo la confirmada. Órdenes distintas que comparten oportunidad y permanecen confirmadas se conservan porque pueden ser ventas legítimas.
 
 El dataset agrega `C[11]` con el flag activo (`1`) / archivado (`0`), independiente de ganado. Los datasets previos se admiten durante la resincronización con un aviso de compatibilidad. El cambio histórico se conserva como parche en [backend/crm-active.patch](backend/crm-active.patch); no contiene credenciales.
 

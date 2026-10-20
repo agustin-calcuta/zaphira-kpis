@@ -144,16 +144,20 @@ export async function syncSales(env) {
     stageOrder.sort((a, b) => a.sequence - b.sequence || a.id - b.id);
   } catch { /* CRM graph can still render with stage names alone. */ }
 
-  let crm = [];
+  let crm = [], orderClassSource = 'unavailable';
   try {
     const definitions = await odoo.execute('crm.lead', 'fields_get', [], {attributes: ['type']});
     const fields = ['user_id', 'stage_id', 'create_date', 'active'];
     for (const field of ['date_closed', 'date_conversion', 'type', 'lost_reason_id']) {
       if (definitions?.[field]) fields.push(field);
     }
+    if (definitions?.x_studio_pedido_nuevo_reposicin) {
+      fields.push('x_studio_pedido_nuevo_reposicin');
+      orderClassSource = 'crm';
+    }
     crm = await odoo.paged('crm.lead', [], fields, 2000,
       {context: {active_test: false, lang: 'es_AR'}});
-  } catch { /* Keep sales data available if the optional CRM model fails. */ }
+  } catch { orderClassSource = 'unavailable'; /* Keep sales data available if the optional CRM model fails. */ }
   let pick = [];
   try {
     pick = await odoo.searchRead('stock.picking', [['picking_type_code', '=', 'outgoing']],
@@ -161,7 +165,8 @@ export async function syncSales(env) {
   } catch { /* Shipping graph can render empty. */ }
 
   const usd = await fetchUsd(env.DB);
-  const raw = buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stageInfo, stageOrder, usd);
+  const raw = buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stageInfo, stageOrder,
+    {...usd, orderClassSource});
   await writeDataset(env.DB, raw);
   return {pull: raw.pull, orders: raw.O.length, lines: raw.L.length, crm: raw.C.length};
 }

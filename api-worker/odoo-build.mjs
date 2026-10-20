@@ -51,6 +51,13 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
 
   var ordAttr = {};   // id -> [monIdx, venIdx, canIdx, tipoIdx, dayOff, provinciaIdx]
   var commitmentLoaded = false;
+  const crmById = Object.fromEntries(crm.map(c => [c.id, c]));
+  function orderClass_(order) {
+    const value = crmById[order.opportunity_id?.[0]]?.x_studio_pedido_nuevo_reposicin;
+    if (value === 'Pedido nuevo') return 1;
+    if (value === 'Reposición Parcial' || value === 'Reposicion') return 0;
+    return null;
+  }
   var O = orders.map(function (o) {
     var mon = (o.date_order||'').slice(0,7);
     /* Canal y vendedora se decidían juntos y estaba mal (corregido 04/09/2026).
@@ -71,26 +78,19 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
     var p = o.partner_id ? pinfo[o.partner_id[0]] : null;
     var prov = (p && p.state_id) ? p.state_id[1].replace(' (AR)','') : '(sin provincia)';
     var ind  = (p && p.industry_id) ? p.industry_id[1] : '(sin industria)';
-    /* REPOSICIÓN vs PEDIDO NUEVO (pedido de Ariel, definido el 04/09/2026: por antigüedad del
-       cliente). Es nuevo si la ficha del cliente se creó dentro del mismo mes de la venta; si el
-       cliente ya existía antes, es reposición. Se eligió este corte y no "su primera compra"
-       porque Odoo arranca el 06/02/2026: con aquel criterio, un cliente de hace años aparecía
-       como nuevo la primera vez que compraba dentro del sistema. Las fichas sí tienen historia
-       previa (hay altas desde feb-2025), así que este corte se apoya en un dato real.
-       Sin create_date no se puede saber: queda como reposición, que es el caso más frecuente. */
-    var altaCli = (p && p.create_date) ? String(p.create_date).slice(0, 7) : '';
-    var esNuevo = altaCli ? (altaCli >= mon) : false;
+    // La clasificación se carga en la oportunidad CRM, no se infiere del alta del cliente.
+    // Sin vínculo o sin valor explícito queda sin clasificar.
+    var clasePedido = orderClass_(o);
     var iMon=idx(MON,mon), iVen=idx(VEN,ven), iCan=CAN.indexOf(can), iTipo=TIPO.indexOf(tipo);
     var dOff = dayOff_(o.date_order);
     var iProv=idx(PROV,prov), iInd=idx(IND,ind);
     ordAttr[o.id] = [iMon, iVen, iCan, iTipo, dOff, iProv];
     // [6]=total CON IVA (era amount_untaxed hasta el 04/09/2026; Ariel pidió ver todo con IVA)
-    // [7]=día · [8]=1 pedido nuevo / 0 reposición (campo agregado al final para no romper la
-    // ventana entre el deploy y el re-sync: el frontend tiene un guard si no viene)
+    // [7]=día · [8]=1 pedido nuevo / 0 reposición / null sin clasificar.
     // [9]=id de oportunidad CRM vinculada · [10]=id de la orden. Permiten conciliar por qué la
     // cantidad de órdenes no coincide necesariamente con las tarjetas ganadas.
     return [iMon, iVen, iCan, iTipo, iProv, iInd, Math.round(o.amount_total), dOff,
-            esNuevo ? 1 : 0, o.opportunity_id ? o.opportunity_id[0] : 0, o.id];
+            clasePedido, o.opportunity_id ? o.opportunity_id[0] : 0, o.id];
   });
 
   var L = [];
@@ -206,6 +206,7 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
       // ahora es 'total'. Publicarlo evita que el tablero afirme "sin IVA" sobre datos con IVA
       // durante los ~30 min en que todavía se sirve el dataset viejo.
       base: 'total',
+      orderClassSource: options.orderClassSource || 'unavailable',
       // Se quedan en 0 mientras exista algún frontend leyéndolas (ver anuladasPorNC_, eliminada).
       anuladasN: 0,
       anuladasMonto: 0,

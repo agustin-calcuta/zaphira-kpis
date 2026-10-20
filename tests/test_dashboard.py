@@ -21,7 +21,8 @@ RAW = {
              'PROV': ['Buenos Aires'], 'IND': ['Salud'], 'CAT': ['Sanidad'],
              'MON': ['2026-09'], 'STAGE': ['Ganado', 'Calificado']},
     'meta': {'day0': '2026-09-01', 'today': '2026-09-23',
-             'maxDate': '2026-09-23', 'dateFrom': '2026-09-01', 'base': 'total'},
+             'maxDate': '2026-09-23', 'dateFrom': '2026-09-01', 'base': 'total',
+             'orderClassSource': 'crm'},
     'O': [[0, 0, 0, 0, 0, 0, 1000, 10, 1, 101, 501],
           [0, 1, 1, 2, 0, 0, 2000, 11, 0, 0, 502]],
     'L': [[0, 0, 0, 0, 0, 10, 10, 1000, 10],
@@ -198,6 +199,47 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(['Ana'], ranking.locator('.hlbl').all_text_contents())
         evolution=self.page.locator('.card').filter(has=self.page.get_by_role('heading',name='Evolución mes a mes por vendedora',exact=True))
         self.assertNotIn('Web (Tiendanube)',evolution.text_content())
+
+    def test_seller_filter_hides_comparisons_between_sellers_and_channels(self):
+        self.load()
+        self.assertIn('Ventas por vendedora', self.page.locator('.sect').all_text_contents())
+        self.assertIn('Ventas por canal', self.page.locator('.sect').all_text_contents())
+        self.page.select_option('#fVen', '0')
+        self.assertNotIn('Ventas por vendedora', self.page.locator('.sect').all_text_contents())
+        self.assertNotIn('Ventas por canal', self.page.locator('.sect').all_text_contents())
+        self.page.select_option('#fVen', '')
+        self.assertIn('Ventas por vendedora', self.page.locator('.sect').all_text_contents())
+        self.page.select_option('#fCan', '0')
+        self.assertNotIn('Ventas por vendedora', self.page.locator('.sect').all_text_contents())
+        self.assertNotIn('Ventas por canal', self.page.locator('.sect').all_text_contents())
+
+    def test_orders_by_type_and_crm_classification_show_exact_coverage(self):
+        raw = copy.deepcopy(RAW)
+        raw['O'][1][8] = None
+        self.load(raw)
+        self.assertIn('Órdenes por tipo de orden', self.text())
+        self.assertIn('Tradicional', self.text())
+        ticket = self.page.locator('.card').filter(has=self.page.get_by_role('heading', name='Ticket promedio — pedido nuevo vs reposición'))
+        self.assertIn('1 orden sin clasificar', ticket.inner_text())
+        self.assertIn('1 orden', ticket.inner_text())
+        self.assertIn('0 órdenes', ticket.inner_text())
+        self.assertIn('Industria del cliente', self.text())
+        self.assertIn('Salud', self.text())
+
+    def test_monthly_order_delta_uses_order_count_not_amount(self):
+        raw = copy.deepcopy(RAW)
+        raw['dict']['MON'] = ['2026-08', '2026-09']
+        raw['meta']['day0'] = '2026-08-01'
+        raw['meta']['dateFrom'] = '2026-08-01'
+        raw['O'] = [[0, 0, 0, 0, 0, 0, 1000, 10, 1, 101, 501],
+                    [1, 0, 0, 0, 0, 0, 1000, 42, 0, 101, 502],
+                    [1, 0, 0, 0, 0, 0, 1000, 43, 0, 101, 503]]
+        raw['L'] = []
+        self.load(raw)
+        self.page.select_option('#fPer', 'all')
+        chart = self.page.locator('svg[aria-label="Ventas confirmadas y cantidad de órdenes por mes, con variación mensual de órdenes"]')
+        self.assertIn('+100%', chart.text_content())
+        self.assertIn('variación de la cantidad de órdenes', self.text())
 
     def test_web_channel_hides_all_crm(self):
         self.setup_tn()
@@ -460,7 +502,7 @@ class DashboardTests(unittest.TestCase):
             self.page.select_option('#fVen', seller)
             self.page.select_option('#fCan', channel)
             labels = self.page.locator('.sect').all_text_contents()
-            self.assertNotIn('Ventas por industria', labels)
+            self.assertIn('Ventas por industria y tipo de producto', labels)
             self.assertNotIn('Ventas por tamaño del cliente', labels)
             self.assertNotIn('Comparación entre años', labels)
             self.assertNotIn('En construcción', self.text())
@@ -475,7 +517,7 @@ class DashboardTests(unittest.TestCase):
             'Prendas vendidas — por tipo de orden',
             'Ticket promedio — evolución',
             'Ventas por provincia',
-            'Ventas por tipo de producto',
+            'Ventas por industria y tipo de producto',
         ], self.page.locator('.sect').all_text_contents())
         self.assertEqual(7, len(self.top_labels()))
         self.assertTrue(self.page.locator('#fVen').is_disabled())

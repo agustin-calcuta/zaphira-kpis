@@ -5,9 +5,28 @@ import worker from '../api-worker/index.mjs';
 import {legacyHash, signToken, verifyToken} from '../api-worker/auth.mjs';
 import {trimToSeller, readObjectives, objectives, dataResponse, canViewTiendaNube} from '../api-worker/data.mjs';
 import {xlsxResponse} from '../api-worker/xlsx.mjs';
+import {buildData_} from '../api-worker/odoo-build.mjs';
 
 const origin = 'https://zaphira-ventas-calcuta.agustin-5e6.workers.dev';
 const secret = 'synthetic-test-secret';
+
+test('order classification comes only from the linked CRM opportunity', () => {
+  const orders = [
+    {id: 1, date_order: '2026-10-10 12:00:00', amount_total: 100, opportunity_id: [11, 'A']},
+    {id: 2, date_order: '2026-10-10 12:00:00', amount_total: 200, opportunity_id: [12, 'B']},
+    {id: 3, date_order: '2026-10-10 12:00:00', amount_total: 300},
+    {id: 4, date_order: '2026-10-10 12:00:00', amount_total: 400, opportunity_id: [13, 'C']}
+  ];
+  const crm = [
+    {id: 11, x_studio_pedido_nuevo_reposicin: 'Pedido nuevo'},
+    {id: 12, x_studio_pedido_nuevo_reposicin: 'Reposición Parcial'},
+    {id: 13, x_studio_pedido_nuevo_reposicin: false}
+  ];
+  const raw = buildData_(orders, {}, {}, [], {}, crm, [], {}, [],
+    {usd: {venta: 0}, usdMon: {}, orderClassSource: 'crm'});
+  assert.deepEqual(raw.O.map(order => order[8]), [1, 0, null, null]);
+  assert.equal(raw.meta.orderClassSource, 'crm');
+});
 
 test('the migrated hash verifies the unchanged legacy password', async () => {
   const salt = 'synthetic-salt';
