@@ -1,6 +1,18 @@
 // Published Apps Script dataset logic, ported without changing the KPI rules.
 const TZ = 'America/Argentina/Buenos_Aires';
 const DATA_FROM = '2026-03-01';
+const INDUSTRIAS_ES = {
+  'Other Services': 'Otros servicios',
+  'Wholesale/Retail': 'Comercio mayorista y minorista',
+  'Public Administration': 'Administración pública',
+  'Health/Social': 'Salud y servicios sociales',
+  Manufacturing: 'Industria manufacturera',
+  Extraterritorial: 'Organismos extraterritoriales',
+  'Finance/Insurance': 'Finanzas y seguros',
+  'Energy supply': 'Suministro de energía',
+  Entertainment: 'Entretenimiento',
+  'Food/Hospitality': 'Gastronomía y hotelería'
+};
 function formatDate(date, zone, pattern) {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
     timeZone: zone, year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
@@ -78,6 +90,7 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
     var p = o.partner_id ? pinfo[o.partner_id[0]] : null;
     var prov = (p && p.state_id) ? p.state_id[1].replace(' (AR)','') : '(sin provincia)';
     var ind  = (p && p.industry_id) ? p.industry_id[1] : '(sin industria)';
+    ind = INDUSTRIAS_ES[ind] || ind;
     // La clasificación se carga en la oportunidad CRM, no se infiere del alta del cliente.
     // Sin vínculo o sin valor explícito queda sin clasificar.
     var clasePedido = orderClass_(o);

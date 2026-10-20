@@ -28,6 +28,22 @@ test('order classification comes only from the linked CRM opportunity', () => {
   assert.equal(raw.meta.orderClassSource, 'crm');
 });
 
+test('Odoo industries are stored in Spanish for the dashboard and Excel', () => {
+  const names = ['Other Services', 'Wholesale/Retail', 'Public Administration',
+    'Health/Social', 'Manufacturing', 'Extraterritorial', 'Finance/Insurance',
+    'Energy supply', 'Entertainment', 'Food/Hospitality'];
+  const expected = ['Otros servicios', 'Comercio mayorista y minorista', 'Administración pública',
+    'Salud y servicios sociales', 'Industria manufacturera', 'Organismos extraterritoriales',
+    'Finanzas y seguros', 'Suministro de energía', 'Entretenimiento', 'Gastronomía y hotelería'];
+  const orders = names.map((_, i) => ({id: i + 1, date_order: '2026-10-10 12:00:00',
+    amount_total: 100, partner_id: [i + 1, `Client ${i + 1}`]}));
+  const partners = Object.fromEntries(names.map((name, i) => [i + 1,
+    {industry_id: [i + 1, name]}]));
+  const raw = buildData_(orders, {}, partners, [], {}, [], [], {}, [],
+    {usd: {venta: 0}, usdMon: {}});
+  assert.deepEqual(raw.dict.IND, expected);
+});
+
 test('the migrated hash verifies the unchanged legacy password', async () => {
   const salt = 'synthetic-salt';
   const expected = '20f6db032cdad191a45537d809d75b52fad1224776fee997a23896a173f30f6d';
