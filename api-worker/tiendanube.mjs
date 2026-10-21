@@ -15,6 +15,13 @@ function tnAmount_(value) {
   var n = Number(value);
   return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
 }
+// Los combos propios de Zaphira son productos normales: el SKU de la variante
+// contiene los IDs de sus prendas separados por | (por ejemplo, id|id|id|).
+// No inferimos un combo por el nombre, que puede cambiar después de la venta.
+function tnComboSize_(product) {
+  const sku = String(product.sku || '').trim();
+  return /^\d+(?:\|\d+){1,}\|?$/.test(sku) ? sku.split('|').filter(Boolean).length : 1;
+}
 function tnCouponCodes_(order) {
   if (!Array.isArray(order.coupon)) return [];
   return order.coupon.map(function(c) {
@@ -69,7 +76,7 @@ function tnCommerce_(orders, now, couponCodes) {
 }
 function tnAggregate_(orders, checkouts, range, now, couponCodes) {
   var summary = {orders: 0, paid: 0, pending: 0, cancelled: 0, refunded: 0, partial: 0, other: 0,
-    paidTotalArs: 0, paidUnits: 0, missingAmounts: 0, nonArs: 0};
+    paidTotalArs: 0, paidUnits: 0, comboUnits: 0, garmentUnits: 0, missingAmounts: 0, nonArs: 0};
   var daily = {}, products = {}, origins = {}, paidOrders = [];
   orders.forEach(function(o) {
     var day = tnDay_(o.created_at);
@@ -82,7 +89,7 @@ function tnAggregate_(orders, checkouts, range, now, couponCodes) {
       : ['partially_paid', 'partially_refunded'].indexOf(o.payment_status) >= 0 ? 'partial'
       : ['refunded', 'voided'].indexOf(o.payment_status) >= 0 ? 'refunded' : 'other';
     summary[kind]++;
-    if (!daily[day]) daily[day] = {date: day, orders: 0, paid: 0, paidTotalArs: 0, paidUnits: 0, missingAmounts: 0};
+    if (!daily[day]) daily[day] = {date: day, orders: 0, paid: 0, paidTotalArs: 0, paidUnits: 0, comboUnits: 0, garmentUnits: 0, missingAmounts: 0};
     daily[day].orders++;
     if (kind !== 'paid') return;
     paidOrders.push(o);
@@ -93,13 +100,32 @@ function tnAggregate_(orders, checkouts, range, now, couponCodes) {
       if (o.currency !== 'ARS') summary.nonArs++;
     } else { summary.paidTotalArs += amount; daily[day].paidTotalArs += amount; }
     if (!Array.isArray(o.products)) tnError_('Faltan las líneas de un pedido pagado.');
+    const kits = new Map();
     o.products.forEach(function(p) {
       var qty = Number(p.quantity);
       if (!isFinite(qty) || qty < 0 || !Number.isInteger(qty)) tnError_('Tiendanube devolvió una cantidad inválida.');
+      // Los kits nativos ya llegan abiertos en líneas de componentes. Todas las
+      // líneas con el mismo order_kit_id corresponden a un ítem del carrito.
+      if (p.order_kit_id != null && p.order_kit_id !== '') {
+        const id = String(p.order_kit_id);
+        if (!kits.has(id)) kits.set(id, {id: String(p.catalog_kit_id || p.kit?.id || id), name: String(p.kit?.name || 'Kit')});
+        summary.garmentUnits += qty; daily[day].garmentUnits += qty;
+        return;
+      }
+      const size = tnComboSize_(p);
       summary.paidUnits += qty; daily[day].paidUnits += qty;
+      summary.garmentUnits += qty * size; daily[day].garmentUnits += qty * size;
+      if (size > 1) { summary.comboUnits += qty; daily[day].comboUnits += qty; }
       var key = String(p.product_id || p.name || 'sin-producto');
       if (!products[key]) products[key] = {name: String(p.name_without_variants || p.name || 'Producto').slice(0, 200), units: 0};
       products[key].units += qty;
+    });
+    kits.forEach(function(kit) {
+      summary.paidUnits++; daily[day].paidUnits++;
+      summary.comboUnits++; daily[day].comboUnits++;
+      var key = 'kit:' + kit.id;
+      if (!products[key]) products[key] = {name: kit.name.slice(0, 200), units: 0};
+      products[key].units++;
     });
   });
   var availableFrom = tnDay_(new Date(now.getTime() - 29 * 86400000));
@@ -239,3 +265,5 @@ export async function tiendanubeResponse(db, token, input) {
     return {ok: false, error: String(error.message || 'No se pudo consultar Tiendanube.')};
   }
 }
+
+export {tnAggregate_};

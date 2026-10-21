@@ -1323,13 +1323,15 @@ function tnEvolution(data,range,forcedMode){
     const date=new Date(t).toISOString().slice(0,10);
     const monday=t-((new Date(t).getUTCDay()+6)%7)*86400000;
     const key=mode==='día'?date:mode==='semana'?new Date(monday).toISOString().slice(0,10):date.slice(0,7);
-    if(!groups.has(key))groups.set(key,{from:date,to:date,orders:0,paid:0,amount:0,missing:0,units:0,unitsKnown:true});
+    if(!groups.has(key))groups.set(key,{from:date,to:date,orders:0,paid:0,amount:0,missing:0,units:0,combos:0,garments:0,unitsKnown:true});
     const group=groups.get(key);group.to=date;
     const day=daily.get(date);if(!day)continue;
     const amount=tnAmounts({daily:[day]});
     group.orders+=day.orders;group.paid+=day.paid;group.missing+=amount.missing;group.amount+=amount.total??0;
     if(Number.isFinite(day.paidUnits))group.units+=day.paidUnits;
     else if(day.paid)group.unitsKnown=false;
+    group.combos+=day.comboUnits||0;
+    group.garments+=day.garmentUnits??day.paidUnits??0;
   }
   const short=date=>date.slice(8,10)+'/'+date.slice(5,7);
   return {mode,groups:[...groups.values()].map(g=>({...g,amount:g.missing?null:g.amount,
@@ -1338,18 +1340,31 @@ function tnEvolution(data,range,forcedMode){
 function tnRanking(rows,total,unit){
   if(!rows.length||!total)return '<div class="pmsg">Sin datos para este período.</div>';
   const peak=Math.max(...rows.map(r=>r.value),1);
-  return '<div class="tn-ranks">'+rows.map(r=>`<div class="tn-rank"><div class="tn-rank-head"><span>${tnEscape(r.label)}</span><strong>${n0(r.value)} ${unit} <small>· ${(r.value/total*100).toLocaleString('es-AR',{maximumFractionDigits:1})}%</small></strong></div><div class="htrack" aria-hidden="true"><div class="hbar" style="width:${r.value/peak*100}%;${r.color?'background:'+r.color:''}"></div></div></div>`).join('')+'</div>';
+  return '<div class="tn-ranks">'+rows.map(r=>`<div class="tn-rank"><div class="tn-rank-head"><span>${tnEscape(r.label)}</span><strong>${n0(r.value)} ${unit==='ítems'&&r.value===1?'ítem':unit} <small>· ${(r.value/total*100).toLocaleString('es-AR',{maximumFractionDigits:1})}%</small></strong></div><div class="htrack" aria-hidden="true"><div class="hbar" style="width:${r.value/peak*100}%;${r.color?'background:'+r.color:''}"></div></div></div>`).join('')+'</div>';
 }
 function renderTnEvolution(A,data,amounts,range){
   const evolution=tnEvolution(data,range),groups=evolution.groups,moneyComplete=amounts.total!==null;
+  const productKnown=Number.isFinite(data.summary.comboUnits)&&Number.isFinite(data.summary.garmentUnits);
   const points=groups.map(g=>({lbl:g.label,v:moneyComplete?g.amount:g.paid,n:g.paid}));
   sec(A,'Evolución de pedidos pagados');
-  const detail='<details class="evo-detail"><summary>Ver detalle de importes, pedidos y ticket promedio</summary><div class="tn-detail"><table><thead><tr><th>Período</th><th>Creados</th><th>Pagados</th><th>Importe ('+CUR+')</th><th>Ticket promedio ('+CUR+')</th></tr></thead><tbody>'+groups.map(g=>`<tr><td>${fmtFecha(g.from)}${g.to!==g.from?' a '+fmtFecha(g.to):''}</td><td>${n0(g.orders)}</td><td>${n0(g.paid)}</td><td>${g.amount===null?'Sin dato completo':tnMoneyExact(g.amount)}</td><td>${!g.paid?'Sin pedidos pagados':g.amount===null?'Sin dato completo':tnMoneyExact(g.amount/g.paid)}</td></tr>`).join('')+'</tbody></table></div></details>';
+  const detail='<details class="evo-detail"><summary>Ver detalle de importes, pedidos e ítems</summary><div class="tn-detail"><table><thead><tr><th>Período</th><th>Creados</th><th>Pagados</th><th>Importe ('+CUR+')</th><th>Ticket promedio ('+CUR+')</th><th>Ítems</th><th>Combos</th><th>Prendas</th></tr></thead><tbody>'+groups.map(g=>`<tr><td>${fmtFecha(g.from)}${g.to!==g.from?' a '+fmtFecha(g.to):''}</td><td>${n0(g.orders)}</td><td>${n0(g.paid)}</td><td>${g.amount===null?'Sin dato completo':tnMoneyExact(g.amount)}</td><td>${!g.paid?'Sin pedidos pagados':g.amount===null?'Sin dato completo':tnMoneyExact(g.amount/g.paid)}</td><td>${g.unitsKnown?n0(g.units):'Sin dato'}</td><td>${productKnown?n0(g.combos):'Sin dato'}</td><td>${productKnown?n0(g.garments):'Sin dato'}</td></tr>`).join('')+'</tbody></table></div></details>';
   const comparison='<div class="cmpnote">Debajo de cada período, variación '+(moneyComplete?'del importe':'de los pedidos pagados')+' respecto del anterior. Los extremos del rango pueden ser parciales.</div>';
   A.appendChild(el('<div class="card tn-evolution"><div class="pmsg">Por '+evolution.mode+' · fecha de creación del pedido. Incluye los días sin pedidos; los extremos del período pueden ser parciales.</div>'+chartSVG(points,{fmt:moneyComplete?money:n0,line:moneyComplete,delta:true,h:265,integerCounts:true,integerValues:!moneyComplete,values:true,aria:'Evolución de pedidos pagados de Tiendanube'})+legendHTML(moneyComplete?[{t:'Importe de pedidos pagados ('+CUR+')',c:'var(--fill-primary)'},{t:'Pedidos pagados',c:SERIE2,line:true}]:[{t:'Pedidos pagados · importe sin datos completos',c:'var(--fill-primary)'}])+comparison+detail+'</div>'));
 }
+function renderTnProductEvolution(A,data,range){
+  if(!Number.isFinite(data.summary.comboUnits)||!Number.isFinite(data.summary.garmentUnits))return;
+  const groups=tnEvolution(data,range,'mes').groups;
+  const points=groups.map(g=>({lbl:g.label,v:g.garments,n:g.combos}));
+  sec(A,'Evolución mensual de productos vendidos');
+  A.appendChild(el('<div class="card tn-product-evolution"><div class="pmsg">Prendas físicas, combos e ítems de compra por mes de creación del pedido pagado. Los extremos del período pueden ser parciales.</div>'
+    +chartSVG(points,{fmt:n0,line:true,h:245,integerCounts:true,integerValues:true,values:true,aria:'Evolución mensual de prendas y combos vendidos en Tiendanube'})
+    +legendHTML([{t:'Prendas vendidas',c:'var(--fill-primary)'},{t:'Combos vendidos',c:SERIE2,line:true}])
+    +'<div class="tn-detail"><table><thead><tr><th>Mes</th><th>Ítems comprados</th><th>Combos vendidos</th><th>Prendas vendidas</th></tr></thead><tbody>'
+    +groups.map(g=>`<tr><td>${g.label}</td><td>${n0(g.units)}</td><td>${n0(g.combos)}</td><td>${n0(g.garments)}</td></tr>`).join('')
+    +'</tbody></table></div></div>'));
+}
 function renderTnAverages(A,data,range){
-  sec(A,'Ticket y unidades promedio');
+  sec(A,'Ticket e ítems promedio');
   const decimal=v=>v.toLocaleString('es-AR',{maximumFractionDigits:2});
   const chart=(mode)=>{
     const groups=tnEvolution(data,range,mode).groups;
@@ -1357,11 +1372,11 @@ function renderTnAverages(A,data,range){
     const points=groups.map(g=>({lbl:g.label,v:g.paid&&g.amount!==null?g.amount/g.paid:0,
       n:g.paid?g.units/g.paid:0,noRate:g.paid>0&&g.amount===null}));
     return chartSVG(points,{fmt:money,fmtN:decimal,line:unitsKnown,h:245,
-      aria:'Ticket y unidades promedio por pedido pagado, por '+mode})
+      aria:'Ticket e ítems promedio por pedido pagado, por '+mode})
       +legendHTML(unitsKnown?[{t:'Ticket promedio ('+CUR+')',c:'var(--fill-primary)'},
-        {t:'Unidades promedio por pedido pagado',c:SERIE2,line:true}]
+        {t:'Ítems promedio por pedido pagado',c:SERIE2,line:true}]
         :[{t:'Ticket promedio ('+CUR+')',c:'var(--fill-primary)'}])
-      +(unitsKnown?'':'<div class="pmsg">La serie de unidades promedio estará disponible cuando se actualicen los datos de Tiendanube.</div>');
+      +(unitsKnown?'':'<div class="pmsg">La serie de ítems promedio estará disponible cuando se actualicen los datos de Tiendanube.</div>');
   };
   A.appendChild(el('<div class="card tn-averages"><h3>Evolución mensual</h3>'+chart('mes')
     +'<details class="evo-detail"><summary>Ver evolución semanal</summary><div class="pmsg">Semanas de lunes a domingo; los extremos del período pueden ser parciales.</div>'
@@ -1419,7 +1434,8 @@ function renderTiendanube(A){
   if(!puedeVerTiendanube())return;
   syncState(TN.pending?'Consultando Tiendanube…':TN.error?'Tiendanube no disponible':'Tiendanube',TN.pending?'loading':TN.error?'error':'ok');
   const range=tnSelectedRange();
-  A.appendChild(el(`<div class="periodbar"><span><b>Tiendanube</b> · ${fmtFecha(range.from)} a ${fmtFecha(range.to)}</span><button class="btn btn--quiet" id="tnBack" type="button">${esYeniTiendanube()?'Ver mis ventas en Odoo':'Volver a General'}</button><button class="btn" id="tnRefresh" type="button" ${TN.pending?'disabled':''}>Actualizar</button></div>`));
+  A.appendChild(el(`<div class="periodbar"><span><b>Tiendanube</b> · ${fmtFecha(range.from)} a ${fmtFecha(range.to)}</span><button class="btn btn--quiet" id="tnYtd" type="button">Ver evolución mes a mes</button><button class="btn btn--quiet" id="tnBack" type="button">${esYeniTiendanube()?'Ver mis ventas en Odoo':'Volver a General'}</button><button class="btn" id="tnRefresh" type="button" ${TN.pending?'disabled':''}>Actualizar</button></div>`));
+  document.getElementById('tnYtd').onclick=()=>{PERIODO_EDITADO=true;setPeriod('ytd');syncChrome();go();};
   document.getElementById('tnBack').onclick=()=>elegirCanal('',true);
   document.getElementById('tnRefresh').onclick=()=>cargarTiendanube(true);
   A.appendChild(el('<div class="card" style="margin-bottom:14px"><div class="pmsg">Pedidos registrados en Tiendanube, incluidos los creados manualmente. Estos importes se muestran separados del consolidado de Odoo para evitar contar dos veces una misma venta.</div></div>'));
@@ -1442,14 +1458,17 @@ function renderTiendanube(A){
     ['Cancelados',n0(s.cancelled),'Estado actual del pedido'],
     ['Reembolsados o anulados',n0(s.refunded),'Sin pedidos cancelados'],
     ['Pagos o reembolsos parciales',n0(s.partial),'Fuera del importe pagado'],
-    ['Unidades en pedidos pagados',n0(s.paidUnits),'Cantidad de productos'],
-    ['Unidades promedio por pedido pagado',s.paid?(s.paidUnits/s.paid).toLocaleString('es-AR',{maximumFractionDigits:2}):'Sin pedidos pagados','Unidades / pedidos pagados'],
+    ['Ítems comprados',n0(s.paidUnits),'Cada prenda suelta o combo es un ítem'],
+    ['Combos vendidos',Number.isFinite(s.comboUnits)?n0(s.comboUnits):'Sin dato','Ítems que contienen varias prendas'],
+    ['Prendas vendidas',Number.isFinite(s.garmentUnits)?n0(s.garmentUnits):'Sin dato','Incluye las prendas de los combos'],
+    ['Ítems promedio por pedido pagado',s.paid?(s.paidUnits/s.paid).toLocaleString('es-AR',{maximumFractionDigits:2}):'Sin pedidos pagados','Ítems / pedidos pagados'],
   ];
   if(s.other)cards.push(['Otros estados',n0(s.other),'Fuera del importe pagado']);
   A.appendChild(el('<div class="kpis">'+cards.map(([l,v,n])=>`<div class="kpi"><div class="kl">${tnEscape(l)}</div><div class="kv">${tnEscape(v)}</div><div class="ks">${tnEscape(n)}</div></div>`).join('')+'</div>'));
   A.appendChild(el('<div class="cmpnote">El período corresponde a la creación del pedido; los estados son los actuales. El importe suma el total de los pedidos con pago completo. No representa facturación fiscal ni cobros por fecha de acreditación.</div>'));
   if(amounts.missing)A.appendChild(el(`<div class="card" style="margin-top:12px"><div class="pmsg">No se muestra un importe parcial: ${n0(amounts.missing)} pedidos pagados no tienen importe en ARS o cotización suficiente para la moneda elegida.</div></div>`));
   renderTnEvolution(A,data,amounts,range);
+  renderTnProductEvolution(A,data,range);
   renderTnAverages(A,data,range);
   sec(A,'Estados y origen de los pedidos');
   const states=[['Pagados',s.paid,'var(--fill-primary)'],['Pendientes de pago',s.pending,'#b7791f'],['Cancelados',s.cancelled,'#b54747'],['Pagos o reembolsos parciales',s.partial,'#7865a4'],['Reembolsados o anulados',s.refunded,'#64748b'],['Otros estados',s.other,'#94a3b8']].filter(x=>x[1]).map(([label,value,color])=>({label,value,color}));
@@ -1459,7 +1478,7 @@ function renderTiendanube(A){
   renderTnCommerce(A,data);
   sec(A,'Productos en pedidos pagados');
   const list=data.products||[];
-  A.appendChild(el('<div class="card tn-products"><h3>Los 10 productos con más unidades</h3><div class="pmsg">Suma de las cantidades de las líneas de pedidos con pago completo, agrupada por producto. Un conjunto vendido como una unidad cuenta como una unidad, aunque incluya varias prendas. El porcentaje se calcula sobre todas las unidades pagadas del período.</div>'+tnRanking(list.map(p=>({label:p.name,value:p.units})),s.paidUnits,'u.')+'</div>'));
+  A.appendChild(el('<div class="card tn-products"><h3>Los 10 productos con más ítems vendidos</h3><div class="pmsg">Una prenda suelta o un combo vendido cuenta como un ítem. El porcentaje se calcula sobre todos los ítems comprados del período.</div>'+tnRanking(list.map(p=>({label:p.name,value:p.units})),s.paidUnits,'ítems')+'</div>'));
   sec(A,'Carritos abandonados');
   const c=data.abandoned;
   A.appendChild(el(`<div class="card"><div class="kl">Checkouts abandonados disponibles</div><div class="kv">${c.count===null?'Sin cobertura':n0(c.count)}</div><div class="pmsg">${c.noCoverage?'El período elegido es anterior a la ventana que permite consultar Tiendanube.':`Creados del ${fmtFecha(c.from)} al ${fmtFecha(c.to)} y todavía disponibles al momento de la consulta.`} ${c.partialCoverage&&!c.noCoverage?'El período tiene cobertura parcial.':''} Tiendanube permite consultar los últimos 30 días; se omite el día del borde para evitar mostrarlo incompleto. Sólo incluye compras que llegaron al segundo paso del checkout y pueden demorar hasta 6 horas en aparecer. No equivale a todos los carritos creados ni a un histórico de abandonos.</div></div>`));

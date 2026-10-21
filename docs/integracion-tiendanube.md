@@ -20,12 +20,15 @@ Tiendanube es una opción del selector **Canal**, disponible para Dirección y p
 | Pendientes | `pending` y `authorized`, sin cancelados |
 | Pagos o reembolsos parciales | `partially_paid` y `partially_refunded`, fuera del importe pagado |
 | Reembolsados o anulados | `refunded` y `voided`, sin cancelados |
-| Unidades y productos | Cantidades de las líneas de pedidos pagados |
-| Unidades por pedido | Unidades de pedidos pagados / cantidad de pedidos pagados; sin pedidos se muestra sin dato |
+| Ítems comprados | Cantidad de productos independientes y combos de pedidos pagados; cada combo es un ítem del carrito |
+| Combos vendidos | Cantidad de combos propios de Zaphira y kits nativos de Tiendanube incluidos en pedidos pagados |
+| Prendas vendidas | Prendas sueltas más componentes de combos, según el SKU de la variante vendida (`id|id|id|`) o las líneas de un kit nativo |
+| Ítems por pedido | Ítems comprados / cantidad de pedidos pagados; sin pedidos se muestra sin dato |
 | Evolución de ventas | Importe y pedidos pagados por día, semana calendario o mes, según la extensión del filtro; tabla desplegable con pedidos creados y ticket |
-| Ticket y unidades promedio | Evolución mensual y semanal del importe y de las unidades por pedido pagado |
+| Ticket e ítems promedio | Evolución mensual y semanal del importe y de los ítems por pedido pagado |
 | Estados y orígenes | Cantidad y participación sobre todos los pedidos del período; cada pedido pertenece a un solo estado y origen |
-| Ranking de productos | Hasta 10 productos por unidades; porcentaje sobre todas las unidades pagadas, no sólo el top 10 |
+| Evolución de productos | Tabla mensual de ítems, combos y prendas; botón para pasar al año en curso y ver la serie mes a mes |
+| Ranking de productos | Hasta 10 productos por ítems comprados; porcentaje sobre todos los ítems pagados, no sólo el top 10 |
 | Descuentos aplicados | Suma del campo `discount` de pedidos con pago completo no cancelados; ya están descontados del total del pedido, no se restan nuevamente |
 | Pedidos con descuento | Pedidos pagados con `discount > 0`; porcentaje sobre pedidos con ese campo válido, con cobertura explícita |
 | Pedidos con cupón | Pedidos pagados con `coupon_id` válido; `null` significa sin cupón, campo ausente significa sin dato |

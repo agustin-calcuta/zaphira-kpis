@@ -697,8 +697,9 @@ class DashboardTests(unittest.TestCase):
     def setup_tn(self, stale=False, raw=None, start_view='', start_channel='', period='d30', objective=None, tn_data=None, goals_by_month=None, users=None, seller_name=None):
         data = {'ok': True, 'configured': True, 'storeId': '1301166', 'updatedAt': '2026-09-29T15:00:00Z',
                 'summary': {'orders': 3, 'paid': 1, 'pending': 1, 'cancelled': 1, 'refunded': 0, 'partial': 0,
-                            'other': 0, 'paidUnits': 2},
-                'daily': [{'date': '2026-09-15', 'orders': 3, 'paid': 1, 'paidTotalArs': 5000, 'missingAmounts': 0}],
+                            'other': 0, 'paidUnits': 2, 'comboUnits': 0, 'garmentUnits': 2},
+                'daily': [{'date': '2026-09-15', 'orders': 3, 'paid': 1, 'paidTotalArs': 5000,
+                           'paidUnits': 2, 'comboUnits': 0, 'garmentUnits': 2, 'missingAmounts': 0}],
                 'abandoned': {'count': 7, 'from': '2026-09-01', 'to': '2026-09-23', 'partialCoverage': False, 'noCoverage': False},
                 'products': [{'name': '<img src=x onerror=alert(1)>', 'units': 2}],
                 'origins': [{'name': 'mobile', 'orders': 3}],
@@ -765,7 +766,7 @@ class DashboardTests(unittest.TestCase):
         self.setup_tn(tn_data={'daily':[{'date':'2026-09-15','orders':3,'paid':1,
                                          'paidTotalArs':5000.75,'missingAmounts':0}]})
         self.assertIn('Ticket promedio de pedidos pagados',self.text())
-        self.assertIn('Unidades promedio por pedido pagado',self.text())
+        self.assertIn('Ítems promedio por pedido pagado',self.text())
         chart=self.page.locator('.tn-evolution svg')
         self.assertIn('$ 5,0 K',chart.text_content())
         self.assertEqual(13,chart.locator('text[text-anchor="middle"]').count(),
@@ -802,6 +803,23 @@ class DashboardTests(unittest.TestCase):
         self.page.locator('.tn-evolution svg').get_by_text('Ene 26').wait_for()
         self.assertIn('Feb 26',self.page.locator('.tn-evolution svg').text_content())
         self.assertEqual('2026-01-01',self.tn_request['from'])
+
+    def test_tiendanube_shows_combo_and_garment_counts_with_monthly_shortcut(self):
+        self.setup_tn(tn_data={
+            'summary':{'orders':2,'paid':2,'pending':0,'cancelled':0,'refunded':0,'partial':0,
+                       'other':0,'paidUnits':3,'comboUnits':2,'garmentUnits':7},
+            'daily':[{'date':'2026-01-15','orders':1,'paid':1,'paidTotalArs':100,
+                      'paidUnits':1,'comboUnits':1,'garmentUnits':3,'missingAmounts':0},
+                     {'date':'2026-09-15','orders':1,'paid':1,'paidTotalArs':200,
+                      'paidUnits':2,'comboUnits':1,'garmentUnits':4,'missingAmounts':0}]})
+        cards=self.page.locator('.kpis .kpi')
+        self.assertEqual('3',cards.filter(has_text='Ítems comprados').locator('.kv').inner_text())
+        self.assertEqual('2',cards.filter(has_text='Combos vendidos').locator('.kv').inner_text())
+        self.assertEqual('7',cards.filter(has_text='Prendas vendidas').locator('.kv').inner_text())
+        self.page.click('#tnYtd')
+        self.page.locator('.tn-product-evolution').get_by_text('Ene 26').first.wait_for()
+        self.assertEqual('2026-01-01',self.tn_request['from'])
+        self.assertIn('Sep 26\t2\t1\t4',self.page.locator('.tn-product-evolution table').inner_text())
 
     def test_tiendanube_weeks_start_monday_and_first_week_is_partial(self):
         self.setup_tn()
@@ -1000,10 +1018,10 @@ class DashboardTests(unittest.TestCase):
         self.page.locator('.tn-evolution summary').click()
         rows=self.page.locator('.tn-evolution tbody tr')
         self.assertEqual(3, rows.count())
-        self.assertEqual(['0', '0', '$ 0,00', 'Sin pedidos pagados'], rows.nth(0).locator('td').all_text_contents()[1:])
-        self.assertEqual(['3', '1', '$ 5.000,00', '$ 5.000,00'], rows.nth(1).locator('td').all_text_contents()[1:])
-        self.assertEqual(['0', '0', '$ 0,00', 'Sin pedidos pagados'], rows.nth(2).locator('td').all_text_contents()[1:])
-        self.assertIn('2 u. · 100%', self.page.locator('.tn-products').inner_text())
+        self.assertEqual(['0', '0', '$ 0,00', 'Sin pedidos pagados', '0', '0', '0'], rows.nth(0).locator('td').all_text_contents()[1:])
+        self.assertEqual(['3', '1', '$ 5.000,00', '$ 5.000,00', '2', '0', '2'], rows.nth(1).locator('td').all_text_contents()[1:])
+        self.assertEqual(['0', '0', '$ 0,00', 'Sin pedidos pagados', '0', '0', '0'], rows.nth(2).locator('td').all_text_contents()[1:])
+        self.assertIn('2 ítems · 100%', self.page.locator('.tn-products').inner_text())
 
     def test_tiendanube_missing_currency_rate_hides_incomplete_amount_chart(self):
         raw=copy.deepcopy(RAW)
@@ -1020,7 +1038,7 @@ class DashboardTests(unittest.TestCase):
 
     def test_tiendanube_product_share_uses_all_units_not_only_top_ten(self):
         self.setup_tn(tn_data={'products':[{'name':'Producto de prueba','units':1}]})
-        self.assertIn('1 u. · 50%',self.page.locator('.tn-products').inner_text())
+        self.assertIn('1 ítem · 50%',self.page.locator('.tn-products').inner_text())
 
     def test_tiendanube_empty_period_has_no_nan_or_fake_ticket(self):
         self.setup_tn(tn_data={'daily':[], 'summary':{'orders':0,'paid':0,'pending':0,'cancelled':0,'refunded':0,'partial':0,'other':0,'paidUnits':0}, 'products':[], 'origins':[],
