@@ -110,8 +110,9 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
   lines.forEach(function (l) {
     var a = ordAttr[l.order_id[0]]; if (!a) return;
     var cat = (catOf[l.product_id[0]] || '(sin)').split(' / ')[0].trim();   // ROOT de la categoría (el bucketeo va en el frontend)
-    // [7]=subtotal CON IVA, [8]=día de la orden, [9]=provincia del cliente de la orden.
-    L.push([a[0], a[1], a[2], a[3], idx(CAT,cat), Math.round(l.product_uom_qty), Math.round(l.qty_delivered||0), Math.round(l.price_total != null ? l.price_total : l.price_subtotal), a[4], a[5]]);
+    // [7]=subtotal CON IVA, [8]=día, [9]=provincia, [10]=id de orden para contar
+    // órdenes distintas por categoría aun cuando una orden tenga varias líneas.
+    L.push([a[0], a[1], a[2], a[3], idx(CAT,cat), Math.round(l.product_uom_qty), Math.round(l.qty_delivered||0), Math.round(l.price_total != null ? l.price_total : l.price_subtotal), a[4], a[5], l.order_id[0]]);
   });
 
   var P = [];
@@ -220,6 +221,7 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
       // durante los ~30 min en que todavía se sirve el dataset viejo.
       base: 'total',
       orderClassSource: options.orderClassSource || 'unavailable',
+      lostReasonSource: options.lostReasonSource || 'unavailable',
       // Se quedan en 0 mientras exista algún frontend leyéndolas (ver anuladasPorNC_, eliminada).
       anuladasN: 0,
       anuladasMonto: 0,

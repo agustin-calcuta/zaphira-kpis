@@ -176,6 +176,10 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 .dlt--flat{background:var(--bg-neutral);color:var(--text-neutral)}
 .kpi .dlt{margin-top:5px}
 .cmpnote{font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5}
+.metric-switch{display:inline-flex;flex-wrap:wrap;gap:4px;margin:0 0 12px;padding:3px;border:1px solid var(--border);border-radius:8px;background:var(--surface-1)}
+.metric-switch button{border:0;border-radius:5px;padding:5px 9px;background:transparent;color:var(--text-secondary);font:600 11px var(--font-sans);cursor:pointer}
+.metric-switch button[aria-pressed="true"]{background:var(--fill-primary);color:#fff}
+.metric-switch button:focus-visible{outline:2px solid var(--fill-primary);outline-offset:2px}
 .crm-recon{margin-top:12px;border-top:1px solid var(--border);padding-top:2px}
 .crm-recon>summary{cursor:pointer;color:var(--text-accent);font-size:12.5px;font-weight:600;padding:10px 0;line-height:1.45}
 .crm-recon>summary:focus-visible{outline:2px solid var(--text-accent);outline-offset:3px}
@@ -293,6 +297,11 @@ const EXEC_URL=['agustin-calcuta.github.io','zaphiraventas.pages.dev'].includes(
 const MES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MESL=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 let CUR='ARS';
+const METRIC={provincia:'monto',provinciaMes:'monto',industria:'monto',segmento:'monto',segmentoMes:'monto',categoria:'monto',segmentoProvincia:'monto'};
+function metricSwitch(group,choices){
+  return '<div class="metric-switch" role="group" aria-label="Ver '+group+' por">'
+    +choices.map(([value,label])=>'<button type="button" data-metric-group="'+group+'" data-metric-value="'+value+'" aria-pressed="'+(METRIC[group]===value)+'">'+label+'</button>').join('')+'</div>';
+}
 const el=(h)=>{const d=document.createElement('div');d.innerHTML=h;return d;};
 
 /* ===== ACCESO ============================================================================
@@ -929,8 +938,9 @@ function compute(rng){
       const segmento=bucketOf(d.CAT[l[4]]);
       if(segmento==='Sin categorizar')return;
       const provincia=shortProv(d.PROV[l[9]]||'(sin provincia)');
-      if(!rows.has(provincia))rows.set(provincia,{provincia,total:0,valores:Object.fromEntries(segmentosProvincia.map(s=>[s,0]))});
+      if(!rows.has(provincia))rows.set(provincia,{provincia,total:0,prendas:0,valores:Object.fromEntries(segmentosProvincia.map(s=>[s,0])),unidades:Object.fromEntries(segmentosProvincia.map(s=>[s,0]))});
       const row=rows.get(provincia);
+      row.unidades[segmento]+=l[5];row.prendas+=l[5];
       if(CUR==='USD'&&!(RAW.rateDay[l[8]]||RAW.rateMon[d.MON[l[0]]])){
         row.valores[segmento]=null;row.total=null;
       }else{
@@ -946,29 +956,32 @@ function compute(rng){
   const webI=d.CAN.indexOf('Web (Tiendanube)'), presI=d.CAN.indexOf('Venta directa');
   const cm={}; O.forEach(o=>{(cm[o[2]]=cm[o[2]]||{m:0,n:0}); cm[o[2]].m+=toCur(o[0],o[7],o[6]); cm[o[2]].n++;});
   const web=cm[webI]||{m:0,n:0}, pres=cm[presI]||{m:0,n:0};
-  const gm={}; O.forEach(o=>{gm[o[4]]=(gm[o[4]]||0)+toCur(o[0],o[7],o[6]);});
-  const provincia=Object.keys(gm).map(i=>({n:shortProv(d.PROV[i]),v:gm[i],muted:d.PROV[i].indexOf('(sin ')===0})).sort((a,b)=>b.v-a.v).slice(0,12);
-  const im={}; O.forEach(o=>{im[o[5]]=(im[o[5]]||0)+toCur(o[0],o[7],o[6]);});
-  const iArr=Object.keys(im).map(i=>({n:d.IND[i],v:im[i],muted:d.IND[i].indexOf('(sin ')===0}));
-  const industria=iArr.filter(x=>!x.muted).sort((a,b)=>b.v-a.v).slice(0,6).concat(iArr.filter(x=>x.muted));
+  const gm={}; O.forEach(o=>{const x=gm[o[4]]=gm[o[4]]||{monto:0,ordenes:0};x.monto+=toCur(o[0],o[7],o[6]);x.ordenes++;});
+  const provincia=Object.keys(gm).map(i=>({n:shortProv(d.PROV[i]),...gm[i],muted:d.PROV[i].indexOf('(sin ')===0})).sort((a,b)=>b.monto-a.monto);
+  const im={}; O.forEach(o=>{const x=im[o[5]]=im[o[5]]||{monto:0,ordenes:0};x.monto+=toCur(o[0],o[7],o[6]);x.ordenes++;});
+  const iArr=Object.keys(im).map(i=>({n:d.IND[i],...im[i],muted:d.IND[i].indexOf('(sin ')===0}));
+  const industria=iArr.filter(x=>!x.muted).sort((a,b)=>b.monto-a.monto).concat(iArr.filter(x=>x.muted));
 
   /* categorías (root dict.CAT) en moneda activa */
-  const km={}; L.forEach(l=>{km[l[4]]=(km[l[4]]||0)+toCur(l[0],l[8],l[7]);});
+  const km={}, ku={}, ko={};
+  const ordenesCategoriaDisponibles=L.every(l=>l.length>10&&l[10]>0);
+  L.forEach(l=>{
+    const i=l[4];km[i]=(km[i]||0)+toCur(l[0],l[8],l[7]);ku[i]=(ku[i]||0)+l[5];
+    if(ordenesCategoriaDisponibles)(ko[i]=ko[i]||new Set()).add(l[10]);
+  });
 
   /* "categorías reales de Odoo" — filtra roots que no son prenda (Gastos/All/Insumos/Tela/Productos a Borrar) */
   const catFiltered=Object.keys(km).filter(i=>NO_PRENDA.indexOf(normRoot(d.CAT[i]))<0);
-  let totCatReal=0; catFiltered.forEach(i=>totCatReal+=km[i]); totCatReal=totCatReal||1;
-  const cat=catFiltered.map(i=>({n:titch(d.CAT[i]),v:km[i],p:Math.round(100*km[i]/totCatReal)})).sort((a,b)=>b.v-a.v).slice(0,8);
+  const cat=catFiltered.map(i=>({n:titch(d.CAT[i]),monto:km[i],prendas:ku[i],ordenes:ordenesCategoriaDisponibles?ko[i].size:null}));
 
   /* segmentos de producto (mapeo) + "Sin categorizar" aparte */
-  const bk={'Administración':0,'Laboral':0,'Sanidad':0,'Otros / Accesorios':0};
-  let sinCat=0;
-  Object.keys(km).forEach(i=>{const b=bucketOf(d.CAT[i]); if(b==='Sin categorizar') sinCat+=km[i]; else bk[b]+=km[i];});
-  let totPrenda=0; Object.keys(bk).forEach(k=>totPrenda+=bk[k]); totPrenda=totPrenda||1;
-  const grand=(totPrenda+sinCat)||1;
+  const bk={'Administración':{monto:0,prendas:0,ordenes:new Set()},'Laboral':{monto:0,prendas:0,ordenes:new Set()},'Sanidad':{monto:0,prendas:0,ordenes:new Set()},'Otros / Accesorios':{monto:0,prendas:0,ordenes:new Set()}};
+  const sinCat={monto:0,prendas:0,ordenes:new Set()};
+  Object.keys(km).forEach(i=>{const b=bucketOf(d.CAT[i]), x=b==='Sin categorizar'?sinCat:bk[b];x.monto+=km[i];x.prendas+=ku[i];});
+  if(ordenesCategoriaDisponibles)L.forEach(l=>{const b=bucketOf(d.CAT[l[4]]),x=b==='Sin categorizar'?sinCat:bk[b];x.ordenes.add(l[10]);});
   const pal={'Administración':'#1e3a6e','Laboral':'#4a6da8','Sanidad':'#7fa3d9','Otros / Accesorios':'#a9b6c9'};
-  const buckets=Object.keys(bk).map(nm=>({n:nm,v:bk[nm],p:Math.round(100*bk[nm]/totPrenda),c:pal[nm]})).sort((a,b)=>b.v-a.v);
-  const sinCategorizar={n:'Sin categorizar',v:sinCat,p:Math.round(100*sinCat/grand)};
+  const buckets=Object.keys(bk).map(nm=>({n:nm,monto:bk[nm].monto,prendas:bk[nm].prendas,ordenes:ordenesCategoriaDisponibles?bk[nm].ordenes.size:null,c:pal[nm]}));
+  const sinCategorizar={n:'Sin categorizar',monto:sinCat.monto,prendas:sinCat.prendas,ordenes:ordenesCategoriaDisponibles?sinCat.ordenes.size:null};
 
   const st={1:0,2:0,3:0}, difs=[]; P.forEach(p=>{st[p[3]]=(st[p[3]]||0)+1; if(p[3]===1&&p[4]>=0)difs.push(p[4]);});
   difs.sort((a,b)=>a-b);
@@ -1010,7 +1023,10 @@ function compute(rng){
     if(e===1){
       won++;
       if(c.length>8&&c[8]>0) wonIdsPeriodo[c[8]]=1;
-    } else { crmPer++; if(c[10]) lostReasons[c[10]]=(lostReasons[c[10]]||0)+1; }
+    } else { crmPer++; if(c[9]===undefined||c[9]==='opportunity'){
+      const motivo=String(c[10]||'').trim()||'Sin motivo cargado';
+      lostReasons[motivo]=(lostReasons[motivo]||0)+1;
+    } }
     (cv[u]=cv[u]||{w:0,t:0,sinFecha:0}); cv[u].t++; if(e===1) cv[u].w++;
     if(!fechaCierre) cv[u].sinFecha++;
   });
@@ -1057,6 +1073,7 @@ function compute(rng){
     vinculadasNoGanadas,multiples,ordenesExtra:multiples.reduce((n,x)=>n+x.ordenes.length-1,0),
     ganadasSinOrden,ganadasVinculadasFuera};
   const motivosPerdida=Object.keys(lostReasons).map(n=>({n,v:lostReasons[n]})).sort((a,b)=>b.v-a.v);
+  const motivosDisponibles=RAW.meta.lostReasonSource==='crm';
 
   /* Year to Year — sólo si hay 2+ años realmente presentes en O */
   let yoy=null;
@@ -1112,7 +1129,9 @@ function compute(rng){
 
   const palCanal={'Venta directa':'#1e3a6e','Web (Tiendanube)':'#7fa3d9'};
   const palTipo ={'Tradicional':'#1e3a6e','Pronta Entrega':'#7fa3d9','Ecommerce':'#4a6da8'};
-  const topProv=provincia.filter(x=>!x.muted).slice(0,6).map(x=>x.n);
+  const topProv=[...provincia].filter(x=>!x.muted)
+    .sort((a,b)=>b[METRIC.provinciaMes==='ordenes'?'ordenes':'monto']-a[METRIC.provinciaMes==='ordenes'?'ordenes':'monto'])
+    .slice(0,6).map(x=>x.n);
   const topVend=vend.slice(0,8).map(x=>x.n);
 
   const evo={
@@ -1123,8 +1142,12 @@ function compute(rng){
     tipoOrdenes: aFilas(serieMes(O,o=>d.TIPO[o[3]],()=>1),                   d.TIPO, palTipo),
     segmento:    aFilas(serieMes(L,l=>bucketOf(d.CAT[l[4]]),l=>toCur(l[0],l[8],l[7])),
                         ['Administración','Laboral','Sanidad','Otros / Accesorios','Sin categorizar'], pal),
+    segmentoPrendas:aFilas(serieMes(L,l=>bucketOf(d.CAT[l[4]]),l=>l[5]),
+                        ['Administración','Laboral','Sanidad','Otros / Accesorios','Sin categorizar'], pal),
     provincia:   aFilas(serieMes(O,o=>{const n=shortProv(d.PROV[o[4]]);return topProv.indexOf(n)>=0?n:null;},
                         o=>toCur(o[0],o[7],o[6])), topProv),
+    provinciaOrd:aFilas(serieMes(O,o=>{const n=shortProv(d.PROV[o[4]]);return topProv.indexOf(n)>=0?n:null;},
+                        ()=>1), topProv),
     vendedora:   aFilas(serieMes(O,o=>{const n=d.VEN[o[1]];return topVend.indexOf(n)>=0?n:null;},
                         o=>toCur(o[0],o[7],o[6])), topVend)
   };
@@ -1132,7 +1155,7 @@ function compute(rng){
   const usdMissingMonths=Object.keys(missMonths).sort();
   const usdBlocked=CUR==='USD' && convOk===0 && convFail>0;   // nada convertible en todo el filtro
 
-  return {meses,ventas,nord,prT,oT,prTot,segmentoProv,ent,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ciclo,backlog,funnel,flujoCRM,convvend,crmN:received.length,won,yoy,evo,usdMissingMonths,usdBlocked,crmEstado,ticketPedido,crmReconciliation,motivosPerdida};
+  return {meses,ventas,nord,prT,oT,prTot,segmentoProv,ent,vend,web,pres,provincia,industria,cat,buckets,sinCategorizar,ordenesCategoriaDisponibles,ciclo,backlog,funnel,flujoCRM,convvend,crmN:received.length,won,yoy,evo,usdMissingMonths,usdBlocked,crmEstado,ticketPedido,crmReconciliation,motivosPerdida,motivosDisponibles};
 }
 
 /* ===== barra horizontal (grid: label · pista · valor) ===== */
@@ -1837,6 +1860,13 @@ function render(A,D,PREV){
    {l:'Órdenes',           v:n0(D.nord),       s:'confirmadas',          a:D.nord,       b:PREV&&PREV.nord},
    {l:'Prendas vendidas',  v:n0(D.prTot),      s:'unidades',             a:D.prTot,      b:PREV&&PREV.prTot},
   ];
+  if(esDireccion()&&F.can===''&&F.ven===''){
+    const ticketCanal=(label,actual,prev)=>({l:label,v:actual.n?MF(actual.m/actual.n):'Sin órdenes',
+      s:n0(actual.n)+' órdenes confirmadas · Odoo',a:actual.n?actual.m/actual.n:0,
+      b:PREV&&prev&&prev.n?prev.m/prev.n:0});
+    SC.push(ticketCanal('Ticket promedio e-commerce',D.web,PREV&&PREV.web),
+      ticketCanal('Ticket promedio venta directa',D.pres,PREV&&PREV.pres));
+  }
   if(F.can===String(d.CAN.indexOf('Venta directa'))||F.ven!==''||esVendedora()){
     const avg=D.nord?D.prTot/D.nord:0,prevAvg=PREV&&PREV.nord?PREV.prTot/PREV.nord:0;
     SC.push({l:'Prendas promedio por orden',v:avg.toLocaleString('es-AR',{maximumFractionDigits:2}),
@@ -1958,47 +1988,64 @@ function render(A,D,PREV){
 
   /* 9 */
   sec(A,'Ventas por provincia');
-  const provinciaNoMuted=D.provincia.filter(x=>!x.muted);
-  const mxp=Math.max(...provinciaNoMuted.map(x=>x.v),1);
-  const gh=D.provincia.map(x=>hb(x.n,x.v/mxp*100,M(x.v),{muted:x.muted,color:x.muted?'#c3ccd6':'#1e3a6e'})).join('');
-  A.appendChild(el(`<div class="card"><h3>Ventas por provincia</h3>${gh}</div>`));
+  const provMetric=METRIC.provincia,provRows=[...D.provincia].sort((a,b)=>b[provMetric]-a[provMetric]).slice(0,12);
+  const mxp=Math.max(...provRows.filter(x=>!x.muted).map(x=>x[provMetric]),1);
+  const gh=provRows.map(x=>hb(tnEscape(x.n),x[provMetric]/mxp*100,provMetric==='monto'?M(x.monto):n0(x.ordenes),{muted:x.muted,color:x.muted?'#c3ccd6':'#1e3a6e'})).join('');
+  A.appendChild(el(`<div class="card"><h3>Ventas por provincia</h3>${metricSwitch('provincia',[['monto','Monto'],['ordenes','Órdenes']])}${gh}</div>`));
   A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes — 6 provincias principales${curTag}</h3>
-    ${evoTable(D.evo.lbl,D.evo.provincia,M)}
+    ${metricSwitch('provinciaMes',[['monto','Monto'],['ordenes','Órdenes']])}
+    ${evoTable(D.evo.lbl,METRIC.provinciaMes==='monto'?D.evo.provincia:D.evo.provinciaOrd,METRIC.provinciaMes==='monto'?M:n0)}
     <div class="cmpnote">El total de estas filas no es el total del período: quedan afuera las provincias fuera del top 6 y los clientes sin provincia cargada.</div></div>`));
   if(!esVendedora()&&F.can===String(RAW.dict.CAN.indexOf('Venta directa'))){
     sec(A,'Ventas por segmento y provincia');
     const segmentos=['Administración','Laboral','Sanidad','Otros / Accesorios'];
-    const amount=v=>v===null?'Sin cotización':M(v||0);
+    const porPrendas=METRIC.segmentoProvincia==='prendas';
+    const amount=v=>porPrendas?n0(v||0):v===null?'Sin cotización':M(v||0);
     const body=(D.segmentoProv||[]).map(r=>`<tr><td>${tnEscape(r.provincia)}</td>`
-      +segmentos.map(s=>`<td>${amount(r.valores[s])}</td>`).join('')+`<td>${amount(r.total)}</td></tr>`).join('');
+      +segmentos.map(s=>`<td>${amount(porPrendas?r.unidades[s]:r.valores[s])}</td>`).join('')+`<td>${amount(porPrendas?r.prendas:r.total)}</td></tr>`).join('');
     A.appendChild(el(`<div class="card"><h3>Venta directa por segmento de producto y provincia</h3>`
+      +metricSwitch('segmentoProvincia',[['monto','Monto'],['prendas','Prendas']])
       +(D.segmentoProv===null?'<div class="pmsg">El desglose por provincia se completa con la próxima sincronización de Odoo.</div>'
         :body?`<div class="evo"><table><thead><tr><th>Provincia</th>${segmentos.map(s=>`<th>${s}</th>`).join('')}<th>Total</th></tr></thead><tbody>${body}</tbody></table></div>`
           :'<div class="pmsg">Sin prendas de los segmentos identificados en este período.</div>')
-      +'<div class="cmpnote">Importes con IVA de las líneas de productos del canal Venta directa; se excluyen gastos, insumos y categorías sin prenda. La provincia sale del cliente de cada orden.</div></div>'));
+      +'<div class="cmpnote">Monto con IVA o prendas de las líneas del canal Venta directa; se excluyen gastos, insumos y categorías sin prenda. La provincia sale del cliente de cada orden.</div></div>'));
   }
 
   /* Industria del cliente primero; segmento y categoría describen el producto vendido. */
   sec(A,'Ventas por industria y tipo de producto');
-  const indVisibles=D.industria.filter(x=>!x.muted);
-  const maxIndustria=Math.max(...indVisibles.map(x=>x.v),1);
-  const industriaBarras=D.industria.map(x=>hb(tnEscape(x.n),x.v/maxIndustria*100,M(x.v),
+  const indMetric=METRIC.industria;
+  const indRows=D.industria.filter(x=>!x.muted).sort((a,b)=>b[indMetric]-a[indMetric]).slice(0,6)
+    .concat(D.industria.filter(x=>x.muted));
+  const indVisibles=indRows.filter(x=>!x.muted);
+  const maxIndustria=Math.max(...indVisibles.map(x=>x[indMetric]),1);
+  const industriaBarras=indRows.map(x=>hb(tnEscape(x.n),x[indMetric]/maxIndustria*100,indMetric==='monto'?M(x.monto):n0(x.ordenes),
     {muted:x.muted,color:x.muted?'#c3ccd6':'#1e3a6e'})).join('');
-  A.appendChild(el(`<div class="card"><h3>Industria del cliente</h3>${industriaBarras||'<div class="pmsg">Sin ventas para este filtro.</div>'}
+  A.appendChild(el(`<div class="card"><h3>Industria del cliente</h3>${metricSwitch('industria',[['monto','Monto'],['ordenes','Órdenes']])}${industriaBarras||'<div class="pmsg">Sin ventas para este filtro.</div>'}
     <div class="cmpnote">La industria proviene de la ficha del cliente en Odoo. «Sin industria» identifica ventas cuyo cliente aún no tiene ese dato cargado.</div></div>`));
-  const bh=D.buckets.map(x=>`<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${M(x.v)} · ${x.p}%</b></div>
-    <div style="background:var(--surface-1);border-radius:4px;height:11px"><div style="width:${x.p}%;height:11px;border-radius:4px;background:${x.c}"></div></div></div>`).join('')
+  if(!D.ordenesCategoriaDisponibles&&METRIC.segmento==='ordenes')METRIC.segmento='prendas';
+  if(!D.ordenesCategoriaDisponibles&&METRIC.categoria==='ordenes')METRIC.categoria='prendas';
+  const segMetric=METRIC.segmento,catMetric=METRIC.categoria;
+  const segTotal=D.buckets.reduce((sum,x)=>sum+x[segMetric],0)||1;
+  const allTotal=segTotal+D.sinCategorizar[segMetric];
+  const segVal=x=>segMetric==='monto'?M(x.monto):n0(x[segMetric]);
+  const bh=[...D.buckets].sort((a,b)=>b[segMetric]-a[segMetric]).map(x=>{const p=Math.round(100*x[segMetric]/segTotal);return `<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>${x.n}</span><b>${segVal(x)} · ${p}%</b></div>
+    <div style="background:var(--surface-1);border-radius:4px;height:11px"><div style="width:${p}%;height:11px;border-radius:4px;background:${x.c}"></div></div></div>`;}).join('')
     +`<div style="margin-top:6px;padding-top:9px;border-top:1px dashed var(--border)">
-       <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px;color:var(--text-muted)"><span>${D.sinCategorizar.n}</span><b>${M(D.sinCategorizar.v)} · ${D.sinCategorizar.p}%</b></div>
-       <div style="background:var(--surface-1);border-radius:4px;height:11px"><div style="width:${Math.max(2,D.sinCategorizar.p)}%;height:11px;border-radius:4px;background:#c3ccd6"></div></div>
+       <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px;color:var(--text-muted)"><span>${D.sinCategorizar.n}</span><b>${segVal(D.sinCategorizar)} · ${Math.round(100*D.sinCategorizar[segMetric]/(allTotal||1))}%</b></div>
+       <div style="background:var(--surface-1);border-radius:4px;height:11px"><div style="width:${Math.max(2,100*D.sinCategorizar[segMetric]/(allTotal||1))}%;height:11px;border-radius:4px;background:#c3ccd6"></div></div>
        <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">No es prenda (gastos, insumos, telas, ítems a depurar): fuera de los 3 segmentos de producto.</div>
      </div>`;
-  const mxc=Math.max(...D.cat.map(x=>x.v),1);
-  const ch=D.cat.map(x=>hb(x.n,x.v/mxc*100,M(x.v)+' · '+x.p+'%',{color:'#4a6da8'})).join('');
-  row2(A,'Por segmento (mapeo)',bh,
-    'Categorías reales de Odoo',ch,1);
+  const catRows=[...D.cat].sort((a,b)=>b[catMetric]-a[catMetric]).slice(0,8);
+  const catTotal=D.cat.reduce((sum,x)=>sum+x[catMetric],0)||1;
+  const mxc=Math.max(...catRows.map(x=>x[catMetric]),1);
+  const ch=catRows.map(x=>hb(tnEscape(x.n),x[catMetric]/mxc*100,(catMetric==='monto'?M(x.monto):n0(x[catMetric]))+' · '+Math.round(100*x[catMetric]/catTotal)+'%',{color:'#4a6da8'})).join('');
+  const productChoices=[['monto','Monto'],['prendas','Prendas']].concat(D.ordenesCategoriaDisponibles?[['ordenes','Órdenes']]:[]);
+  row2(A,'Por segmento (mapeo)',metricSwitch('segmento',productChoices)+bh,
+    'Categorías reales de Odoo',metricSwitch('categoria',productChoices)+ch,1);
+  if(D.ordenesCategoriaDisponibles)A.appendChild(el('<div class="cmpnote">Una orden con productos de varias categorías o segmentos se cuenta una vez en cada uno.</div>'));
   A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Evolución mes a mes por segmento${curTag}</h3>
-    ${evoTable(D.evo.lbl,D.evo.segmento,M)}</div>`));
+    ${metricSwitch('segmentoMes',[['monto','Monto'],['prendas','Prendas']])}
+    ${evoTable(D.evo.lbl,METRIC.segmentoMes==='monto'?D.evo.segmento:D.evo.segmentoPrendas,METRIC.segmentoMes==='monto'?M:n0)}</div>`));
 
   const usdFootNote = CUR==='USD'
     ? (usdPend ? ' Sin cotización oficial disponible para este filtro: los montos en USD no están completos.'
@@ -2026,6 +2073,15 @@ function renderCRM(A,D){
     <div class="kpis crm-flow-cards">${tarjetas}</div>
     ${flujo.total?'':'<div class="pmsg">Sin oportunidades creadas en este período.</div>'}
     ${vista.principal?renderConciliacionCRM(D):''}
+  </div>`));
+  const motivos=D.motivosPerdida;
+  const totalMotivos=motivos.reduce((sum,x)=>sum+x.v,0);
+  const maxMotivo=Math.max(...motivos.map(x=>x.v),1);
+  const barras=motivos.map(x=>hb(tnEscape(x.n),x.v/maxMotivo*100,n0(x.v)+' · '+Math.round(100*x.v/(totalMotivos||1))+'%',
+    {muted:x.n==='Sin motivo cargado',color:x.n==='Sin motivo cargado'?'#c3ccd6':'#b54747'})).join('');
+  A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Causas de oportunidades perdidas</h3>
+    <div class="pmsg" style="margin-bottom:12px">${n0(totalMotivos)} oportunidades perdidas por fecha de cierre${D.crmEstado.sinFechaCierre?' o fecha de alta cuando falta cierre':''}. Motivos registrados en Odoo.</div>
+    ${D.motivosDisponibles?(barras||'<div class="pmsg">Sin oportunidades perdidas en este período.</div>'):'<div class="pmsg">El campo de motivos no está disponible en los datos sincronizados. Si Odoo ya lo expone, aparecerá después de la próxima sincronización.</div>'}
   </div>`));
   if(veComparativaEntreVendedoras()&&F.ven==='') renderComparativaCRM(A,D);
 }
@@ -2077,6 +2133,12 @@ function renderComparativaCRM(A,D){
 document.getElementById('logout').addEventListener('click',()=>{dataCacheBorrar(USER);sesionBorrar();location.reload();});
 document.getElementById('chgpwd').addEventListener('click',async()=>{
   USER=await pedirCambioClave(USER,false); pintarSesion();
+});
+document.getElementById('app').addEventListener('click',e=>{
+  const button=e.target.closest('button[data-metric-group]');
+  if(!button)return;
+  METRIC[button.dataset.metricGroup]=button.dataset.metricValue;
+  go();
 });
 
 /* Deja el filtro clavado en la vendedora que inició sesión, ANTES de dibujar nada. El backend ya

@@ -32,14 +32,18 @@ test('sync reads the CRM classification and excludes cancelled orders and lines'
     let result = [];
     if (method === 'fields_get' && model === 'sale.order') result = {opportunity_id: {type: 'many2one'}};
     if (method === 'fields_get' && model === 'crm.lead') result = {
-      x_studio_pedido_nuevo_reposicin: {type: 'selection'}};
+      x_studio_pedido_nuevo_reposicin: {type: 'selection'}, lost_reason_id: {type: 'many2one'}};
     if (method === 'search_read' && model === 'sale.order') result = [{
       id: 101, state: 'sale', date_order: '2026-10-10 12:00:00', amount_total: 1000,
       user_id: [7, 'Ana'], type_id: [1, 'Tradicional'], opportunity_id: [11, 'Lead']
     }];
+    if (method === 'search_read' && model === 'sale.order.line') result = [{
+      id: 201, order_id: [101, 'SO101'], product_id: [301, 'Camisa'],
+      product_uom_qty: 2, qty_delivered: 2, price_total: 1000
+    }];
     if (method === 'search_read' && model === 'crm.lead') result = [{
       id: 11, user_id: [7, 'Ana'], create_date: '2026-10-01 12:00:00', active: true,
-      x_studio_pedido_nuevo_reposicin: 'Pedido nuevo'
+      x_studio_pedido_nuevo_reposicin: 'Pedido nuevo', lost_reason_id: [3, 'Precio']
     }];
     return Response.json({result});
   };
@@ -49,13 +53,17 @@ test('sync reads the CRM classification and excludes cancelled orders and lines'
     assert.equal(summary.orders, 1);
     const raw = JSON.parse(chunks.join(''));
     assert.equal(raw.meta.orderClassSource, 'crm');
+    assert.equal(raw.meta.lostReasonSource, 'crm');
     assert.equal(raw.O[0][8], 1);
+    assert.equal(raw.L[0][10], 101);
+    assert.equal(raw.C[0][10], 'Precio');
     const orders = requests.find(request => request.model === 'sale.order' && request.method === 'search_read');
     const lines = requests.find(request => request.model === 'sale.order.line' && request.method === 'search_read');
     assert.deepEqual(orders.args[0][0], ['state', 'in', ['sale', 'done']]);
     assert.deepEqual(lines.args[0][0], ['order_id.state', 'in', ['sale', 'done']]);
     const crm = requests.find(request => request.model === 'crm.lead' && request.method === 'search_read');
     assert.ok(crm.kwargs.fields.includes('x_studio_pedido_nuevo_reposicin'));
+    assert.ok(crm.kwargs.fields.includes('lost_reason_id'));
   } finally {
     globalThis.fetch = originalFetch;
   }

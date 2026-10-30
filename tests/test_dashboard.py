@@ -22,7 +22,7 @@ RAW = {
              'MON': ['2026-09'], 'STAGE': ['Ganado', 'Calificado']},
     'meta': {'day0': '2026-09-01', 'today': '2026-09-23',
              'maxDate': '2026-09-23', 'dateFrom': '2026-09-01', 'base': 'total',
-             'orderClassSource': 'crm'},
+             'orderClassSource': 'crm', 'lostReasonSource': 'crm'},
     'O': [[0, 0, 0, 0, 0, 0, 1000, 10, 1, 101, 501],
           [0, 1, 1, 2, 0, 0, 2000, 11, 0, 0, 502]],
     'L': [[0, 0, 0, 0, 0, 10, 10, 1000, 10],
@@ -121,11 +121,65 @@ class DashboardTests(unittest.TestCase):
     def top_labels(self):
         return self.page.locator('#app > div > .kpis').first.locator('.kl').all_text_contents()
 
-    def test_general_has_four_commercial_cards_and_explained_crm(self):
+    def test_general_has_channel_tickets_and_explained_crm(self):
         self.load()
-        self.assertEqual(['Ventas confirmadas', 'Ticket promedio', 'Órdenes', 'Prendas vendidas'], self.top_labels())
+        self.assertEqual(['Ventas confirmadas', 'Ticket promedio', 'Órdenes', 'Prendas vendidas',
+                          'Ticket promedio e-commerce', 'Ticket promedio venta directa'], self.top_labels())
+        cards = self.page.locator('#app > div > .kpis').first.locator('.kpi')
+        self.assertIn('$ 2.000', cards.nth(4).inner_text())
+        self.assertIn('$ 1.000', cards.nth(5).inner_text())
         self.assertIn('Flujo de oportunidades creadas — etapa actual', self.text())
         self.assertIn('no es la tasa de cierres ganados', self.text())
+
+    def test_breakdown_switches_count_orders_and_category_units(self):
+        raw = copy.deepcopy(RAW)
+        raw['dict']['PROV'] = ['Córdoba', 'Buenos Aires']
+        raw['dict']['IND'] = ['Salud', 'Educación']
+        raw['dict']['CAT'] = ['Sanidad', 'Laboral']
+        raw['O'][1][4] = 1
+        raw['O'][1][5] = 1
+        raw['L'] = [[0, 0, 0, 0, 0, 3, 3, 400, 10, 0, 501],
+                    [0, 0, 0, 0, 0, 7, 7, 600, 10, 0, 501],
+                    [0, 1, 1, 2, 1, 20, 20, 2000, 11, 1, 502]]
+        self.load(raw)
+        self.page.locator('[data-metric-group="provincia"][data-metric-value="ordenes"]').click()
+        province = self.page.locator('.card').filter(has=self.page.get_by_role('heading', name='Ventas por provincia', exact=True))
+        self.assertEqual(['1', '1'], province.locator('.hval').all_text_contents())
+        self.page.locator('[data-metric-group="industria"][data-metric-value="ordenes"]').click()
+        industry = self.page.locator('.card').filter(has=self.page.get_by_role('heading', name='Industria del cliente'))
+        self.assertEqual(['1', '1'], industry.locator('.hval').all_text_contents())
+        self.page.locator('[data-metric-group="provinciaMes"][data-metric-value="ordenes"]').click()
+        province_month = self.page.locator('.card').filter(has=self.page.get_by_role('heading', name='Evolución mes a mes — 6 provincias principales'))
+        province_month.locator('summary').click()
+        self.assertIn('1', province_month.inner_text())
+        self.page.locator('[data-metric-group="categoria"][data-metric-value="prendas"]').click()
+        categories = self.page.locator('.duo').filter(has=self.page.get_by_role('heading', name='Categorías reales de Odoo'))
+        self.assertIn('10', categories.inner_text())
+        self.page.locator('[data-metric-group="categoria"][data-metric-value="ordenes"]').click()
+        self.assertIn('1 · 50%', categories.inner_text())
+        self.page.locator('[data-metric-group="segmentoMes"][data-metric-value="prendas"]').click()
+        segment_month = self.page.locator('.card').filter(has=self.page.get_by_role('heading', name='Evolución mes a mes por segmento'))
+        segment_month.locator('summary').click()
+        self.assertIn('20', segment_month.inner_text())
+
+    def test_lost_reasons_include_unfilled_and_escape_odoo_text(self):
+        raw = copy.deepcopy(RAW)
+        raw['C'][2][10] = 'Precio'
+        raw['C'][3][10] = 'Precio'
+        raw['C'][4][10] = '<script>otro</script>'
+        self.load(raw)
+        card = self.page.locator('.card').filter(has=self.page.get_by_role('heading', name='Causas de oportunidades perdidas'))
+        self.assertIn('Precio', card.inner_text())
+        self.assertIn('2 · 67%', card.inner_text())
+        self.assertEqual(0, card.locator('script').count())
+
+    def test_lost_reasons_wait_for_source_when_field_is_unavailable(self):
+        raw = copy.deepcopy(RAW)
+        raw['meta']['lostReasonSource'] = 'unavailable'
+        self.load(raw)
+        card = self.page.locator('.card').filter(has=self.page.get_by_role('heading', name='Causas de oportunidades perdidas'))
+        self.assertIn('próxima sincronización', card.inner_text())
+        self.assertEqual(0, card.locator('.hrow').count())
 
     def test_pages_domain_calls_worker_api(self):
         self.load(origin='https://zaphiraventas.pages.dev')
