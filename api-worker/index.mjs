@@ -13,6 +13,15 @@ const MAX_BODY = 32_768;
 const SESSION_ERROR = {ok: false, code: 'sesion', error: 'Tu sesión venció. Volvé a entrar.'};
 const PERMISSION_ERROR = {ok: false, error: 'No tenés permiso para hacer esto.'};
 
+function portalCookie(token, age) {
+  return `zaphira_ventas_portal=${encodeURIComponent(token)}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`;
+}
+
+function portalToken(request) {
+  const match = (request.headers.get('cookie') || '').match(/(?:^|;\s*)zaphira_ventas_portal=([^;]+)/);
+  try { return match ? decodeURIComponent(match[1]) : ''; } catch { return ''; }
+}
+
 function response(value, origin, status = 200) {
   return Response.json(value, {status, headers: {
     'Access-Control-Allow-Origin': origin,
@@ -50,6 +59,42 @@ async function dispatch(input, env) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if (path === '/api/portal-login' && request.method === 'POST') {
+      if (request.headers.get('Origin') !== 'https://zaphira.pages.dev') {
+        return new Response('Forbidden', {status: 403});
+      }
+      if (Number(request.headers.get('Content-Length') || 0) > 4096) {
+        return new Response('Solicitud demasiado grande.', {status: 413});
+      }
+      try {
+        const form = await request.formData();
+        const result = await login(env.DB, {u: String(form.get('username') || ''), p: String(form.get('password') || '')}, env.TOKEN_SECRET);
+        const headers = {'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer'};
+        if (result.ok) {
+          headers.Location = 'https://zaphiraventas.pages.dev/';
+          headers['Set-Cookie'] = portalCookie(result.token, 12 * 60 * 60);
+        } else {
+          headers.Location = 'https://zaphira.pages.dev/?portal=sales&login_error=1';
+        }
+        return new Response(null, {status: 303, headers});
+      } catch {
+        return new Response('No se pudo iniciar sesión.', {status: 400});
+      }
+    }
+    if (path === '/api/portal-session' && request.method === 'GET') {
+      const token = portalToken(request);
+      const user = token && await currentUser(env.DB, token, env.TOKEN_SECRET);
+      if (!user) return Response.json({ok: false}, {status: 401, headers: {'Cache-Control': 'private, no-store'}});
+      return Response.json({ok: true, session: {
+        token, usuario: user.usuario, nombre: user.nombre, rol: user.rol,
+        ven: user.vendedora || '', cambiar: !!user.cambiar
+      }}, {headers: {'Cache-Control': 'private, no-store'}});
+    }
+    if (path === '/api/portal-logout' && request.method === 'POST') {
+      const origin = request.headers.get('Origin');
+      if (origin && origin !== new URL(request.url).origin && origin !== 'https://zaphiraventas.pages.dev') return new Response('Forbidden', {status: 403});
+      return Response.json({ok: true}, {headers: {'Cache-Control': 'no-store', 'Set-Cookie': portalCookie('', 0)}});
+    }
     if (path === '/internal/sync') {
       if (request.method !== 'POST' || !env.SYNC_SECRET ||
         request.headers.get('Authorization') !== `Bearer ${env.SYNC_SECRET}`) {

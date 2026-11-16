@@ -345,6 +345,14 @@ function sesionLeer(){
   }catch(e){ return null; }
 }
 function sesionBorrar(){ try{localStorage.removeItem(SES_KEY);}catch(e){} }
+async function sesionPortal(){
+  try{
+    const response=await fetch('/api/portal-session',{cache:'no-store'});
+    if(!response.ok)return null;
+    const data=await response.json();
+    return data&&data.ok?data.session:null;
+  }catch(e){return null;}
+}
 const DATA_CACHE_PREFIX='zaphira_data_v1_';
 const dataCacheKey=u=>DATA_CACHE_PREFIX+String((u&&u.usuario)||'').toLowerCase();
 function dataCacheLeer(u){
@@ -486,7 +494,8 @@ function pedirCambioClave(ses,obligatorio){
    de la sesión vencida: el servidor responde code:'sesion', se borra y se vuelve a pedir login. */
 let RESP=null, FATAL='', BACKGROUND_REFRESH=null, USED_CACHE=false;
 try{
-  USER=sesionLeer();
+  USER=await sesionPortal()||sesionLeer();
+  if(USER)sesionGuardar(USER);
   for(let intento=0; intento<4; intento++){
     if(!USER) USER=await pedirLogin();
     if(USER.cambiar) USER=await pedirCambioClave(USER,true);
@@ -2130,7 +2139,10 @@ function renderComparativaCRM(A,D){
 }
 
 /* ===== arranque (al final: ya están definidas todas las const/función) ===== */
-document.getElementById('logout').addEventListener('click',()=>{dataCacheBorrar(USER);sesionBorrar();location.reload();});
+document.getElementById('logout').addEventListener('click',async()=>{
+  try{await fetch('/api/portal-logout',{method:'POST',cache:'no-store'});}catch(e){}
+  dataCacheBorrar(USER);sesionBorrar();location.reload();
+});
 document.getElementById('chgpwd').addEventListener('click',async()=>{
   USER=await pedirCambioClave(USER,false); pintarSesion();
 });
