@@ -10,6 +10,11 @@ CREATE TABLE IF NOT EXISTS users (
   ultimo_ingreso TEXT NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS portal_sso_redeemed (
+  jti TEXT PRIMARY KEY,
+  expires_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS objetivos (
   mes TEXT NOT NULL,
   alcance TEXT NOT NULL,
