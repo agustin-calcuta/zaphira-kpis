@@ -2030,7 +2030,7 @@ function render(A,D,PREV){
   const industriaBarras=indRows.map(x=>hb(tnEscape(x.n),x[indMetric]/maxIndustria*100,indMetric==='monto'?M(x.monto):n0(x.ordenes),
     {muted:x.muted,color:x.muted?'#c3ccd6':'#1e3a6e'})).join('');
   A.appendChild(el(`<div class="card"><h3>Industria del cliente</h3>${metricSwitch('industria',[['monto','Monto'],['ordenes','Órdenes']])}${industriaBarras||'<div class="pmsg">Sin ventas para este filtro.</div>'}
-    <div class="cmpnote">La industria proviene de la ficha del cliente en Odoo. «Sin industria» identifica ventas cuyo cliente aún no tiene ese dato cargado.</div></div>`));
+    <div class="cmpnote">La industria proviene de la ficha del cliente en Odoo. Si falta, se usa «Rubro - Industria» de la oportunidad vinculada o de las oportunidades del mismo cliente cuando coinciden. «Sin industria» indica que ninguna de esas fuentes permite clasificar la venta.</div></div>`));
   if(!D.ordenesCategoriaDisponibles&&METRIC.segmento==='ordenes')METRIC.segmento='prendas';
   if(!D.ordenesCategoriaDisponibles&&METRIC.categoria==='ordenes')METRIC.categoria='prendas';
   const segMetric=METRIC.segmento,catMetric=METRIC.categoria;

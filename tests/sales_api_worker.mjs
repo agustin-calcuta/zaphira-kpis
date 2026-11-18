@@ -44,6 +44,31 @@ test('Odoo industries are stored in Spanish for the dashboard and Excel', () => 
   assert.deepEqual(raw.dict.IND, expected);
 });
 
+test('CRM rubro fills missing customer industry without guessing across conflicting leads', () => {
+  const date_order = '2026-10-10 12:00:00';
+  const orders = [
+    {id: 1, date_order, amount_total: 100, partner_id: [1, 'A'], opportunity_id: [11, 'Lead']},
+    {id: 2, date_order, amount_total: 200, partner_id: [1, 'A']},
+    {id: 3, date_order, amount_total: 300, partner_id: [2, 'B']},
+    {id: 4, date_order, amount_total: 400, partner_id: [3, 'C'], opportunity_id: [14, 'Lead']}
+  ];
+  const partners = {1: {industry_id: false}, 2: {industry_id: false},
+    3: {industry_id: [5, 'Manufacturing']}};
+  const crm = [
+    {id: 11, partner_id: [1, 'A'], rubro: 'Sanidad (hospital, obra social)'},
+    {id: 12, partner_id: [2, 'B'], rubro: 'Servicios'},
+    {id: 13, partner_id: [2, 'B'], rubro: 'Comercio'},
+    {id: 14, partner_id: [3, 'C'], rubro: 'Sanidad'}
+  ];
+  const raw = buildData_(orders, {}, partners, [], {}, crm, [], {}, [],
+    {usd: {venta: 0}, usdMon: {}, crmIndustryField: 'rubro'});
+  assert.deepEqual(raw.O.map(order => raw.dict.IND[order[5]]),
+    ['Salud y servicios sociales', 'Salud y servicios sociales',
+      '(sin industria)', 'Industria manufacturera']);
+  assert.equal(raw.meta.industryCrmCount, 2);
+  assert.equal(raw.meta.industryCov, 2 / 3);
+});
+
 test('the migrated hash verifies the unchanged legacy password', async () => {
   const salt = 'synthetic-salt';
   const expected = '20f6db032cdad191a45537d809d75b52fad1224776fee997a23896a173f30f6d';

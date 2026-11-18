@@ -64,6 +64,27 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
   var ordAttr = {};   // id -> [monIdx, venIdx, canIdx, tipoIdx, dayOff, provinciaIdx]
   var commitmentLoaded = false;
   const crmById = Object.fromEntries(crm.map(c => [c.id, c]));
+  const crmIndustryField = options.crmIndustryField || '';
+  const crmIndustryLabels = options.crmIndustryLabels || {};
+  function rubroCRM_(lead) {
+    if (!lead || !crmIndustryField) return '';
+    const raw = lead[crmIndustryField];
+    const value = Array.isArray(raw) ? raw[1] : crmIndustryLabels[raw] || raw;
+    const label = typeof value === 'string' ? value.trim() : '';
+    // El rubro comercial de Sanidad corresponde a la industria general de Odoo.
+    return /^sanidad(?:\b|\s*\()/i.test(label) ? 'Salud y servicios sociales'
+      : INDUSTRIAS_ES[label] || label;
+  }
+  const rubroPorCliente = new Map();
+  for (const lead of crm) {
+    const partnerId = lead.partner_id?.[0], rubro = rubroCRM_(lead);
+    if (!partnerId || !rubro) continue;
+    const previous = rubroPorCliente.get(partnerId);
+    if (previous === undefined) rubroPorCliente.set(partnerId, rubro);
+    else if (previous !== rubro) rubroPorCliente.set(partnerId, null);
+  }
+  var industryCrmCount = 0;
+  const classifiedPartners = new Set();
   function orderClass_(order) {
     const value = crmById[order.opportunity_id?.[0]]?.x_studio_pedido_nuevo_reposicin;
     if (value === 'Pedido nuevo') return 1;
@@ -89,8 +110,15 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
     if (o.commitment_date) commitmentLoaded = true;
     var p = o.partner_id ? pinfo[o.partner_id[0]] : null;
     var prov = (p && p.state_id) ? p.state_id[1].replace(' (AR)','') : '(sin provincia)';
-    var ind  = (p && p.industry_id) ? p.industry_id[1] : '(sin industria)';
+    var ind = (p && p.industry_id) ? p.industry_id[1] : '';
     ind = INDUSTRIAS_ES[ind] || ind;
+    if (!ind) {
+      ind = rubroCRM_(crmById[o.opportunity_id?.[0]]) ||
+        rubroPorCliente.get(o.partner_id?.[0]) || '';
+      if (ind) industryCrmCount++;
+    }
+    if (ind && o.partner_id) classifiedPartners.add(o.partner_id[0]);
+    if (!ind) ind = '(sin industria)';
     // La clasificación se carga en la oportunidad CRM, no se infiere del alta del cliente.
     // Sin vínculo o sin valor explícito queda sin clasificar.
     var clasePedido = orderClass_(o);
@@ -161,7 +189,7 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
   pidsUsed.forEach(function (id) {
     var p = pinfo[id];
     if (p && p.state_id) provCount++;
-    if (p && p.industry_id) indCount++;
+    if (classifiedPartners.has(id)) indCount++;
   });
   var provinceCov = pidsUsed.length ? provCount / pidsUsed.length : 0;
   var industryCov = pidsUsed.length ? indCount / pidsUsed.length : 0;
@@ -211,6 +239,7 @@ export function buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stag
       commitmentLoaded: commitmentLoaded,
       dateFrom: DATA_FROM,
       industryCov: industryCov,
+      industryCrmCount: industryCrmCount,
       provinceCov: provinceCov,
       crmLost: crmLost,
       stageOrder: stageOrder.map(function (s) { return s.name; }),

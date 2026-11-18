@@ -145,9 +145,11 @@ export async function syncSales(env) {
   } catch { /* CRM graph can still render with stage names alone. */ }
 
   let crm = [], orderClassSource = 'unavailable', lostReasonSource = 'unavailable';
+  let crmIndustryField = '', crmIndustryLabels = {};
   try {
-    const definitions = await odoo.execute('crm.lead', 'fields_get', [], {attributes: ['type']});
-    const fields = ['user_id', 'stage_id', 'create_date', 'active'];
+    const definitions = await odoo.execute('crm.lead', 'fields_get', [],
+      {attributes: ['type', 'string', 'selection']});
+    const fields = ['user_id', 'stage_id', 'create_date', 'active', 'partner_id'];
     for (const field of ['date_closed', 'date_conversion', 'type', 'lost_reason_id']) {
       if (definitions?.[field]) fields.push(field);
     }
@@ -155,6 +157,16 @@ export async function syncSales(env) {
     if (definitions?.x_studio_pedido_nuevo_reposicin) {
       fields.push('x_studio_pedido_nuevo_reposicin');
       orderClassSource = 'crm';
+    }
+    const normalize = value => String(value || '').normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    crmIndustryField = Object.entries(definitions || {}).find(([name, definition]) =>
+      ['selection', 'many2one', 'char'].includes(definition.type) &&
+      (normalize(definition.string).includes('rubro industria') ||
+        normalize(name).includes('rubro industria')))?.[0] || '';
+    if (crmIndustryField) {
+      fields.push(crmIndustryField);
+      crmIndustryLabels = Object.fromEntries(definitions[crmIndustryField].selection || []);
     }
     crm = await odoo.paged('crm.lead', [], fields, 2000,
       {context: {active_test: false, lang: 'es_AR'}});
@@ -167,7 +179,7 @@ export async function syncSales(env) {
 
   const usd = await fetchUsd(env.DB);
   const raw = buildData_(orders, ordDate, pinfo, lines, catOf, crm, pick, stageInfo, stageOrder,
-    {...usd, orderClassSource, lostReasonSource});
+    {...usd, orderClassSource, lostReasonSource, crmIndustryField, crmIndustryLabels});
   await writeDataset(env.DB, raw);
   return {pull: raw.pull, orders: raw.O.length, lines: raw.L.length, crm: raw.C.length};
 }
