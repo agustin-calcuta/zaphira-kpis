@@ -2193,7 +2193,8 @@ function arrancar(){
     VISTA='tienda';
     setPeriod('mtd');
   }
-  buildToolbar(); go();
+  buildToolbar();
+  if(esDireccion()&&location.hash==='#accesos') $('btnCfg').click(); else go();
 }
 arrancar();
 if(BACKGROUND_REFRESH){
