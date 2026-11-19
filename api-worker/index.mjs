@@ -63,9 +63,9 @@ export default {
     if (path === '/api/portal-sso' && request.method === 'GET') {
       const username = await redeemPortalTicket(env.DB, new URL(request.url).searchParams.get('ticket') || '', env.PORTAL_SSO_SECRET);
       if (!username) return new Response('El enlace de ingreso venció o ya se usó.', {status:401, headers:{'Cache-Control':'no-store'}});
-      const user = await env.DB.prepare('SELECT * FROM users WHERE usuario=? AND activo=1 AND cambiar=0').bind(username).first();
+      const user = await env.DB.prepare('SELECT * FROM users WHERE usuario=? AND activo=1').bind(username).first();
       if (!user) return new Response('El usuario no tiene acceso a Ventas.', {status:403, headers:{'Cache-Control':'no-store'}});
-      const token = await signToken(user, env.TOKEN_SECRET);
+      const token = await signToken(user, env.TOKEN_SECRET, true);
       return new Response(null, {status:303, headers:{
         Location:'https://zaphiraventas.pages.dev/',
         'Set-Cookie':portalCookie(token, 12*60*60),

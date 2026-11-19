@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {unzipSync} from '../api-worker/node_modules/fflate/esm/browser.js';
 import worker from '../api-worker/index.mjs';
-import {legacyHash, signToken, verifyToken} from '../api-worker/auth.mjs';
+import {currentUser, legacyHash, signToken, verifyToken} from '../api-worker/auth.mjs';
 import {trimToSeller, readObjectives, objectives, dataResponse, canViewTiendaNube} from '../api-worker/data.mjs';
 import {xlsxResponse} from '../api-worker/xlsx.mjs';
 import {buildData_} from '../api-worker/odoo-build.mjs';
@@ -79,6 +79,16 @@ test('sessions keep the Apps Script token format and reject tampering', async ()
   const token = await signToken({usuario: 'test', rol: 'vendedora', vendedora: 'Ana'}, secret);
   assert.deepEqual(await verifyToken(token, secret), {usuario: 'test', rol: 'vendedora', vendedora: 'Ana'});
   assert.equal(await verifyToken(token + 'x', secret), null);
+});
+
+test('portal session preserves the seller scope and leaves the local password flag intact', async () => {
+  const user = {usuario: 'test', rol: 'vendedora', vendedora: 'Ana', activo: 1, cambiar: 1};
+  const db = {prepare: () => ({bind: () => ({first: async () => user})})};
+  const direct = await signToken(user, secret);
+  const fromPortal = await signToken(user, secret, true);
+  assert.equal((await currentUser(db, direct, secret)).cambiar, 1);
+  assert.deepEqual(await currentUser(db, fromPortal, secret), {...user, cambiar: 0});
+  assert.equal(user.cambiar, 1);
 });
 
 test('seller data never contains another seller or her name in the dictionary', () => {

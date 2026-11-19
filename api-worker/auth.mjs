@@ -40,9 +40,11 @@ async function signature(payload, secret) {
   return hex(await crypto.subtle.sign('HMAC', key, encoder.encode(payload)));
 }
 
-export async function signToken(user, secret) {
+export async function signToken(user, secret, fromPortal = false) {
   const exp = Date.now() + TOKEN_HOURS * 3600_000;
-  const payload = [user.usuario, user.rol, user.vendedora || '', exp].join('|');
+  const fields = [user.usuario, user.rol, user.vendedora || '', exp];
+  if (fromPortal) fields.push('portal');
+  const payload = fields.join('|');
   const b64 = btoa(String.fromCharCode(...encoder.encode(payload)))
     .replace(/\+/g, '-').replace(/\//g, '_');
   return `${b64}.${await signature(b64, secret)}`;
@@ -53,9 +55,10 @@ export async function verifyToken(token, secret) {
     const [b64, mac, extra] = String(token || '').split('.');
     if (!b64 || !mac || extra || !same(mac, await signature(b64, secret))) return null;
     const bytes = Uint8Array.from(atob(b64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-    const [usuario, rol, vendedora, expiry, more] = new TextDecoder().decode(bytes).split('|');
-    if (!usuario || !rol || more || !Number.isFinite(Number(expiry)) || Number(expiry) < Date.now()) return null;
-    return {usuario, rol, vendedora};
+    const [usuario, rol, vendedora, expiry, source, ...extraFields] = new TextDecoder().decode(bytes).split('|');
+    if (!usuario || !rol || extraFields.length || (source !== undefined && source !== 'portal')
+        || !Number.isFinite(Number(expiry)) || Number(expiry) < Date.now()) return null;
+    return source === 'portal' ? {usuario, rol, vendedora, fromPortal: true} : {usuario, rol, vendedora};
   } catch { return null; }
 }
 
@@ -64,7 +67,7 @@ export async function currentUser(db, token, secret) {
   if (!claim) return null;
   const user = await db.prepare('SELECT * FROM users WHERE usuario = ? AND activo = 1').bind(claim.usuario).first();
   if (!user || user.rol !== claim.rol || user.vendedora !== claim.vendedora) return null;
-  return user;
+  return claim.fromPortal ? {...user, cambiar: 0} : user;
 }
 
 export async function login(db, input, secret) {
