@@ -67,22 +67,27 @@ export async function currentUser(db, token, secret) {
   if (!claim) return null;
   const user = await db.prepare('SELECT * FROM users WHERE usuario = ? AND activo = 1').bind(claim.usuario).first();
   if (!user || user.rol !== claim.rol || user.vendedora !== claim.vendedora) return null;
+  if (user.portal_only && !claim.fromPortal) return null;
   return claim.fromPortal ? {...user, cambiar: 0} : user;
+}
+
+export async function registerLogin(db, username) {
+  await db.prepare('UPDATE users SET ultimo_ingreso = ? WHERE usuario = ?').bind(argentinaDate(), username).run();
 }
 
 export async function login(db, input, secret) {
   const username = String(input.u || '').trim().toLowerCase();
   const user = await db.prepare('SELECT * FROM users WHERE usuario = ?').bind(username).first();
   const bad = {ok: false, error: 'Usuario o contraseña incorrectos.'};
-  if (!user || !user.activo) return bad;
+  if (!user || !user.activo || user.portal_only) return bad;
   if (!same(await legacyHash(String(input.p || ''), user.salt), user.hash)) return bad;
-  const last = argentinaDate();
-  await db.prepare('UPDATE users SET ultimo_ingreso = ? WHERE usuario = ?').bind(last, username).run();
+  await registerLogin(db, username);
   return {ok: true, token: await signToken(user, secret), nombre: user.nombre,
     usuario: user.usuario, rol: user.rol, vendedora: user.vendedora || '', cambiar: !!user.cambiar};
 }
 
 export async function password(db, user, input, secret) {
+  if (user.portal_only) return {ok: false, error: 'Administrá tu contraseña desde mica.'};
   const nueva = String(input.nueva || '');
   if (nueva.length < 8) return {ok: false, error: 'La contraseña nueva tiene que tener al menos 8 caracteres.'};
   if (nueva === GENERIC_PASSWORD) return {ok: false, error: 'Elegí una contraseña distinta de la inicial.'};
@@ -96,14 +101,16 @@ export async function password(db, user, input, secret) {
 }
 
 export async function users(db) {
-  const rows = (await db.prepare('SELECT usuario,nombre,rol,vendedora,cambiar,activo,ultimo_ingreso FROM users ORDER BY usuario').all()).results;
+  const rows = (await db.prepare('SELECT usuario,nombre,rol,vendedora,cambiar,activo,ultimo_ingreso,portal_only FROM users ORDER BY usuario').all()).results;
   return {ok: true, usuarios: rows.map(u => ({usuario: u.usuario, nombre: u.nombre, rol: u.rol,
-    vendedora: u.vendedora, debeCambiar: !!u.cambiar, activo: !!u.activo, ultimoIngreso: u.ultimo_ingreso}))};
+    vendedora: u.vendedora, debeCambiar: !!u.cambiar && !u.portal_only, portalOnly: !!u.portal_only,
+    activo: !!u.activo, ultimoIngreso: u.ultimo_ingreso}))};
 }
 
 export async function reset(db, username) {
-  const user = await db.prepare('SELECT usuario FROM users WHERE usuario = ?').bind(username).first();
+  const user = await db.prepare('SELECT usuario,portal_only FROM users WHERE usuario = ?').bind(username).first();
   if (!user) return {ok: false, error: 'Ese usuario no existe.'};
+  if (user.portal_only) return {ok: false, error: 'Restablecé la contraseña de esta persona desde mica.'};
   const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
   await db.prepare('UPDATE users SET salt = ?, hash = ?, cambiar = 1 WHERE usuario = ?')
     .bind(salt, await legacyHash(GENERIC_PASSWORD, salt), username).run();

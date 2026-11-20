@@ -135,6 +135,7 @@ code{background:var(--surface-1);border:1px solid var(--border);border-radius:4p
 .gcard .btn:hover{background:#182f59;color:#fff}
 .gerr{font-size:12.5px;color:var(--text-danger);background:var(--bg-danger);border-radius:var(--r-sm);padding:8px 11px;margin-bottom:14px;line-height:1.45}
 .gnote{font-size:11px;color:var(--text-muted);margin-top:18px;line-height:1.5;text-align:center}
+.gmica{display:block;text-align:center;color:var(--text-accent);font-size:13px;font-weight:600;margin:0 0 16px;text-underline-offset:3px}
 .gsel{display:flex;gap:8px;margin-bottom:18px}
 .gopt{flex:1;min-width:0;text-align:center;font-family:inherit;border:1px solid var(--border);background:var(--surface-2);border-radius:var(--r-sm);padding:13px 10px;cursor:pointer}
 .gopt b{display:block;font-size:14px;font-weight:600;color:var(--text-primary)}
@@ -392,6 +393,7 @@ function pintarSesion(){
   w.hidden=!USER;
   if(USER){
     document.getElementById('whoN').textContent=USER.nombre||USER.usuario;
+    document.getElementById('chgpwd').hidden=!!USER.portalOnly;
     document.getElementById('headerSubtitle').textContent=esDireccion()?'Dirección · gestión comercial':esYeniTiendanube()?'Tienda Nube · gestión comercial':'Ventas · gestión comercial';
   }
 }
@@ -414,7 +416,8 @@ function pedirLogin(msg){
   const $=gate(`<form class="gcard" id="gform" autocomplete="on">
      <span class="gbrand"><img src="${LOGO()}" alt="Zaphira Uniformes"></span>
      <h1>Dashboard Ventas</h1>
-     <div class="sub">Entrá con tu usuario.</div>
+     <div class="sub">Si tu acceso está habilitado en mica, entrá por el portal.</div>
+     <a class="gmica" href="https://zaphira.pages.dev/api/launch/sales">Entrar con mica</a>
      <div id="gerr">${msg?`<div class="gerr">${msg}</div>`:''}</div>
      <label for="gu">Usuario</label>
      <input class="ctl" id="gu" name="username" autocomplete="username" required>
@@ -1774,14 +1777,14 @@ function renderConfig(A){
       <td><b>${u.nombre}</b><div style="font-size:11px;color:var(--text-muted)">${u.usuario}${u.vendedora?' · '+u.vendedora:''}</div></td>
       <td>${u.rol==='direccion'?'Dirección':'Vendedora'}</td>
       <td>${u.ultimoIngreso||'<span style="color:var(--text-muted)">nunca entró</span>'}
-          ${u.debeCambiar?'<div style="font-size:11px;color:var(--text-warning,#8a6a1f)">tiene la clave inicial</div>':''}</td>
+          ${u.portalOnly?'<div style="font-size:11px;color:var(--text-muted)">Acceso por mica</div>':u.debeCambiar?'<div style="font-size:11px;color:var(--text-warning,#8a6a1f)">Clave local pendiente</div>':''}</td>
       <td style="white-space:nowrap">
         ${u.usuario===USER.usuario?'':`<button class="btn btn--quiet" data-acc="editar" data-u="${u.usuario}" type="button">Editar acceso</button>`}
-        <button class="btn btn--quiet" data-acc="reset" data-u="${u.usuario}" type="button">Resetear clave</button>
+        ${u.portalOnly?'':`<button class="btn btn--quiet" data-acc="reset" data-u="${u.usuario}" type="button">Resetear clave</button>`}
         <button class="btn btn--quiet" data-acc="${u.activo?'baja':'alta'}" data-u="${u.usuario}" type="button">${u.activo?'Desactivar':'Reactivar'}</button>
       </td></tr>`;
   const cardAcc=el(`<div class="card" style="margin-top:12px"><h3>Accesos</h3>
-    <div class="pmsg" style="margin-bottom:12px">Resetear una clave la vuelve a la inicial y obliga a cambiarla en el próximo ingreso. Desactivar no borra nada: la persona deja de entrar pero queda el registro.</div>
+    <div class="pmsg" style="margin-bottom:12px">Si la persona entra por mica, administrá su clave desde ese portal. Para las cuentas de ingreso directo, el restablecimiento se hace acá.</div>
     <div class="tblwrap"><table class="tbl"><thead><tr><th>Persona</th><th>Rol</th><th>Último ingreso</th><th></th></tr></thead>
       <tbody>${CFG.usuarios.filter(u=>u.activo).map(filaU).join('')}
       ${CFG.usuarios.some(u=>!u.activo)?`<tr><td colspan="4" style="padding-top:14px;color:var(--text-muted);font-size:12px">Desactivados</td></tr>`+CFG.usuarios.filter(u=>!u.activo).map(filaU).join(''):''}</tbody></table></div>

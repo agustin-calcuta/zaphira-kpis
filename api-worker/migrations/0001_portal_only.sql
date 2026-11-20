@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN portal_only INTEGER NOT NULL DEFAULT 0 CHECK (portal_only IN (0, 1));

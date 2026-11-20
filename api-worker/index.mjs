@@ -1,4 +1,4 @@
-import {login, currentUser, password, users, reset, addUser, setActive, updateUserScope, signToken} from './auth.mjs';
+import {login, currentUser, password, users, reset, addUser, setActive, updateUserScope, signToken, registerLogin} from './auth.mjs';
 import {redeemPortalTicket} from './portal-sso.mjs';
 import {readDataset, dataResponse, objectives, saveObjectives, trimToSeller, canViewTiendaNube} from './data.mjs';
 import {tiendanubeResponse} from './tiendanube.mjs';
@@ -68,6 +68,7 @@ export default {
       const user = await env.DB.prepare('SELECT * FROM users WHERE usuario=? AND activo=1').bind(username).first();
       if (!user) return new Response('El usuario no tiene acceso a Ventas.', {status:403, headers:{'Cache-Control':'no-store'}});
       const token = await signToken(user, env.TOKEN_SECRET, true);
+      await registerLogin(env.DB, username);
       const manage = user.rol === 'direccion' && params.get('manage') === '1';
       return new Response(null, {status:303, headers:{
         Location:'https://zaphiraventas.pages.dev/' + (manage ? '#accesos' : ''),
@@ -104,7 +105,7 @@ export default {
       if (!user) return Response.json({ok: false}, {status: 401, headers: {'Cache-Control': 'private, no-store'}});
       return Response.json({ok: true, session: {
         token, usuario: user.usuario, nombre: user.nombre, rol: user.rol,
-        ven: user.vendedora || '', cambiar: !!user.cambiar
+        ven: user.vendedora || '', cambiar: !!user.cambiar, portalOnly: !!user.portal_only
       }}, {headers: {'Cache-Control': 'private, no-store'}});
     }
     if (path === '/api/portal-logout' && request.method === 'POST') {

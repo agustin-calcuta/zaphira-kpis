@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {unzipSync} from '../api-worker/node_modules/fflate/esm/browser.js';
 import worker from '../api-worker/index.mjs';
-import {currentUser, legacyHash, signToken, updateUserScope, verifyToken} from '../api-worker/auth.mjs';
+import {currentUser, legacyHash, login, password, reset, signToken, updateUserScope, users, verifyToken} from '../api-worker/auth.mjs';
 import {trimToSeller, readObjectives, objectives, dataResponse, canViewTiendaNube} from '../api-worker/data.mjs';
 import {xlsxResponse} from '../api-worker/xlsx.mjs';
 import {buildData_} from '../api-worker/odoo-build.mjs';
@@ -89,6 +89,21 @@ test('portal session preserves the seller scope and leaves the local password fl
   assert.equal((await currentUser(db, direct, secret)).cambiar, 1);
   assert.deepEqual(await currentUser(db, fromPortal, secret), {...user, cambiar: 0});
   assert.equal(user.cambiar, 1);
+});
+
+test('mica-only accounts accept the portal session and manage their password only in mica', async () => {
+  const user = {usuario:'caro', nombre:'Carolina', rol:'direccion', vendedora:'', activo:1, cambiar:1, portal_only:1};
+  const db = {prepare: () => ({bind: () => ({first:async () => user}),all:async () => ({results:[user]})})};
+  assert.equal(await currentUser(db,await signToken(user,secret),secret),null);
+  const session = await currentUser(db,await signToken(user,secret,true),secret);
+  assert.equal(session.cambiar,0);
+  assert.equal(session.portal_only,1);
+  assert.equal((await login(db,{u:'caro',p:'example'},secret)).ok,false);
+  assert.equal((await password(db,session,{},secret)).ok,false);
+  assert.equal((await reset(db,'caro')).ok,false);
+  const account = (await users(db)).usuarios[0];
+  assert.equal(account.portalOnly,true);
+  assert.equal(account.debeCambiar,false);
 });
 
 test('changing a sales scope updates only the role and seller identity', async () => {

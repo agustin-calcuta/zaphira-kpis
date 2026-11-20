@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
   salt TEXT NOT NULL,
   cambiar INTEGER NOT NULL DEFAULT 0,
   activo INTEGER NOT NULL DEFAULT 1,
-  ultimo_ingreso TEXT NOT NULL DEFAULT ''
+  ultimo_ingreso TEXT NOT NULL DEFAULT '',
+  portal_only INTEGER NOT NULL DEFAULT 0 CHECK (portal_only IN (0, 1))
 );
 
 CREATE TABLE IF NOT EXISTS portal_sso_redeemed (
