@@ -1,4 +1,4 @@
-import {login, currentUser, password, users, reset, addUser, setActive, signToken} from './auth.mjs';
+import {login, currentUser, password, users, reset, addUser, setActive, updateUserScope, signToken} from './auth.mjs';
 import {redeemPortalTicket} from './portal-sso.mjs';
 import {readDataset, dataResponse, objectives, saveObjectives, trimToSeller, canViewTiendaNube} from './data.mjs';
 import {tiendanubeResponse} from './tiendanube.mjs';
@@ -52,6 +52,7 @@ async function dispatch(input, env) {
     case 'reset': return user.rol === 'direccion' ? reset(env.DB, input.usuario) : PERMISSION_ERROR;
     case 'alta': return user.rol === 'direccion' ? addUser(env.DB, input) : PERMISSION_ERROR;
     case 'baja': return user.rol === 'direccion' ? setActive(env.DB, user, input) : PERMISSION_ERROR;
+    case 'editarAcceso': return user.rol === 'direccion' ? updateUserScope(env.DB, user, input) : PERMISSION_ERROR;
     case 'guardarObjetivos': return user.rol === 'direccion' ? saveObjectives(env.DB, input) : PERMISSION_ERROR;
     default: return {ok: false, error: 'Operación desconocida.'};
   }

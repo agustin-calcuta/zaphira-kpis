@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {unzipSync} from '../api-worker/node_modules/fflate/esm/browser.js';
 import worker from '../api-worker/index.mjs';
-import {currentUser, legacyHash, signToken, verifyToken} from '../api-worker/auth.mjs';
+import {currentUser, legacyHash, signToken, updateUserScope, verifyToken} from '../api-worker/auth.mjs';
 import {trimToSeller, readObjectives, objectives, dataResponse, canViewTiendaNube} from '../api-worker/data.mjs';
 import {xlsxResponse} from '../api-worker/xlsx.mjs';
 import {buildData_} from '../api-worker/odoo-build.mjs';
@@ -89,6 +89,20 @@ test('portal session preserves the seller scope and leaves the local password fl
   assert.equal((await currentUser(db, direct, secret)).cambiar, 1);
   assert.deepEqual(await currentUser(db, fromPortal, secret), {...user, cambiar: 0});
   assert.equal(user.cambiar, 1);
+});
+
+test('changing a sales scope updates only the role and seller identity', async () => {
+  const calls = [];
+  const db = {prepare: sql => ({bind: (...parameters) => ({run: async () => {
+    calls.push([sql,parameters]);
+    return {meta:{changes:1}};
+  }})})};
+  const actor = {usuario:'calcuta'};
+  assert.equal((await updateUserScope(db,actor,{usuario:'calcuta',rol:'vendedora',vendedora:'Ana'})).ok,false);
+  assert.equal((await updateUserScope(db,actor,{usuario:'ana',rol:'vendedora'})).ok,false);
+  assert.equal((await updateUserScope(db,actor,{usuario:'ana',rol:'admin'})).ok,false);
+  assert.deepEqual(await updateUserScope(db,actor,{usuario:'ana',rol:'vendedora',vendedora:' Ana '}),{ok:true});
+  assert.deepEqual(calls,[['UPDATE users SET rol = ?, vendedora = ? WHERE usuario = ?',['vendedora','Ana','ana']]]);
 });
 
 test('seller data never contains another seller or her name in the dictionary', () => {

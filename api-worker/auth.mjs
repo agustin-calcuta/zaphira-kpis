@@ -135,3 +135,17 @@ export async function setActive(db, actor, input) {
   await db.prepare('UPDATE users SET activo = ? WHERE usuario = ?').bind(input.activo === true ? 1 : 0, input.usuario).run();
   return {ok: true};
 }
+
+export async function updateUserScope(db, actor, input) {
+  const usuario = String(input.usuario || '').trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,24}$/.test(usuario)) return {ok: false, error: 'Usuario inválido.'};
+  if (usuario === actor.usuario) return {ok: false, error: 'No podés cambiar tu propio acceso.'};
+  const rol = input.rol;
+  if (rol !== 'direccion' && rol !== 'vendedora') return {ok: false, error: 'Elegí un rol válido.'};
+  const vendedora = rol === 'vendedora' ? String(input.vendedora || '').trim() : '';
+  if (rol === 'vendedora' && !vendedora) return {ok: false, error: 'Indicá con qué nombre figura en Odoo.'};
+  if (vendedora.includes('|') || vendedora.length > 100) return {ok: false, error: 'Revisá el nombre en Odoo.'};
+  const updated = await db.prepare('UPDATE users SET rol = ?, vendedora = ? WHERE usuario = ?')
+    .bind(rol, vendedora, usuario).run();
+  return updated.meta.changes ? {ok: true} : {ok: false, error: 'Ese usuario no existe.'};
+}

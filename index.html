@@ -1776,6 +1776,7 @@ function renderConfig(A){
       <td>${u.ultimoIngreso||'<span style="color:var(--text-muted)">nunca entró</span>'}
           ${u.debeCambiar?'<div style="font-size:11px;color:var(--text-warning,#8a6a1f)">tiene la clave inicial</div>':''}</td>
       <td style="white-space:nowrap">
+        ${u.usuario===USER.usuario?'':`<button class="btn btn--quiet" data-acc="editar" data-u="${u.usuario}" type="button">Editar acceso</button>`}
         <button class="btn btn--quiet" data-acc="reset" data-u="${u.usuario}" type="button">Resetear clave</button>
         <button class="btn btn--quiet" data-acc="${u.activo?'baja':'alta'}" data-u="${u.usuario}" type="button">${u.activo?'Desactivar':'Reactivar'}</button>
       </td></tr>`;
@@ -1786,9 +1787,26 @@ function renderConfig(A){
       ${CFG.usuarios.some(u=>!u.activo)?`<tr><td colspan="4" style="padding-top:14px;color:var(--text-muted);font-size:12px">Desactivados</td></tr>`+CFG.usuarios.filter(u=>!u.activo).map(filaU).join(''):''}</tbody></table></div>
     <div id="accMsg" style="font-size:12px;color:var(--text-muted);margin-top:10px"></div></div>`);
   A.appendChild(cardAcc);
+  let editing = null;
   cardAcc.addEventListener('click',async e=>{
     const b=e.target.closest('button[data-acc]'); if(!b) return;
     const msg=document.getElementById('accMsg'), acc=b.dataset.acc, u=b.dataset.u;
+    if(acc==='editar'){
+      const user=CFG.usuarios.find(item=>item.usuario===u);
+      if(!user)return;
+      editing=user;
+      for(const [id,value] of [['nu',u],['nn',user.nombre],['nr',user.rol],['nv',user.vendedora]]){
+        document.getElementById(id).value=value;
+      }
+      document.getElementById('nu').readOnly=true;
+      document.getElementById('nn').readOnly=true;
+      document.getElementById('altaTitulo').textContent='Editar acceso de '+user.nombre;
+      document.getElementById('altaBtn').textContent='Guardar acceso';
+      document.getElementById('cancelarAcceso').hidden=false;
+      document.getElementById('altaMsg').textContent='';
+      document.getElementById('nr').focus();
+      return;
+    }
     if(acc==='reset'&&!confirm('¿Resetear la clave de '+u+' a la inicial?')) return;
     b.disabled=true; msg.textContent='…';
     const r=acc==='reset' ? await api('reset',{token:USER.token,usuario:u})
@@ -1800,7 +1818,7 @@ function renderConfig(A){
   });
 
   /* --- alta --- */
-  A.appendChild(el(`<div class="card" style="margin-top:12px"><h3>Sumar una persona</h3>
+  A.appendChild(el(`<div class="card" style="margin-top:12px"><h3 id="altaTitulo">Sumar una persona</h3>
     <div class="altaform">
       <div class="ofila"><label for="nu">Usuario</label><input class="ctl" id="nu" placeholder="inicial + apellido"></div>
       <div class="ofila"><label for="nn">Nombre</label><input class="ctl" id="nn" placeholder="Nombre y apellido"></div>
@@ -1809,18 +1827,28 @@ function renderConfig(A){
     </div>
     <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
       <button class="btn" id="altaBtn" type="button">Dar de alta</button>
+      <button class="btn btn--quiet" id="cancelarAcceso" type="button" hidden>Cancelar edición</button>
       <span id="altaMsg" style="font-size:12px;color:var(--text-muted)"></span></div></div>`));
 
+  document.getElementById('cancelarAcceso').addEventListener('click',()=>go());
   document.getElementById('altaBtn').addEventListener('click',async()=>{
     const g=id=>document.getElementById(id).value.trim();
     const msg=document.getElementById('altaMsg');
     msg.textContent='…';
-    const r=await api('alta',{token:USER.token,usuario:g('nu').toLowerCase(),nombre:g('nn'),
-                              rol:g('nr'),vendedora:g('nv')});
-    if(r&&r.ok){ msg.textContent='Listo. Entra con la clave '+r.clave+' y la tiene que cambiar.';
-                 ['nu','nn','nv'].forEach(i=>document.getElementById(i).value='');
-                 cargarConfig(CFG.mes); }
-    else msg.textContent=(r&&r.error)||'No se pudo dar de alta.';
+    const submit=document.getElementById('altaBtn');
+    submit.disabled=true;
+    try{
+      const r=await api(editing?'editarAcceso':'alta',{token:USER.token,
+        usuario:editing?.usuario||g('nu').toLowerCase(),nombre:g('nn'),rol:g('nr'),vendedora:g('nv')});
+      if(r&&r.ok){
+        msg.textContent=editing?'Acceso actualizado.':'Listo. Entra con la clave '+r.clave+' y la tiene que cambiar.';
+        cargarConfig(CFG.mes);
+      } else msg.textContent=(r&&r.error)||'No se pudo guardar.';
+    }catch(error){
+      msg.textContent=error.message||'No se pudo guardar.';
+    }finally{
+      submit.disabled=false;
+    }
   });
 }
 
