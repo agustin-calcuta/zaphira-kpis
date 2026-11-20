@@ -55,7 +55,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual([], self.errors)
 
     def load(self, raw=None, seller=False, objective=None, goals_by_month=None, users=None,
-             seller_name='Ana', origin='http://dashboard.test'):
+             seller_name='Ana', origin='http://dashboard.test', portal_manage=False):
         raw = copy.deepcopy(raw if raw is not None else RAW)
         if seller:
             for key in ('O', 'L', 'P', 'C'):
@@ -64,8 +64,11 @@ class DashboardTests(unittest.TestCase):
         session = {'token': 'synthetic-test-token', 'usuario': 'yeni' if seller_name == 'Yeni' else 'test',
                    'nombre': seller_name if seller_name == 'Yeni' else 'Test',
                    'rol': 'vendedora' if seller else 'direccion', 'ven': seller_name, 'cambiar': False}
-        self.context.add_init_script('localStorage.setItem("zaphira_sesion_v2", '
-                                     + json.dumps(json.dumps(session)) + ');')
+        if portal_manage:
+            session['portalOnly'] = True
+        else:
+            self.context.add_init_script('localStorage.setItem("zaphira_sesion_v2", '
+                                         + json.dumps(json.dumps(session)) + ');')
         self.saved_goals = None
         self.export_request = None
         api_url = ('https://zaphira-ventas-calcuta.agustin-5e6.workers.dev/api'
@@ -101,13 +104,23 @@ class DashboardTests(unittest.TestCase):
                 request.fulfill(status=200, content_type='application/json',
                                 headers={'Access-Control-Allow-Origin': '*'},
                                 body=json.dumps(result))
+            elif portal_manage and request.request.url == origin + '/api/portal-session':
+                request.fulfill(json={'ok': True, 'session': session})
             elif request.request.url.startswith(origin):
                 request.fulfill(status=200, content_type='text/html', body=HTML)
             else:
                 request.abort()
         self.context.route('**/*', route)
-        self.page.goto(origin)
+        self.page.goto(origin + ('/#accesos' if portal_manage else ''))
         self.page.locator('#fVen').wait_for()
+
+    def test_mica_session_opens_access_management_without_local_password(self):
+        self.load(portal_manage=True, users=[{'rol': 'direccion', 'activo': True,
+                  'nombre': 'Test', 'usuario': 'test', 'portalOnly': True}])
+        row = self.page.get_by_role('row').filter(has_text='Acceso por mica')
+        row.wait_for(timeout=5000)
+        self.assertEqual(0, row.get_by_role('button', name='Resetear clave').count())
+        self.assertFalse(self.page.locator('#chgpwd').is_visible())
 
     def text(self):
         return self.page.locator('#app').inner_text()

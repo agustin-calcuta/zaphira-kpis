@@ -2225,7 +2225,7 @@ function arrancar(){
     setPeriod('mtd');
   }
   buildToolbar();
-  if(esDireccion()&&location.hash==='#accesos') $('btnCfg').click(); else go();
+  if(esDireccion()&&location.hash==='#accesos') document.getElementById('btnCfg').click(); else go();
 }
 arrancar();
 if(BACKGROUND_REFRESH){
