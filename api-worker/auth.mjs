@@ -144,7 +144,7 @@ export async function updateUserScope(db, actor, input) {
   if (rol !== 'direccion' && rol !== 'vendedora') return {ok: false, error: 'Elegí un rol válido.'};
   const vendedora = rol === 'vendedora' ? String(input.vendedora || '').trim() : '';
   if (rol === 'vendedora' && !vendedora) return {ok: false, error: 'Indicá con qué nombre figura en Odoo.'};
-  if (vendedora.includes('|') || vendedora.length > 100) return {ok: false, error: 'Revisá el nombre en Odoo.'};
+  if (/[|<>]/.test(vendedora) || vendedora.length > 100) return {ok: false, error: 'Revisá el nombre en Odoo.'};
   const updated = await db.prepare('UPDATE users SET rol = ?, vendedora = ? WHERE usuario = ?')
     .bind(rol, vendedora, usuario).run();
   return updated.meta.changes ? {ok: true} : {ok: false, error: 'Ese usuario no existe.'};

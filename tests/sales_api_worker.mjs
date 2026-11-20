@@ -101,6 +101,7 @@ test('changing a sales scope updates only the role and seller identity', async (
   assert.equal((await updateUserScope(db,actor,{usuario:'calcuta',rol:'vendedora',vendedora:'Ana'})).ok,false);
   assert.equal((await updateUserScope(db,actor,{usuario:'ana',rol:'vendedora'})).ok,false);
   assert.equal((await updateUserScope(db,actor,{usuario:'ana',rol:'admin'})).ok,false);
+  assert.equal((await updateUserScope(db,actor,{usuario:'ana',rol:'vendedora',vendedora:'<Ana>'})).ok,false);
   assert.deepEqual(await updateUserScope(db,actor,{usuario:'ana',rol:'vendedora',vendedora:' Ana '}),{ok:true});
   assert.deepEqual(calls,[['UPDATE users SET rol = ?, vendedora = ? WHERE usuario = ?',['vendedora','Ana','ana']]]);
 });
