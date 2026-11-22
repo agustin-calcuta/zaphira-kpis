@@ -133,6 +133,19 @@ test('seller data never contains another seller or her name in the dictionary', 
   assert.deepEqual(raw.dict.VEN, ['Ana', 'Berta']);
 });
 
+test('a new seller can open an empty dashboard before any sales are synced for them', async () => {
+  const raw = {dict:{VEN:['Ana'],MON:['2026-11']},O:[[0,0]],L:[[0,0]],P:[[0,0]],C:[[0,0]]};
+  const db = {prepare: sql => ({
+    all:async () => ({results:sql.includes('dataset') ? [{payload:JSON.stringify(raw)}] : []}),
+    bind:() => ({all:async () => ({results:[]})})
+  })};
+  const user = {usuario:'nueva',rol:'vendedora',vendedora:'Nueva vendedora'};
+  const result = await dataResponse(db,user);
+  assert.equal(result.ok,true);
+  assert.equal(result.perfilTiendanube,false);
+  assert.deepEqual(result.raw,{O:[],L:[],P:[],C:[],dict:{VEN:['Nueva vendedora']}});
+});
+
 test('Tienda Nube and Yeni have independent goals and seller responses stay private', async () => {
   const rows = [
     {alcance: 'empresa', objetivo: 100000},

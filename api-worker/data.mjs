@@ -77,8 +77,8 @@ export async function dataResponse(db, user) {
   if (user.rol === 'direccion') return {ok: true, objetivo: {mes, empresa: obj.empresa, tiendanube: obj.tiendanube, vendedoras: obj.vendedoras}, raw};
   if (!raw.dict && !canViewTiendaNube(user)) return {ok: true, objetivo: {mes, mio: 0}, raw: {}};
   const recortado = trimToSeller(raw, user.vendedora) || (canViewTiendaNube(user)
-    ? {...raw, O: [], L: [], P: [], C: [], dict: {CAN: [], TIPO: [], PROV: [], IND: [], CAT: [], MON: [], STAGE: [], ...raw.dict, VEN: [user.vendedora]}} : null);
-  if (!recortado) return {ok: false, code: 'sin_vendedora', error: 'No encontramos tus ventas.', vendedora: user.vendedora};
+    ? {...raw, O: [], L: [], P: [], C: [], dict: {CAN: [], TIPO: [], PROV: [], IND: [], CAT: [], MON: [], STAGE: [], ...raw.dict, VEN: [user.vendedora]}}
+    : {O: [], L: [], P: [], C: [], dict: {VEN: [user.vendedora]}});
   return {ok: true, perfilTiendanube: canViewTiendaNube(user),
     objetivo: {mes, mio: obj.vendedoras[user.vendedora] || 0,
       tiendanube: canViewTiendaNube(user) ? obj.tiendanube : 0}, raw: recortado};
